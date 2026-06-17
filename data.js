@@ -178,3 +178,27 @@ const HISTORY_FALLBACK = [
   { year: 1991, text: "The Soviet Union was officially dissolved." },
   { year: 1804, text: "The Lewis and Clark Expedition set out to explore the American West." }
 ];
+
+// The trivia questions asked most often in pub quizzes and game shows.
+const POPULAR_TRIVIA = [
+  { q: "What is the most common surname in the world?", a: "Wang (王) — shared by an estimated 100+ million people." },
+  { q: "What is the only food that never spoils?", a: "Honey." },
+  { q: "How many hearts does an octopus have?", a: "Three." },
+  { q: "What is the smallest country in the world?", a: "Vatican City." },
+  { q: "Which planet is the hottest in our solar system?", a: "Venus — due to its thick, heat-trapping atmosphere." },
+  { q: "What is the most spoken language in the world by native speakers?", a: "Mandarin Chinese." },
+  { q: "How many bones are in the adult human body?", a: "206." },
+  { q: "What is the largest ocean on Earth?", a: "The Pacific Ocean." },
+  { q: "Who painted the ceiling of the Sistine Chapel?", a: "Michelangelo." },
+  { q: "What is the chemical symbol for gold?", a: "Au." },
+  { q: "What is the tallest animal in the world?", a: "The giraffe." },
+  { q: "Which country has won the most FIFA World Cups?", a: "Brazil (5 titles)." },
+  { q: "What is the hardest natural substance on Earth?", a: "Diamond." },
+  { q: "How many colors are in a rainbow?", a: "Seven." },
+  { q: "What is the longest river in the world?", a: "The Nile (by most measures)." },
+  { q: "Who wrote the play 'Romeo and Juliet'?", a: "William Shakespeare." },
+  { q: "What gas do humans need to breathe to survive?", a: "Oxygen." },
+  { q: "What is the fastest land animal?", a: "The cheetah." },
+  { q: "How many continents are there?", a: "Seven." },
+  { q: "What is the currency of Japan?", a: "The yen." }
+];

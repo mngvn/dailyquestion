@@ -228,6 +228,23 @@
     }
   }
 
+  // ----- Popular trivia vault -----
+  const vaultList = document.getElementById("vaultList");
+  if (vaultList && typeof POPULAR_TRIVIA !== "undefined") {
+    POPULAR_TRIVIA.forEach((item, idx) => {
+      const row = document.createElement("button");
+      row.className = "vault-item";
+      row.style.setProperty("--vi", idx);
+      row.innerHTML =
+        `<span class="vault-num">${String(idx + 1).padStart(2, "0")}</span>` +
+        `<span class="vault-q">${item.q}</span>` +
+        `<span class="vault-chev">▾</span>` +
+        `<div class="vault-a-wrap"><span class="vault-a">${item.a}</span></div>`;
+      row.addEventListener("click", () => row.classList.toggle("open"));
+      vaultList.appendChild(row);
+    });
+  }
+
   // ----- Init -----
   renderStreak(false);
   renderFooter();
