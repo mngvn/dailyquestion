@@ -310,6 +310,88 @@ body {
 .trivia-result.good { color: var(--good); }
 .trivia-result.bad { color: var(--bad); }
 
+/* ---------- Popular trivia vault ---------- */
+.vault {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: clamp(20px, 2.4vw, 30px);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow);
+}
+.vault-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.vault-head h2 {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.2rem; font-weight: 600;
+}
+.vault-tag {
+  margin-left: auto;
+  font-size: 0.7rem; color: var(--muted);
+  background: rgba(255,255,255,0.05);
+  padding: 4px 12px; border-radius: 999px;
+  border: 1px solid var(--card-border);
+}
+.vault-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.vault-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  font-family: "Inter", sans-serif;
+  color: var(--text);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+}
+.vault-item:hover {
+  background: rgba(255,92,156,0.10);
+  border-color: rgba(255,92,156,0.4);
+  transform: translateY(-2px);
+}
+.vault-num {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700; font-size: 0.85rem;
+  color: var(--bad);
+  opacity: 0.8;
+}
+.vault-q { font-size: 0.96rem; line-height: 1.4; }
+.vault-chev {
+  color: var(--muted);
+  transition: transform 0.3s ease;
+}
+.vault-item.open .vault-chev { transform: rotate(180deg); }
+.vault-a-wrap {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.4s cubic-bezier(0.16,1,0.3,1);
+}
+.vault-item.open .vault-a-wrap { grid-template-rows: 1fr; }
+.vault-a {
+  overflow: hidden;
+  color: var(--accent-2);
+  font-weight: 600;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+.vault-item.open .vault-a {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--card-border);
+}
+
+@media (max-width: 640px) {
+  .vault-list { grid-template-columns: 1fr; }
+}
+
 /* ---------- Footer stats ---------- */
 .footer {
   display: grid;
