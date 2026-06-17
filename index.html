@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daily — Your daily fact, puzzle, history & trivia</title>
+  <meta name="description" content="A daily fun fact, puzzle, on-this-day in history, and trivia question. Build your streak!" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- animated background -->
+  <div class="bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+    <div class="grain"></div>
+  </div>
+
+  <div id="confetti" class="confetti-layer" aria-hidden="true"></div>
+
+  <header class="topbar reveal">
+    <div class="brand">
+      <span class="logo-dot"></span>
+      <span class="brand-name">Daily</span>
+    </div>
+
+    <div class="date-block">
+      <div class="weekday" id="weekday">—</div>
+      <h1 class="date-main" id="dateMain">Loading…</h1>
+      <div class="day-counter" id="dayCounter"></div>
+    </div>
+
+    <div class="streak-pill" id="streakPill" title="Your current streak">
+      <span class="flame" id="flame">🔥</span>
+      <div class="streak-meta">
+        <span class="streak-num" id="streakNum">0</span>
+        <span class="streak-label">day streak</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="grid">
+    <!-- Fun Fact -->
+    <section class="card card-fact reveal" style="--i:1">
+      <div class="card-head">
+        <span class="card-icon">💡</span>
+        <h2>Fun Fact</h2>
+      </div>
+      <p class="card-body" id="factText">…</p>
+      <div class="card-foot">
+        <button class="ghost-btn" id="copyFact">Copy</button>
+      </div>
+    </section>
+
+    <!-- Puzzle -->
+    <section class="card card-puzzle reveal" style="--i:2">
+      <div class="card-head">
+        <span class="card-icon">🧩</span>
+        <h2>Daily Puzzle</h2>
+      </div>
+      <p class="card-body" id="puzzleText">…</p>
+      <div class="answer-wrap" id="puzzleAnswerWrap">
+        <div class="answer-reveal" id="puzzleAnswer"></div>
+      </div>
+      <div class="card-foot">
+        <button class="ghost-btn" id="revealBtn">Reveal answer</button>
+      </div>
+    </section>
+
+    <!-- On This Day -->
+    <section class="card card-history reveal" style="--i:3">
+      <div class="card-head">
+        <span class="card-icon">📜</span>
+        <h2>On This Day</h2>
+      </div>
+      <div class="history-year" id="historyYear">—</div>
+      <p class="card-body" id="historyText">…</p>
+    </section>
+
+    <!-- Trivia -->
+    <section class="card card-trivia reveal" style="--i:4">
+      <div class="card-head">
+        <span class="card-icon">🎯</span>
+        <h2>Trivia</h2>
+        <span class="accuracy-tag" id="accuracyTag" title="Your all-time accuracy"></span>
+      </div>
+      <p class="card-body trivia-q" id="triviaQuestion">…</p>
+      <div class="choices" id="choices"></div>
+      <div class="trivia-result" id="triviaResult"></div>
+    </section>
+  </main>
+
+  <footer class="footer reveal">
+    <div class="stat">
+      <span class="stat-num" id="statPlayed">0</span>
+      <span class="stat-label">days played</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num" id="statBest">0</span>
+      <span class="stat-label">best streak</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num" id="statCorrect">0</span>
+      <span class="stat-label">trivia correct</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num" id="statAccuracy">—</span>
+      <span class="stat-label">accuracy</span>
+    </div>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
