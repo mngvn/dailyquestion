@@ -377,10 +377,15 @@ body {
 .vault-item.open .vault-a-wrap { grid-template-rows: 1fr; }
 .vault-a {
   overflow: hidden;
+  min-height: 0;
   color: var(--accent-2);
   font-weight: 600;
   font-size: 0.92rem;
   line-height: 1.45;
+}
+.vault-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .vault-item.open .vault-a {
   margin-top: 4px;

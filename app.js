@@ -232,15 +232,28 @@
   const vaultList = document.getElementById("vaultList");
   if (vaultList && typeof POPULAR_TRIVIA !== "undefined") {
     POPULAR_TRIVIA.forEach((item, idx) => {
-      const row = document.createElement("button");
+      const row = document.createElement("div");
       row.className = "vault-item";
+      row.setAttribute("role", "button");
+      row.setAttribute("tabindex", "0");
+      row.setAttribute("aria-expanded", "false");
       row.style.setProperty("--vi", idx);
       row.innerHTML =
         `<span class="vault-num">${String(idx + 1).padStart(2, "0")}</span>` +
         `<span class="vault-q">${item.q}</span>` +
         `<span class="vault-chev">▾</span>` +
         `<div class="vault-a-wrap"><span class="vault-a">${item.a}</span></div>`;
-      row.addEventListener("click", () => row.classList.toggle("open"));
+      const toggle = () => {
+        const open = row.classList.toggle("open");
+        row.setAttribute("aria-expanded", open ? "true" : "false");
+      };
+      row.addEventListener("click", toggle);
+      row.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          toggle();
+        }
+      });
       vaultList.appendChild(row);
     });
   }
