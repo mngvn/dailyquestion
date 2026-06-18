@@ -43,54 +43,43 @@
   </header>
 
   <main class="grid">
-    <!-- Fun Fact -->
-    <section class="card card-fact reveal" style="--i:1">
+    <!-- Each card is a trigger that opens its section in a modal -->
+    <div class="card card-fact reveal" style="--i:1" data-section="fact" role="button" tabindex="0" aria-haspopup="dialog">
       <div class="card-head">
         <span class="card-icon">💡</span>
         <h2>Fun Fact</h2>
       </div>
-      <p class="card-body" id="factText">…</p>
-      <div class="card-foot">
-        <button class="ghost-btn" id="copyFact">Copy</button>
-      </div>
-    </section>
+      <p class="card-preview" id="factPreview">…</p>
+      <span class="card-cta">Tap to open <span class="cta-arrow">↗</span></span>
+    </div>
 
-    <!-- Puzzle -->
-    <section class="card card-puzzle reveal" style="--i:2">
+    <div class="card card-puzzle reveal" style="--i:2" data-section="puzzle" role="button" tabindex="0" aria-haspopup="dialog">
       <div class="card-head">
         <span class="card-icon">🧩</span>
         <h2>Daily Puzzle</h2>
       </div>
-      <p class="card-body" id="puzzleText">…</p>
-      <div class="answer-wrap" id="puzzleAnswerWrap">
-        <div class="answer-reveal" id="puzzleAnswer"></div>
-      </div>
-      <div class="card-foot">
-        <button class="ghost-btn" id="revealBtn">Reveal answer</button>
-      </div>
-    </section>
+      <p class="card-preview" id="puzzlePreview">…</p>
+      <span class="card-cta">Tap to solve <span class="cta-arrow">↗</span></span>
+    </div>
 
-    <!-- On This Day -->
-    <section class="card card-history reveal" style="--i:3">
+    <div class="card card-history reveal" style="--i:3" data-section="history" role="button" tabindex="0" aria-haspopup="dialog">
       <div class="card-head">
         <span class="card-icon">📜</span>
         <h2>On This Day</h2>
       </div>
-      <div class="history-year" id="historyYear">—</div>
-      <p class="card-body" id="historyText">…</p>
-    </section>
+      <p class="card-preview" id="historyPreview">…</p>
+      <span class="card-cta">Tap to open <span class="cta-arrow">↗</span></span>
+    </div>
 
-    <!-- Trivia -->
-    <section class="card card-trivia reveal" style="--i:4">
+    <div class="card card-trivia reveal" style="--i:4" data-section="trivia" role="button" tabindex="0" aria-haspopup="dialog">
       <div class="card-head">
         <span class="card-icon">🎯</span>
         <h2>Trivia</h2>
-        <span class="accuracy-tag" id="accuracyTag" title="Your all-time accuracy"></span>
+        <span class="card-badge" id="triviaBadge"></span>
       </div>
-      <p class="card-body trivia-q" id="triviaQuestion">…</p>
-      <div class="choices" id="choices"></div>
-      <div class="trivia-result" id="triviaResult"></div>
-    </section>
+      <p class="card-preview" id="triviaPreview">…</p>
+      <span class="card-cta" id="triviaCta">Tap to play <span class="cta-arrow">↗</span></span>
+    </div>
   </main>
 
   <section class="vault reveal" style="--i:5">
@@ -120,6 +109,18 @@
       <span class="stat-label">accuracy</span>
     </div>
   </footer>
+
+  <!-- Section modal: stays layered over the page so it feels like the same screen -->
+  <div class="modal-overlay" id="modalOverlay" aria-hidden="true">
+    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <button class="modal-close" id="modalClose" type="button" aria-label="Close">&times;</button>
+      <div class="modal-head">
+        <span class="modal-icon" id="modalIcon"></span>
+        <h2 class="modal-title" id="modalTitle"></h2>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
 
   <script src="data.js"></script>
   <script src="app.js"></script>
