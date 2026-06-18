@@ -127,13 +127,11 @@
     document.getElementById("statAccuracy").textContent = a === null ? "—" : a + "%";
   }
 
-  // ----- Card previews -----
+  // ----- Card state -----
+  // Card previews are static teasers (set in HTML) describing each section;
+  // the actual content only appears inside the modal. Only the trivia card
+  // reflects per-day state (played vs. new).
   function refreshCards() {
-    document.getElementById("factPreview").textContent = fact;
-    document.getElementById("puzzlePreview").textContent = riddle.q;
-    document.getElementById("historyPreview").textContent = `${hist.year} — ${hist.text}`;
-    document.getElementById("triviaPreview").textContent = trivia.q;
-
     const badge = document.getElementById("triviaBadge");
     const cta = document.getElementById("triviaCta");
     if (stats.answeredToday) {
