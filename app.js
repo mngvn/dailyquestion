@@ -37,11 +37,9 @@
 
   // ----- Today's content (computed once) -----
   const fact = pick(FUN_FACTS, 11);
-  const riddle = pick(RIDDLES, 23);
   const hist = HISTORY_BY_DATE[mmdd] || pick(HISTORY_FALLBACK, 41);
   const trivia = pick(TRIVIA, 67);
   const keys = ["A", "B", "C", "D"];
-  let puzzleRevealed = false; // session-only UI state
 
   // Deterministically shuffle trivia choices for the day, tracking the answer.
   const order = trivia.choices.map((_, i) => i);
@@ -191,23 +189,10 @@
   }
 
   function buildPuzzle(body) {
-    body.append(el("p", "modal-text", riddle.q));
-
-    const wrap = el("div", "answer-wrap");
-    const reveal = el("div", "answer-reveal", riddle.a);
-    wrap.append(reveal);
-    if (puzzleRevealed) wrap.classList.add("open");
-
-    const foot = el("div", "modal-foot");
-    const btn = el("button", "ghost-btn", puzzleRevealed ? "Hide answer" : "Reveal answer");
-    btn.type = "button";
-    btn.addEventListener("click", () => {
-      const open = wrap.classList.toggle("open");
-      puzzleRevealed = open;
-      btn.textContent = open ? "Hide answer" : "Reveal answer";
-    });
-    foot.append(btn);
-    body.append(wrap, foot);
+    const root = el("div", "pz-root");
+    body.append(root);
+    if (typeof Puzzles !== "undefined") Puzzles.mountHub(root);
+    else body.append(el("p", "modal-text", "Puzzles failed to load."));
   }
 
   function buildHistory(body) {
