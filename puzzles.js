@@ -1,0 +1,453 @@
+// puzzles.js — five self-contained logic mini-games for the Daily Puzzle
+// section. Every game generates a fresh random variation on each mount, so
+// there is no fixed answer to memorize. Exposes Puzzles.mountHub(root).
+
+const Puzzles = (function () {
+  "use strict";
+
+  // ---------- tiny helpers ----------
+  function el(tag, className, text) {
+    const n = document.createElement(tag);
+    if (className) n.className = className;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  const randInt = (n) => Math.floor(Math.random() * n);
+  const pickRand = (arr) => arr[randInt(arr.length)];
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = randInt(i + 1);
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+  const arrEq = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+
+  function statusLine() { return el("div", "pz-status"); }
+  function setStatus(s, text, type) {
+    s.textContent = text;
+    s.className = "pz-status" + (type ? " " + type : "");
+  }
+  function button(label, cls) {
+    const b = el("button", cls || "pz-btn", label);
+    b.type = "button";
+    return b;
+  }
+
+  // ========================================================
+  // Game 1 — Wordle
+  // ========================================================
+  const WORDLE_WORDS = [
+    "APPLE", "BRAVE", "CRANE", "DELTA", "EAGLE", "FROST", "GLOVE", "HONEY",
+    "IVORY", "JOLLY", "KNEEL", "LEMON", "MANGO", "NORTH", "OCEAN", "PIANO",
+    "QUILT", "RIVER", "STONE", "TIGER", "ULTRA", "VIVID", "WHALE", "XENON",
+    "YACHT", "ZEBRA", "BLAZE", "CHARM", "DREAM", "EMBER", "FLAME", "GRAPE",
+    "HOUSE", "INPUT", "JUDGE", "KOALA", "LIGHT", "MUSIC", "NIGHT", "OLIVE",
+    "PRIZE", "QUEEN", "ROBOT", "SUGAR", "TRAIN", "UNITY", "VOICE", "WATER",
+    "YOUTH", "ANGEL", "BERRY", "CLOUD", "DAISY", "EARTH", "FAIRY", "GIANT",
+    "HEART", "IGLOO", "JEWEL", "KAYAK", "LUNAR", "MAPLE", "NOBLE", "ORBIT",
+    "PEARL", "QUICK", "RAVEN", "SOLAR", "TULIP", "URBAN", "VENUS", "WAGON",
+    "ZESTY", "BREAD", "CANDY", "DANCE", "FENCE", "GHOST", "HAPPY", "JUICE"
+  ];
+
+  function scoreGuess(guess, target) {
+    const res = new Array(5).fill("absent");
+    const counts = {};
+    for (const ch of target) counts[ch] = (counts[ch] || 0) + 1;
+    for (let i = 0; i < 5; i++) {
+      if (guess[i] === target[i]) { res[i] = "correct"; counts[guess[i]]--; }
+    }
+    for (let i = 0; i < 5; i++) {
+      if (res[i] === "correct") continue;
+      const ch = guess[i];
+      if (counts[ch] > 0) { res[i] = "present"; counts[ch]--; }
+    }
+    return res;
+  }
+
+  function gameWordle(c) {
+    const target = pickRand(WORDLE_WORDS);
+    const maxRows = 6;
+    let row = 0, done = false;
+
+    c.append(el("div", "pz-intro", "Guess the hidden 5-letter word in 6 tries."));
+    const grid = el("div", "pz-wgrid");
+    const tiles = [];
+    for (let r = 0; r < maxRows; r++) {
+      const rowEl = el("div", "pz-wrow");
+      tiles[r] = [];
+      for (let i = 0; i < 5; i++) {
+        const t = el("div", "pz-wtile");
+        rowEl.append(t);
+        tiles[r].push(t);
+      }
+      grid.append(rowEl);
+    }
+    const form = el("form", "pz-form");
+    const input = el("input", "pz-input");
+    input.maxLength = 5; input.autocomplete = "off"; input.placeholder = "type a word";
+    const btn = el("button", "pz-btn", "Guess"); btn.type = "submit";
+    form.append(input, btn);
+    const status = statusLine();
+    c.append(grid, form, status);
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (done) return;
+      const g = (input.value || "").toUpperCase();
+      if (!/^[A-Z]{5}$/.test(g)) { setStatus(status, "Enter 5 letters.", "bad"); return; }
+      const score = scoreGuess(g, target);
+      for (let i = 0; i < 5; i++) {
+        const t = tiles[row][i];
+        t.textContent = g[i];
+        t.style.animationDelay = (i * 0.08) + "s";
+        t.classList.add("flip", score[i]);
+      }
+      input.value = "";
+      if (g === target) {
+        done = true;
+        setStatus(status, `Solved in ${row + 1}! 🎉`, "good");
+        input.disabled = btn.disabled = true;
+        return;
+      }
+      row++;
+      if (row >= maxRows) {
+        done = true;
+        setStatus(status, `Out of tries — the word was ${target}.`, "bad");
+        input.disabled = btn.disabled = true;
+      } else {
+        setStatus(status, `${maxRows - row} ${maxRows - row === 1 ? "try" : "tries"} left.`, "");
+      }
+    });
+  }
+
+  // ========================================================
+  // Game 2 — Number Sequence
+  // ========================================================
+  function genSequence() {
+    const builders = [
+      () => {
+        const a = randInt(9) + 1, d = randInt(8) + 2, t = [];
+        for (let i = 0; i < 5; i++) t.push(a + d * i);
+        return { terms: t, next: a + d * 5, rule: `add ${d} each time` };
+      },
+      () => {
+        const a = randInt(4) + 2, r = randInt(2) + 2, t = [];
+        for (let i = 0; i < 5; i++) t.push(a * Math.pow(r, i));
+        return { terms: t, next: a * Math.pow(r, 5), rule: `multiply by ${r} each time` };
+      },
+      () => {
+        const s = randInt(3) + 1, t = [];
+        for (let i = 0; i < 5; i++) { const n = s + i; t.push(n * n); }
+        const n = s + 5;
+        return { terms: t, next: n * n, rule: "consecutive perfect squares" };
+      },
+      () => {
+        const t = [randInt(3) + 1, randInt(4) + 2];
+        for (let i = 2; i < 6; i++) t.push(t[i - 1] + t[i - 2]);
+        return { terms: t.slice(0, 5), next: t[5], rule: "add the two previous terms (Fibonacci-style)" };
+      },
+      () => {
+        const t = []; let cur = randInt(5) + 1, add = randInt(3) + 1;
+        for (let i = 0; i < 5; i++) { t.push(cur); cur += add; add++; }
+        return { terms: t, next: cur, rule: "the gap grows by 1 each step" };
+      }
+    ];
+    return pickRand(builders)();
+  }
+
+  function gameSequence(c) {
+    const { terms, next, rule } = genSequence();
+    let done = false;
+    c.append(el("div", "pz-intro", "What number comes next?"));
+    c.append(el("div", "pz-seq", terms.join("   ") + "   ?"));
+    const form = el("form", "pz-form");
+    const input = el("input", "pz-input");
+    input.inputMode = "numeric"; input.autocomplete = "off"; input.placeholder = "next number";
+    const btn = el("button", "pz-btn", "Check"); btn.type = "submit";
+    form.append(input, btn);
+    const status = statusLine();
+    const reveal = button("Reveal answer", "pz-link");
+    c.append(form, status, reveal);
+
+    reveal.addEventListener("click", () => {
+      if (done) return;
+      done = true;
+      setStatus(status, `Answer: ${next} — ${rule}.`, "");
+    });
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (done) return;
+      const v = parseInt((input.value || "").trim(), 10);
+      if (Number.isNaN(v)) { setStatus(status, "Enter a number.", "bad"); return; }
+      if (v === next) { done = true; setStatus(status, `Correct! The rule: ${rule}. 🎉`, "good"); }
+      else setStatus(status, "Not quite — try again or reveal.", "bad");
+    });
+  }
+
+  // ========================================================
+  // Game 3 — Mini Sudoku (4x4)
+  // ========================================================
+  const SUDOKU_BASE = [
+    [1, 2, 3, 4],
+    [3, 4, 1, 2],
+    [2, 1, 4, 3],
+    [4, 3, 2, 1]
+  ];
+  const cloneGrid = (g) => g.map((r) => r.slice());
+  function swapRows(g, a, b) { const n = cloneGrid(g); [n[a], n[b]] = [n[b], n[a]]; return n; }
+  function swapCols(g, a, b) { return g.map((r) => { const n = r.slice(); [n[a], n[b]] = [n[b], n[a]]; return n; }); }
+  function swapBands(g) { return [g[2], g[3], g[0], g[1]].map((r) => r.slice()); }
+  function swapStacks(g) { return g.map((r) => [r[2], r[3], r[0], r[1]]); }
+  function transpose(g) { return g[0].map((_, col) => g.map((r) => r[col])); }
+
+  function genSudokuSolution() {
+    let g = cloneGrid(SUDOKU_BASE);
+    const perm = shuffle([1, 2, 3, 4]);
+    g = g.map((r) => r.map((v) => perm[v - 1]));
+    const ops = [
+      (x) => swapRows(x, 0, 1), (x) => swapRows(x, 2, 3),
+      (x) => swapCols(x, 0, 1), (x) => swapCols(x, 2, 3),
+      swapBands, swapStacks, transpose
+    ];
+    for (let i = 0; i < 24; i++) if (Math.random() < 0.5) g = pickRand(ops)(g);
+    return g;
+  }
+
+  function validSudoku(g) {
+    const ok = (arr) => { const s = new Set(arr); return s.size === 4 && [1, 2, 3, 4].every((n) => s.has(n)); };
+    for (let r = 0; r < 4; r++) if (!ok(g[r])) return false;
+    for (let col = 0; col < 4; col++) if (!ok([0, 1, 2, 3].map((r) => g[r][col]))) return false;
+    for (const [br, bc] of [[0, 0], [0, 2], [2, 0], [2, 2]]) {
+      const cells = [];
+      for (let r = 0; r < 2; r++) for (let col = 0; col < 2; col++) cells.push(g[br + r][bc + col]);
+      if (!ok(cells)) return false;
+    }
+    return true;
+  }
+
+  function gameSudoku(c) {
+    const sol = genSudokuSolution();
+    const cells = [];
+    for (let r = 0; r < 4; r++) for (let col = 0; col < 4; col++) cells.push([r, col]);
+    shuffle(cells);
+    const given = [[1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1]];
+    for (let i = 0; i < 7; i++) { const [r, col] = cells[i]; given[r][col] = 0; }
+
+    c.append(el("div", "pz-intro", "Fill the grid so every row, column, and 2×2 box holds 1–4."));
+    const grid = el("div", "pz-sgrid");
+    const refs = [];
+    for (let r = 0; r < 4; r++) {
+      refs[r] = [];
+      for (let col = 0; col < 4; col++) {
+        const cell = el("div", "pz-scell");
+        if (col === 1) cell.classList.add("bdr-r");
+        if (r === 1) cell.classList.add("bdr-b");
+        if (given[r][col]) {
+          cell.textContent = sol[r][col];
+          cell.classList.add("given");
+          refs[r][col] = { given: true, val: sol[r][col] };
+        } else {
+          const inp = el("input", "pz-sinput");
+          inp.maxLength = 1; inp.inputMode = "numeric";
+          inp.addEventListener("input", () => { inp.value = inp.value.replace(/[^1-4]/g, ""); });
+          cell.append(inp);
+          refs[r][col] = { given: false, el: inp };
+        }
+        grid.append(cell);
+      }
+    }
+    const btn = button("Check");
+    const status = statusLine();
+    c.append(grid, btn, status);
+
+    btn.addEventListener("click", () => {
+      const g = [];
+      for (let r = 0; r < 4; r++) {
+        g[r] = [];
+        for (let col = 0; col < 4; col++) {
+          const ref = refs[r][col];
+          const v = ref.given ? ref.val : parseInt(ref.el.value, 10);
+          if (!(v >= 1 && v <= 4)) { setStatus(status, "Fill every cell with 1–4.", "bad"); return; }
+          g[r][col] = v;
+        }
+      }
+      if (validSudoku(g)) setStatus(status, "Solved! Every line checks out. 🎉", "good");
+      else setStatus(status, "Not valid yet — check your rows, columns, and boxes.", "bad");
+    });
+  }
+
+  // ========================================================
+  // Game 4 — Code Breaker (Mastermind)
+  // ========================================================
+  function feedback(secret, guess) {
+    let exact = 0, partial = 0;
+    const s = secret.slice(), g = guess.slice();
+    for (let i = 0; i < 4; i++) if (g[i] === s[i]) { exact++; s[i] = g[i] = null; }
+    for (let i = 0; i < 4; i++) {
+      if (g[i] == null) continue;
+      const idx = s.indexOf(g[i]);
+      if (idx >= 0) { partial++; s[idx] = null; }
+    }
+    return { exact, partial };
+  }
+
+  function gameCode(c) {
+    const secret = shuffle([1, 2, 3, 4, 5, 6]).slice(0, 4);
+    const maxG = 8;
+    let guesses = 0, done = false;
+
+    c.append(el("div", "pz-intro",
+      "Crack the secret 4-digit code (digits 1–6, all different). Bulls 🎯 = right digit & spot, Cows 🐮 = right digit, wrong spot."));
+    const history = el("div", "pz-history");
+    const form = el("form", "pz-form");
+    const input = el("input", "pz-input");
+    input.inputMode = "numeric"; input.maxLength = 4; input.autocomplete = "off"; input.placeholder = "e.g. 1356";
+    const btn = el("button", "pz-btn", "Guess"); btn.type = "submit";
+    form.append(input, btn);
+    const status = statusLine();
+    c.append(history, form, status);
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (done) return;
+      const raw = (input.value || "").trim();
+      if (!/^[1-6]{4}$/.test(raw)) { setStatus(status, "Enter 4 digits, each 1–6.", "bad"); return; }
+      const g = raw.split("").map(Number);
+      const { exact, partial } = feedback(secret, g);
+      guesses++;
+      const rowEl = el("div", "pz-hrow");
+      rowEl.innerHTML = `<span class="pz-hguess">${raw}</span>` +
+        `<span class="pz-hfb">🎯 ${exact} &nbsp; 🐮 ${partial}</span>`;
+      history.append(rowEl);
+      input.value = "";
+      if (exact === 4) {
+        done = true;
+        setStatus(status, `Cracked it in ${guesses}! 🎉`, "good");
+        input.disabled = btn.disabled = true;
+        return;
+      }
+      if (guesses >= maxG) {
+        done = true;
+        setStatus(status, `Out of guesses — the code was ${secret.join("")}.`, "bad");
+        input.disabled = btn.disabled = true;
+      } else {
+        setStatus(status, `${maxG - guesses} guesses left.`, "");
+      }
+    });
+  }
+
+  // ========================================================
+  // Game 5 — Nonogram (5x5 Picross)
+  // ========================================================
+  function runs(arr) {
+    const out = []; let count = 0;
+    for (const v of arr) { if (v) count++; else if (count) { out.push(count); count = 0; } }
+    if (count) out.push(count);
+    return out.length ? out : [0];
+  }
+
+  function gameNonogram(c) {
+    const N = 5;
+    let sol;
+    do {
+      sol = [];
+      for (let r = 0; r < N; r++) {
+        sol.push([]);
+        for (let col = 0; col < N; col++) sol[r].push(Math.random() < 0.55 ? 1 : 0);
+      }
+    } while (sol.every((row) => row.every((v) => v === 0)));
+
+    const rowClues = sol.map((r) => runs(r));
+    const colClues = [];
+    for (let col = 0; col < N; col++) colClues.push(runs(sol.map((r) => r[col])));
+    const player = sol.map((r) => r.map(() => 0));
+    let done = false;
+
+    c.append(el("div", "pz-intro", "Fill cells to match the clues — numbers are the lengths of filled runs in each row/column. Click to fill or clear."));
+    const wrap = el("div", "pz-nono");
+    wrap.append(el("div", "pz-ncorner"));
+    for (let col = 0; col < N; col++) {
+      const cc = el("div", "pz-nclue pz-ncol");
+      cc.innerHTML = colClues[col].map((n) => `<span>${n}</span>`).join("");
+      wrap.append(cc);
+    }
+    const cellEls = [];
+    for (let r = 0; r < N; r++) {
+      const rc = el("div", "pz-nclue pz-nrow");
+      rc.innerHTML = rowClues[r].map((n) => `<span>${n}</span>`).join("");
+      wrap.append(rc);
+      cellEls[r] = [];
+      for (let col = 0; col < N; col++) {
+        const cell = el("div", "pz-ncell");
+        cell.addEventListener("click", () => {
+          if (done) return;
+          player[r][col] = player[r][col] ? 0 : 1;
+          cell.classList.toggle("on", !!player[r][col]);
+          if (solved()) { done = true; setStatus(status, "Solved! 🎉", "good"); }
+        });
+        wrap.append(cell);
+        cellEls[r][col] = cell;
+      }
+    }
+    const btn = button("Check");
+    const status = statusLine();
+    c.append(wrap, btn, status);
+
+    function solved() {
+      for (let r = 0; r < N; r++) if (!arrEq(runs(player[r]), rowClues[r])) return false;
+      for (let col = 0; col < N; col++) if (!arrEq(runs(player.map((row) => row[col])), colClues[col])) return false;
+      return true;
+    }
+    btn.addEventListener("click", () => {
+      if (done) return;
+      if (solved()) { done = true; setStatus(status, "Solved! 🎉", "good"); }
+      else setStatus(status, "Doesn't match the clues yet.", "bad");
+    });
+  }
+
+  // ========================================================
+  // Hub
+  // ========================================================
+  const GAMES = [
+    { id: "wordle", name: "Wordle", icon: "🟩", mount: gameWordle },
+    { id: "sequence", name: "Sequence", icon: "🔢", mount: gameSequence },
+    { id: "sudoku", name: "Mini Sudoku", icon: "🔲", mount: gameSudoku },
+    { id: "code", name: "Code Breaker", icon: "🔐", mount: gameCode },
+    { id: "nonogram", name: "Nonogram", icon: "🎨", mount: gameNonogram }
+  ];
+
+  function mountHub(root) {
+    root.innerHTML = "";
+    let idx = 0;
+
+    const tabs = el("div", "pz-tabs");
+    GAMES.forEach((game, i) => {
+      const t = el("button", "pz-tab");
+      t.type = "button";
+      t.innerHTML = `<span class="pz-tab-ico">${game.icon}</span><span>${game.name}</span>`;
+      t.addEventListener("click", () => { idx = i; select(); });
+      tabs.append(t);
+    });
+
+    const bar = el("div", "pz-bar");
+    const newBtn = button("↻ New puzzle", "pz-new");
+    newBtn.addEventListener("click", mountGame);
+    bar.append(newBtn);
+
+    const gameWrap = el("div", "pz-game");
+    root.append(tabs, bar, gameWrap);
+
+    function select() {
+      [...tabs.children].forEach((t, i) => t.classList.toggle("active", i === idx));
+      mountGame();
+    }
+    function mountGame() {
+      gameWrap.innerHTML = "";
+      GAMES[idx].mount(gameWrap);
+    }
+    select();
+  }
+
+  return { GAMES, mountHub };
+})();
