@@ -585,6 +585,211 @@ body.modal-open { overflow: hidden; }
   border-top: 1px solid var(--card-border);
 }
 
+/* ---------- Puzzle mini-games ---------- */
+.pz-root { display: flex; flex-direction: column; gap: 16px; }
+
+.pz-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+.pz-tab {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Inter", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.pz-tab:hover { color: var(--text); background: rgba(124, 92, 255, 0.12); }
+.pz-tab.active {
+  color: #fff;
+  background: linear-gradient(120deg, var(--accent), #b06bff);
+  border-color: transparent;
+  box-shadow: 0 6px 18px -6px var(--accent);
+}
+.pz-tab-ico { font-size: 0.95rem; }
+
+.pz-bar { display: flex; justify-content: flex-end; }
+.pz-new {
+  font-family: "Inter", sans-serif;
+  font-size: 0.8rem; font-weight: 600;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  padding: 7px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.pz-new:hover { background: rgba(255, 255, 255, 0.14); transform: translateY(-1px); }
+
+.pz-game { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.pz-intro {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--muted);
+  text-align: center;
+}
+.pz-status { font-size: 0.92rem; font-weight: 600; min-height: 1.2em; text-align: center; }
+.pz-status.good { color: var(--good); }
+.pz-status.bad { color: var(--bad); }
+
+/* shared inputs */
+.pz-form { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.pz-input {
+  font-family: "Inter", sans-serif;
+  font-size: 1rem;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  width: 170px;
+  text-align: center;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.pz-input:focus { outline: none; border-color: var(--accent); }
+.pz-btn {
+  font-family: "Inter", sans-serif;
+  font-size: 0.9rem; font-weight: 600;
+  color: #fff;
+  background: linear-gradient(120deg, var(--accent), #b06bff);
+  border: none;
+  border-radius: 12px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+.pz-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px -8px var(--accent); }
+.pz-btn:disabled { opacity: 0.5; cursor: default; transform: none; box-shadow: none; }
+.pz-link {
+  font-family: "Inter", sans-serif;
+  font-size: 0.82rem;
+  color: var(--accent-2);
+  background: none; border: none; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+
+/* Wordle */
+.pz-wgrid { display: flex; flex-direction: column; gap: 6px; }
+.pz-wrow { display: flex; gap: 6px; }
+.pz-wtile {
+  width: 46px; height: 46px;
+  display: grid; place-items: center;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.4rem; font-weight: 700; text-transform: uppercase;
+  color: var(--text);
+  border: 2px solid var(--card-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.pz-wtile.flip { animation: pzflip 0.5s ease forwards; }
+.pz-wtile.correct { background: var(--good); border-color: var(--good); color: #04120b; }
+.pz-wtile.present { background: #e3b341; border-color: #e3b341; color: #1a1405; }
+.pz-wtile.absent { background: #3a3a4a; border-color: #3a3a4a; color: #d7d9ea; }
+@keyframes pzflip {
+  0% { transform: rotateX(0); }
+  50% { transform: rotateX(90deg); }
+  100% { transform: rotateX(0); }
+}
+
+/* Sequence */
+.pz-seq {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(1.3rem, 4vw, 1.9rem);
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #eef0fb;
+  text-align: center;
+}
+
+/* Sudoku */
+.pz-sgrid {
+  display: grid;
+  grid-template-columns: repeat(4, 52px);
+  grid-template-rows: repeat(4, 52px);
+  gap: 0;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.pz-scell {
+  display: grid; place-items: center;
+  border: 1px solid var(--card-border);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.3rem; font-weight: 600;
+}
+.pz-scell.bdr-r { border-right: 2px solid rgba(255, 255, 255, 0.3); }
+.pz-scell.bdr-b { border-bottom: 2px solid rgba(255, 255, 255, 0.3); }
+.pz-scell.given { color: var(--accent-2); background: rgba(0, 224, 198, 0.06); }
+.pz-sinput {
+  width: 100%; height: 100%;
+  background: none; border: none; text-align: center;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.3rem; font-weight: 600; color: var(--text);
+}
+.pz-sinput:focus { outline: none; background: rgba(124, 92, 255, 0.18); }
+
+/* Code breaker */
+.pz-history { display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 280px; }
+.pz-hrow {
+  display: flex; justify-content: space-between; align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 8px 14px;
+}
+.pz-hguess {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.1rem; font-weight: 700; letter-spacing: 3px;
+}
+.pz-hfb { font-size: 0.85rem; color: var(--muted); }
+
+/* Nonogram */
+.pz-nono {
+  display: grid;
+  grid-template-columns: 40px repeat(5, 40px);
+  grid-auto-rows: 40px;
+  gap: 2px;
+}
+.pz-ncorner { background: transparent; }
+.pz-nclue {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.pz-nclue.pz-ncol { flex-direction: column; gap: 1px; }
+.pz-ncell {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+.pz-ncell:hover { background: rgba(255, 255, 255, 0.12); }
+.pz-ncell.on {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border-color: transparent;
+  transform: scale(1.04);
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 820px) {
   .grid { grid-template-columns: 1fr; }
