@@ -399,6 +399,7 @@ body {
 
 /* ---------- Footer stats ---------- */
 .footer {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: clamp(12px, 2vw, 20px);
@@ -409,6 +410,27 @@ body {
   backdrop-filter: blur(14px);
   box-shadow: var(--shadow);
   text-align: center;
+}
+
+/* hidden Easter-egg entrance: a faint drain in the corner of the footer */
+.egg-link {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  font-size: 0.95rem;
+  line-height: 1;
+  text-decoration: none;
+  opacity: 0.22;
+  filter: grayscale(0.4);
+  transition: opacity 0.3s ease, transform 0.3s ease, filter 0.3s ease;
+}
+.egg-link:hover,
+.egg-link:focus-visible {
+  opacity: 1;
+  filter: none;
+  transform: translateY(-2px) scale(1.18);
+  outline: none;
+  text-shadow: 0 0 14px var(--accent-2);
 }
 .stat { display: flex; flex-direction: column; gap: 4px; }
 .stat-num {
