@@ -424,6 +424,7 @@ body {
   filter: grayscale(0.4);
   transition: opacity 0.3s ease, transform 0.3s ease, filter 0.3s ease;
 }
+.egg-link-2 { right: 40px; }
 .egg-link:hover,
 .egg-link:focus-visible {
   opacity: 1;

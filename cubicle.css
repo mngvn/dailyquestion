@@ -1,0 +1,186 @@
+/* cubicle.css — styling specific to the "401(k) Guy" Easter egg page.
+   Reuses styles.css (tokens/background) and tunnel.css (topbar, bubble,
+   choices, meter). This file only adds the office scene, the flash mob,
+   and the sheep finale. */
+
+.ko-wrap { min-height: 320px; }
+
+/* ---------- The guy ---------- */
+.ko-scene { position: relative; z-index: 0; transition: opacity 0.9s ease; }
+.ko-scene.ko-faded { opacity: 0; }
+
+.ko-guy { transform-box: fill-box; transform-origin: center bottom; animation: koBob 4s ease-in-out infinite; }
+@keyframes koBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+
+.ko-arm { transform-box: fill-box; transform-origin: right center; animation: koGesture 1.5s ease-in-out infinite; }
+@keyframes koGesture { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-9deg); } }
+
+.ko-mouth { transform-box: fill-box; transform-origin: center; animation: koMouth 0.36s ease-in-out infinite; }
+@keyframes koMouth { 0%, 100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }
+
+/* ---------- Flash mob ---------- */
+.ko-crowd {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.ko-person {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transform: translate(-50%, -50%);
+  animation: koPop 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.ko-person.ko-leaving { animation: koPoof 0.5s ease forwards; }
+@keyframes koPop {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(0.2); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes koPoof {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -90%) scale(1.5); }
+}
+
+.ko-avatar {
+  font-size: clamp(1.7rem, 3.2vw, 2.5rem);
+  line-height: 1;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.4));
+  animation: koJitter 2.6s ease-in-out infinite;
+}
+@keyframes koJitter { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-4px) rotate(2deg); } }
+
+.ko-pbubble, .ko-sbubble {
+  font-family: "Inter", sans-serif;
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.25;
+  max-width: 130px;
+  text-align: center;
+  color: #f3f4fb;
+  background: rgba(20, 20, 38, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  padding: 5px 8px;
+  box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.7);
+}
+
+/* ---------- Sheep finale ---------- */
+.ko-sheep {
+  position: absolute;
+  left: -12%;
+  bottom: 64px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  animation: koHop 3.2s ease-in-out forwards;
+}
+.ko-sheepface {
+  font-size: clamp(1.9rem, 3.6vw, 2.7rem);
+  line-height: 1;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.4));
+  animation: koWobble 0.5s ease-in-out infinite;
+}
+@keyframes koWobble { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+@keyframes koHop {
+  0%   { left: -12%; transform: translateY(0) rotate(0deg); }
+  30%  { left: 26%;  transform: translateY(-32px) rotate(-6deg); }
+  50%  { left: 48%;  transform: translateY(-86px) rotate(0deg); }
+  70%  { left: 66%;  transform: translateY(-32px) rotate(6deg); }
+  100% { left: 112%; transform: translateY(0) rotate(0deg); }
+}
+
+/* the fence the sheep hop over */
+.ko-fence {
+  position: absolute;
+  left: 50%;
+  bottom: 44px;
+  transform: translateX(-50%);
+  width: 140px;
+  height: 64px;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 0.7s ease;
+  background: repeating-linear-gradient(90deg, #8a5a32 0 11px, transparent 11px 36px);
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.5));
+}
+.ko-fence.show { opacity: 1; }
+.ko-fence::before, .ko-fence::after {
+  content: "";
+  position: absolute;
+  left: -6px; right: -6px;
+  height: 10px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #a4703f, #7c4f2c);
+}
+.ko-fence::before { top: 14px; }
+.ko-fence::after { top: 38px; }
+
+/* ---------- Dream / twilight overlay ---------- */
+.ko-dream {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1.3s ease;
+  background: linear-gradient(180deg, #0a0e2a 0%, #161a3d 60%, #20254d 100%);
+}
+.ko-dream.show { opacity: 1; }
+.ko-moon {
+  position: absolute;
+  top: 30px; right: 56px;
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 36% 34%, #fff7d6, #e7dca0 70%, #d8cb86);
+  box-shadow: 0 0 42px 6px rgba(245, 237, 192, 0.55);
+}
+.ko-stars {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1.4px 1.4px at 12% 22%, #fff, transparent),
+    radial-gradient(1.4px 1.4px at 28% 12%, #fff, transparent),
+    radial-gradient(1.6px 1.6px at 44% 26%, #fff, transparent),
+    radial-gradient(1.2px 1.2px at 62% 14%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 78% 30%, #fff, transparent),
+    radial-gradient(1.3px 1.3px at 88% 18%, #fff, transparent),
+    radial-gradient(1.3px 1.3px at 20% 40%, #fff, transparent),
+    radial-gradient(1.2px 1.2px at 54% 8%, #fff, transparent);
+  opacity: 0.85;
+  animation: koTwinkle 3.5s ease-in-out infinite;
+}
+@keyframes koTwinkle { 0%, 100% { opacity: 0.85; } 50% { opacity: 0.45; } }
+
+/* ---------- Big transition caption ---------- */
+.ko-caption {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 24px;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 600;
+  font-size: clamp(1.1rem, 3vw, 1.7rem);
+  color: #eef0fb;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.85);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+.ko-caption.show { opacity: 1; }
+
+/* keep the main speech bubble above the crowd */
+.ko-mainbubble { z-index: 5; }
+
+@media (max-width: 720px) {
+  .ko-pbubble, .ko-sbubble { font-size: 0.56rem; max-width: 96px; }
+}
