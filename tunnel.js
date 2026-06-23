@@ -139,7 +139,7 @@
       if (i < text.length) {
         caret.insertAdjacentText("beforebegin", text.charAt(i));
         i++;
-        typingTimer = setTimeout(step, 18 + Math.random() * 22);
+        typingTimer = setTimeout(step, 42 + Math.random() * 40);
       } else {
         caret.remove();
         if (onDone) onDone();
