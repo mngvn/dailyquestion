@@ -43,6 +43,7 @@
     <div class="fm-field" id="fmField" tabindex="0" aria-label="Walk to the farm mini-game">
       <!-- scrolling scenery -->
       <div class="fm-ground"></div>
+      <div class="fm-props" id="fmProps" aria-hidden="true"></div>
 
       <!-- the farm waiting at the end (revealed on win) -->
       <div class="fm-farm" id="fmFarm">
@@ -55,24 +56,54 @@
         <div class="fm-ties"></div>
       </div>
 
+      <!-- railroad crossing signals (blink while a train is coming) -->
+      <div class="fm-signal fm-signal-l" aria-hidden="true">
+        <span class="fm-sign-light a"></span>
+        <span class="fm-sign-light b"></span>
+        <span class="fm-crossbuck"></span>
+      </div>
+      <div class="fm-signal fm-signal-r" aria-hidden="true">
+        <span class="fm-sign-light a"></span>
+        <span class="fm-sign-light b"></span>
+        <span class="fm-crossbuck"></span>
+      </div>
+
       <!-- hazards (one shows on the danger side per train) -->
       <div class="fm-hazard fm-haz-left" id="fmHazL" aria-hidden="true"></div>
       <div class="fm-hazard fm-haz-right" id="fmHazR" aria-hidden="true"></div>
 
-      <!-- the train -->
+      <!-- the train: a long one -->
       <div class="fm-train" id="fmTrain" aria-hidden="true">
-        <div class="fm-car fm-loco"></div>
         <div class="fm-car"></div>
         <div class="fm-car"></div>
         <div class="fm-car"></div>
+        <div class="fm-car"></div>
+        <div class="fm-car"></div>
+        <div class="fm-car"></div>
+        <div class="fm-car fm-loco">
+          <span class="fm-headlight"></span>
+        </div>
       </div>
 
       <!-- the two walkers -->
-      <div class="fm-char fm-char-a" id="fmCharA"><span class="fm-shadow"></span></div>
-      <div class="fm-char fm-char-b" id="fmCharB"><span class="fm-shadow"></span></div>
+      <div class="fm-char fm-char-a" id="fmCharA">
+        <span class="fm-shadow"></span>
+        <span class="fm-arm fm-arm-l"></span>
+        <span class="fm-arm fm-arm-r"></span>
+        <span class="fm-pack"></span>
+      </div>
+      <div class="fm-char fm-char-b" id="fmCharB">
+        <span class="fm-shadow"></span>
+        <span class="fm-arm fm-arm-l"></span>
+        <span class="fm-arm fm-arm-r"></span>
+        <span class="fm-pack"></span>
+      </div>
 
       <!-- warning banner -->
-      <div class="fm-warn" id="fmWarn" aria-hidden="true">⚠ TRAIN — PICK A SIDE</div>
+      <div class="fm-warn" id="fmWarn" aria-hidden="true">🚨 TRAIN COMING — PICK A SIDE 🚨</div>
+
+      <!-- atmosphere -->
+      <div class="fm-vignette" aria-hidden="true"></div>
 
       <!-- overlays -->
       <div class="fm-overlay" id="fmStart">
