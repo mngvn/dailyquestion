@@ -1,7 +1,7 @@
 /* cubicle.css — styling specific to the "401(k) Guy" Easter egg page.
    Reuses styles.css (tokens/background) and tunnel.css (topbar, bubble,
-   choices, meter). This file only adds the office scene, the flash mob,
-   and the sheep finale. */
+   choices, meter). This file only adds the office scene, the guy's
+   animations, and the absurd retirement readout. */
 
 .ko-wrap { min-height: 320px; }
 
