@@ -1,8 +1,8 @@
 // cubicle.js — the "401(k) Guy" Easter egg.
-// A coworker corners you about his 401(k). It does not stay a one-on-one
-// conversation: more and more people flash-mob in, all evangelizing the
-// employer match — and then, after a while, the whole crowd turns into
-// sheep hopping over a fence, still muttering about index funds.
+// One overenthusiastic coworker. He pitches his 401(k), then insists on
+// running your "retirement numbers" via a short quiz with deliberately
+// absurd multiple-choice answers, then confidently calculates a ridiculous
+// retirement age (plus a couple more joke calculations).
 
 (function () {
   "use strict";
@@ -13,104 +13,108 @@
   const choicesEl = document.getElementById("koChoices");
   const hintEl = document.getElementById("koHint");
   const meterFill = document.getElementById("koMeterFill");
-  const sceneEl = document.getElementById("koScene");
-  const crowdEl = document.getElementById("koCrowd");
-  const fenceEl = document.getElementById("koFence");
-  const dreamEl = document.getElementById("koDream");
-  const captionEl = document.getElementById("koCaption");
+  const readoutEl = document.getElementById("koReadout");
+  const readoutLabel = document.getElementById("koReadoutLabel");
+  const readoutValue = document.getElementById("koReadoutValue");
+  const readoutNote = document.getElementById("koReadoutNote");
 
-  // ----- Lines --------------------------------------------------------------
+  const SPEAKER = "The 401(k) guy";
+
+  // ----- Intro pitch lines --------------------------------------------------
   const PITCH = [
+    "Oh hey! Quick question — you aren't invested in your 401(k), are you?",
     "I may switch from 15 to 20% just so I can retire earlier.",
-    "Wait — you aren't invested in your 401(k)?",
-    "Are you even getting the full employer match?",
     "Time in the market beats timing the market, my friend.",
-    "I just rebalanced into a target-date fund. Total game changer.",
-    "You're basically leaving free money on the table.",
-    "Have you considered a Roth, though? The tax-free growth…",
-    "My expense ratio is point-oh-three percent. Point. Oh. Three.",
-    "I maxed it out by August this year. Felt incredible.",
-    "Set it and forget it. Dollar-cost averaging. Trust the process.",
-    "Do you even know your vesting schedule?",
-    "I dream in S&P 500 index funds.",
-    "One percent more and you won't even notice it in your paycheck.",
-    "When I retire at 52, don't say I didn't warn you.",
-    "It's not gambling if it's diversified."
+    "Tell you what — let me just run your numbers real quick. Free of charge."
   ];
 
-  // Lines the crowd murmurs (shorter, for the little bubbles).
-  const MOB_LINES = [
-    "Max the match!",
-    "Are you even invested?",
-    "Compound interest!",
-    "Free money!",
-    "Roth or traditional?",
-    "Point-oh-three percent!",
-    "Retire at 52!",
-    "Index funds, baby.",
-    "Up your contribution!",
-    "Time in the market!",
-    "Don't leave it on the table!",
-    "Have you maxed it out?"
+  // ----- The quiz -----------------------------------------------------------
+  // Each option carries a quip (his reaction) and a few "absurdity points"
+  // that feed the final calculation.
+  const QUESTIONS = [
+    {
+      q: "First things first — when do you want to retire?",
+      opts: [
+        { t: "Yesterday, ideally.", p: 4, quip: "Aggressive timeline. I respect the hustle." },
+        { t: "Age 9.", p: 9, quip: "Ah, a child prodigy of leisure. Noted." },
+        { t: "Three weeks from Thursday.", p: 3, quip: "Tight, but the match is strong with you." },
+        { t: "Never. I am one with the cubicle.", p: 7, quip: "Dedication! HR is going to be thrilled." }
+      ]
+    },
+    {
+      q: "And what household income are we working with?",
+      opts: [
+        { t: "I started at $10 million and worked my way down.", p: 8, quip: "A classic bootstraps story. Inspiring, truly." },
+        { t: "Exactly $1, but it's a really good dollar.", p: 5, quip: "Liquidity is king. We can absolutely work with this." },
+        { t: "I'm paid entirely in exposure.", p: 6, quip: "Ah, the exposure portfolio. High risk, high… exposure." },
+        { t: "Define 'income.'", p: 4, quip: "A philosopher. The IRS adores those." }
+      ]
+    },
+    {
+      q: "How much are you contributing right now?",
+      opts: [
+        { t: "0%, but I think about it constantly.", p: 3, quip: "Thoughts don't compound, sadly. But so close!" },
+        { t: "147% — I now owe my employer money.", p: 9, quip: "Over-contributing! FINALLY, someone who gets it." },
+        { t: "I bury cash in the backyard.", p: 6, quip: "The dirt index fund. Underperforms, but private." },
+        { t: "What is a percent.", p: 5, quip: "We'll circle back to that one. Probably." }
+      ]
+    },
+    {
+      q: "Current savings — give me the whole nest egg.",
+      opts: [
+        { t: "Three Beanie Babies, mint condition.", p: 7, quip: "Don't sleep on those. 1998 was a different time." },
+        { t: "Negative eleven thousand dollars.", p: 8, quip: "A net-negative net worth. Nowhere to go but up!" },
+        { t: "A jar of coins, mostly Canadian.", p: 5, quip: "Diversified into foreign currency. Sophisticated." },
+        { t: "My net worth is vibes.", p: 6, quip: "Vibes have outperformed bonds this year, honestly." }
+      ]
+    },
+    {
+      q: "Last one — what's your risk tolerance?",
+      opts: [
+        { t: "I put it all on red.", p: 9, quip: "A one-fund portfolio. Elegant. Terrifying." },
+        { t: "I flinch at savings accounts.", p: 2, quip: "Conservative. The mattress awaits, my friend." },
+        { t: "Yes.", p: 6, quip: "'Yes.' Perfect. Crystal clear. Love it." },
+        { t: "Define 'risk.'", p: 4, quip: "Two philosophers in one sitting. Remarkable." }
+      ]
+    }
   ];
 
-  // Sheepified versions for the finale.
-  const SHEEP_LINES = [
-    "Maxxx the maaatch…",
-    "Invest in your 401(k)… baaa…",
-    "Compound innnterest… baaaa…",
-    "Free moneeey… baaa…",
-    "Up your contributiooon… baaa…",
-    "Indexxx funds… baaaa…",
-    "Don't leave it on the taaable…",
-    "Roth or traditionaaal… baaa…"
+  // ----- Joke results -------------------------------------------------------
+  // The "calculation" is nonsense; it just picks a punchline. Score nudges
+  // which bucket we land in so wilder answers tend toward wilder results.
+  const RESULTS = [
+    { age: "247", note: "Congratulations! You can comfortably retire at 247. We just need to sort out the whole 'mortality' situation first, but the math is airtight." },
+    { age: "9", note: "The numbers are clear: your ideal retirement age was 9. Unfortunately that ship has sailed, and it was a very small ship." },
+    { age: "−4", note: "Incredible news — you actually retired four years before you were born. The time-travel paperwork is on the third floor, by the printer." },
+    { age: "∞", note: "You will achieve financial independence precisely never. On the bright side: unbeatable job security!" },
+    { age: "812", note: "At this rate you're on track to retire in the year 812 of the Third Galactic Age. Pack light, and dollar-cost average into moon real estate." },
+    { age: "31", note: "You could retire at 31! …in a parallel universe where you answered literally none of these questions the way you just did." }
   ];
 
-  const REACTIONS = {
-    no: [
-      "Good?! You'll be 'good' right up until you're 80 and still working.",
-      "'No thanks' to FREE MONEY? The match, man — the MATCH!",
-      "That's exactly what I said in my twenties. Don't be twenties-me."
-    ],
-    what: [
-      "Oh, buddy. Oh, sit down. Let me tell you about compound interest.",
-      "A 401(k)?! Only the greatest wealth-building vehicle ever devised."
-    ],
-    stop: [
-      "I'll stop when you're MAXING. THAT. MATCH.",
-      "Stop? We're just getting to the Roth conversion ladder.",
-      "Can't stop, won't stop — not while there's unclaimed employer match."
-    ]
-  };
-
-  const CAPTIONS = {
-    mob: "Word is spreading across the open-plan office…",
-    sheepWarn: "…is everyone okay? Why are you all so fuzzy?",
-    sheep: "🐑 Now entering: the part where you try to fall asleep."
-  };
+  // Extra one-off gag calculations.
+  const EXTRA = [
+    { label: "Your Coast FIRE number", age: "1 goat", note: "Your Coast FIRE number is exactly one (1) goat and a firm handshake. Coast accordingly." },
+    { label: "Nest egg maturity date", age: "Year 4,710", note: "Your nest egg fully matures in the year 4,710. I'll send a calendar invite. Attendance is, regrettably, optional." },
+    { label: "Projected net worth", age: "$1.03", note: "Thanks to the sheer magic of compound interest, your $1 becomes $1.03 by the heat death of the universe. We're basically rich." },
+    { label: "Safe withdrawal rate", age: "0.0001%", note: "Your safe annual withdrawal rate is 0.0001% — that's about one nickel every leap year. Treat yourself, champ." },
+    { label: "Years to financial freedom", age: "∞ + 2", note: "You're a cool infinity-plus-two years from financial freedom. So close you can almost taste it." }
+  ];
 
   const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
   // ----- State --------------------------------------------------------------
-  let phase = "guy";            // guy -> mob -> sheep
-  let pressure = 1;             // 1..6 meter
-  let mobCount = 0;
-  let sheepCount = 0;
+  let confidence = 1;          // 1..6 meter
+  let qIndex = 0;
+  let score = 0;
+  let lastResult = null;
+  let lastExtra = null;
   let typingTimer = null;
-  let lineTimer = null;
-  let mobTimer = null;
-  let sheepTimer = null;
-  const personTickers = [];
+  let pitchIndex = 0;
 
-  function setMeter() {
-    meterFill.style.width = (pressure / 6) * 100 + "%";
-  }
-  function bump(d) {
-    pressure = Math.max(1, Math.min(6, pressure + d));
-    setMeter();
-  }
+  function setMeter() { meterFill.style.width = (confidence / 6) * 100 + "%"; }
+  function bump(d) { confidence = Math.max(1, Math.min(6, confidence + d)); setMeter(); }
 
-  // ----- Main bubble typewriter --------------------------------------------
+  // ----- Slow typewriter ----------------------------------------------------
   function typeLine(text, onDone) {
     clearTimeout(typingTimer);
     lineEl.textContent = "";
@@ -133,7 +137,8 @@
       if (i < text.length) {
         caret.insertAdjacentText("beforebegin", text.charAt(i));
         i++;
-        typingTimer = setTimeout(step, 40 + Math.random() * 38);
+        // noticeably slower than before
+        typingTimer = setTimeout(step, 62 + Math.random() * 48);
       } else {
         caret.remove();
         if (onDone) onDone();
@@ -141,189 +146,151 @@
     })();
   }
 
-  // ----- Choices ------------------------------------------------------------
-  const MENU = [
-    { id: "no", label: "I'm good, thanks.", d: 1 },
-    { id: "what", label: "What even is a 401(k)?", d: 1 },
-    { id: "stop", label: "Guys. Please. Stop.", d: 2 }
-  ];
-
-  function renderMenu() {
+  // ----- Choice rendering ---------------------------------------------------
+  function setChoices(options) {
     choicesEl.innerHTML = "";
-    MENU.forEach((c) => {
+    options.forEach((o) => {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "tn-choice";
-      btn.textContent = c.label;
-      btn.addEventListener("click", () => onChoice(c));
+      btn.className = "tn-choice" + (o.agree ? " tn-agree" : "");
+      btn.textContent = o.t;
+      btn.disabled = true;            // locked until he finishes talking
+      btn.addEventListener("click", () => o.onPick());
       choicesEl.appendChild(btn);
     });
   }
-
-  function onChoice(choice) {
-    bump(choice.d);
-    speakerEl.textContent = phase === "mob" ? "The whole office" : "The 401(k) guy";
-    typeLine(rand(REACTIONS[choice.id]));
-    // Pushing back only feeds the frenzy.
-    if (phase === "guy" && pressure >= 3) startMob();
-    else if (phase === "mob" && mobCount < CROWD_MAX) {
-      spawnPerson(); spawnPerson();
-      if (mobCount >= CROWD_MAX) queueSheep();
-    }
+  function lockChoices(locked) {
+    [...choicesEl.children].forEach((b) => (b.disabled = locked));
+    choicesEl.classList.toggle("tn-locked", locked);
   }
 
-  // ----- Phase 1: the guy ---------------------------------------------------
-  function startGuyLoop() {
-    lineTimer = setInterval(() => {
-      if (phase === "sheep") return;
-      speakerEl.textContent = phase === "mob" ? "The whole office" : "The 401(k) guy";
-      typeLine(rand(PITCH));
-    }, 4200);
-  }
-
-  // ----- Phase 2: the flash mob --------------------------------------------
-  const CROWD_MAX = 9;
-  const SLOTS = [
-    { l: 8, t: 30 }, { l: 16, t: 64 }, { l: 6, t: 84 }, { l: 30, t: 22 },
-    { l: 26, t: 78 }, { l: 44, t: 72 }, { l: 72, t: 24 }, { l: 86, t: 58 },
-    { l: 90, t: 82 }, { l: 70, t: 84 }, { l: 14, t: 46 }, { l: 94, t: 36 }
-  ];
-  const FACES = ["🧑‍💼", "👩‍💼", "👨‍💼", "🧑", "👩", "👨", "🧓", "🧔", "👱‍♀️", "👨‍🦱", "👩‍🦰", "🧑‍🦲"];
-
-  function startMob() {
-    if (phase !== "guy") return;
-    phase = "mob";
-    hintEl.textContent = "Others have heard the word \"match.\" They are coming.";
-    showCaption(CAPTIONS.mob, 2200);
-    spawnPerson();
-    mobTimer = setInterval(() => {
-      spawnPerson();
-      bump(1);
-      if (mobCount >= CROWD_MAX) queueSheep();
-    }, 2300);
-  }
-
-  function spawnPerson() {
-    if (mobCount >= CROWD_MAX) return;
-    const slot = SLOTS[mobCount % SLOTS.length];
-    const person = document.createElement("div");
-    person.className = "ko-person";
-    person.style.left = slot.l + "%";
-    person.style.top = slot.t + "%";
-
-    const avatar = document.createElement("div");
-    avatar.className = "ko-avatar";
-    avatar.textContent = rand(FACES);
-    avatar.style.animationDelay = (Math.random() * -2.6) + "s";
-
-    const bubble = document.createElement("div");
-    bubble.className = "ko-pbubble";
-    bubble.textContent = rand(MOB_LINES);
-
-    person.append(bubble, avatar);
-    crowdEl.appendChild(person);
-    mobCount++;
-
-    // each coworker keeps chirping a new line every so often
-    const ticker = setInterval(() => {
-      if (phase === "sheep") return;
-      bubble.textContent = rand(MOB_LINES);
-    }, 2600 + Math.random() * 1800);
-    personTickers.push(ticker);
-  }
-
-  // ----- Phase 3: everyone becomes sheep -----------------------------------
-  let sheepQueued = false;
-  function queueSheep() {
-    if (sheepQueued) return;
-    sheepQueued = true;
-    clearInterval(mobTimer);
-    setTimeout(startSheep, 4200); // let the mob peak for a beat
-  }
-
-  function startSheep() {
-    if (phase === "sheep") return;
-    phase = "sheep";
-    clearInterval(lineTimer);
-    personTickers.forEach(clearInterval);
-
-    showCaption(CAPTIONS.sheepWarn, 1800);
-
-    // poof the crowd away, fade the office into a dream
-    [...crowdEl.children].forEach((p, i) => {
-      setTimeout(() => p.classList.add("ko-leaving"), i * 90);
+  // ----- Intro --------------------------------------------------------------
+  function startIntro() {
+    speakerEl.textContent = SPEAKER;
+    hintEl.textContent = "He has a calculator and he is not afraid to use it.";
+    typeLine(PITCH[0], () => {
+      pitchIndex = 1;
+      setChoices([
+        { t: "Sure, run my numbers.", agree: true, onPick: startQuiz },
+        { t: "Absolutely not.", onPick: () => {
+            bump(1);
+            typeLine("Ha! Love the enthusiasm. Running them anyway —", () => {
+              setTimeout(startQuiz, 500);
+            });
+          } }
+      ]);
+      lockChoices(false);
     });
-    setTimeout(() => {
-      crowdEl.innerHTML = "";
-      sceneEl.classList.add("ko-faded");
-      dreamEl.classList.add("show");
-      fenceEl.classList.add("show");
-      speakerEl.textContent = "The flock";
-      typeLine("Counting us yet? …Invest in your 401(k)… baaa.");
-      showCaption(CAPTIONS.sheep, 2400);
-
-      // dialog choices no longer apply — offer a way out / restart
-      choicesEl.innerHTML = "";
-      const sleep = document.createElement("button");
-      sleep.type = "button";
-      sleep.className = "tn-choice";
-      sleep.textContent = "😴 Keep counting";
-      sleep.addEventListener("click", () => { spawnSheep(); spawnSheep(); });
-      const restart = document.createElement("button");
-      restart.type = "button";
-      restart.className = "tn-choice tn-agree";
-      restart.textContent = "↺ Wake up (start over)";
-      restart.addEventListener("click", () => location.reload());
-      choicesEl.append(sleep, restart);
-
-      hintEl.textContent = "Sheep counted: 0";
-      sheepTimer = setInterval(spawnSheep, 1500);
-      spawnSheep();
-    }, 1600);
   }
 
-  function spawnSheep() {
-    if (phase !== "sheep") return;
-    const sheep = document.createElement("div");
-    sheep.className = "ko-sheep";
-    sheep.style.bottom = (54 + Math.random() * 26) + "px";
-
-    const bubble = document.createElement("div");
-    bubble.className = "ko-sbubble";
-    bubble.textContent = rand(SHEEP_LINES);
-
-    const face = document.createElement("div");
-    face.className = "ko-sheepface";
-    face.textContent = "🐑";
-    face.style.animationDelay = (Math.random() * -0.5) + "s";
-
-    sheep.append(bubble, face);
-    crowdEl.appendChild(sheep);
-
-    sheepCount++;
-    hintEl.textContent = "Sheep counted: " + sheepCount;
-
-    sheep.addEventListener("animationend", () => sheep.remove());
+  // ----- Quiz ---------------------------------------------------------------
+  function startQuiz() {
+    readoutEl.hidden = true;
+    qIndex = 0;
+    score = 0;
+    askQuestion();
   }
 
-  // ----- Transition caption -------------------------------------------------
-  let captionTimer = null;
-  function showCaption(text, ms) {
-    clearTimeout(captionTimer);
-    captionEl.textContent = text;
-    captionEl.classList.add("show");
-    captionTimer = setTimeout(() => captionEl.classList.remove("show"), ms);
+  function askQuestion() {
+    const q = QUESTIONS[qIndex];
+    speakerEl.textContent = SPEAKER;
+    hintEl.textContent = `Question ${qIndex + 1} of ${QUESTIONS.length}`;
+    typeLine(q.q, () => lockChoices(false));
+    setChoices(
+      q.opts.map((o) => ({
+        t: o.t,
+        onPick: () => pickAnswer(o)
+      }))
+    );
+  }
+
+  function pickAnswer(opt) {
+    lockChoices(true);
+    score += opt.p;
+    bump(1);
+    speakerEl.textContent = SPEAKER;
+    typeLine(opt.quip, () => {
+      setTimeout(() => {
+        qIndex++;
+        if (qIndex < QUESTIONS.length) askQuestion();
+        else calculate();
+      }, 650);
+    });
+  }
+
+  // ----- The "calculation" --------------------------------------------------
+  function calculate() {
+    choicesEl.innerHTML = "";
+    hintEl.textContent = "Running advanced financial projections…";
+    const steps = [
+      "Okay! Crunching the numbers…",
+      "Carry the one… annualizing your vibes…",
+      "Adjusting for inflation, goats, and Beanie Babies…"
+    ];
+    let s = 0;
+    (function next() {
+      typeLine(steps[s], () => {
+        s++;
+        if (s < steps.length) setTimeout(next, 700);
+        else setTimeout(revealResult, 900);
+      });
+    })();
+  }
+
+  function pickResult() {
+    // bias toward wilder results with a higher score, but never repeat.
+    let r;
+    do { r = rand(RESULTS); } while (r === lastResult && RESULTS.length > 1);
+    lastResult = r;
+    return r;
+  }
+
+  function showReadout(label, value, note) {
+    readoutLabel.textContent = label;
+    readoutValue.textContent = value;
+    readoutNote.textContent = note;
+    readoutEl.hidden = false;
+    // restart the entrance animation
+    readoutEl.style.animation = "none";
+    void readoutEl.offsetWidth;
+    readoutEl.style.animation = "";
+  }
+
+  function revealResult() {
+    const r = pickResult();
+    showReadout("Recommended retirement age", r.age, r.note);
+    speakerEl.textContent = SPEAKER;
+    typeLine("There it is. Science.", () => {
+      hintEl.textContent = "The numbers never lie. (These numbers lie.)";
+      setChoices([
+        { t: "Run it again (different answers).", agree: true, onPick: startQuiz },
+        { t: "Calculate something else.", onPick: doExtra },
+      ]);
+      lockChoices(false);
+    });
+  }
+
+  function doExtra() {
+    lockChoices(true);
+    let e;
+    do { e = rand(EXTRA); } while (e === lastExtra && EXTRA.length > 1);
+    lastExtra = e;
+    bump(1);
+    typeLine("Ooh, good call. Let me just pull this up…", () => {
+      setTimeout(() => {
+        showReadout(e.label, e.age, e.note);
+        typeLine("Don't thank me. Thank compound interest.", () => {
+          setChoices([
+            { t: "Run the whole quiz again.", agree: true, onPick: startQuiz },
+            { t: "Calculate something else.", onPick: doExtra },
+          ]);
+          lockChoices(false);
+        });
+      }, 700);
+    });
   }
 
   // ----- Boot ---------------------------------------------------------------
   setMeter();
-  renderMenu();
-  speakerEl.textContent = "The 401(k) guy";
-  setTimeout(() => {
-    typeLine("Oh hey! Quick question — you aren't invested in your 401(k)?");
-    startGuyLoop();
-  }, 500);
-
-  // If you just stand there politely, he escalates on his own.
-  setTimeout(() => { if (phase === "guy") startMob(); }, 14000);
+  setTimeout(startIntro, 500);
 })();

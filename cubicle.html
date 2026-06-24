@@ -31,20 +31,14 @@
       <div class="tn-eyebrow">A strange little detour</div>
       <h1 class="tn-title">The 401(k) Guy</h1>
     </div>
-    <div class="tn-meter" id="koMeter" title="How much they want you to invest">
-      <span class="tn-meter-label">Peer pressure</span>
+    <div class="tn-meter" id="koMeter" title="How sure he is about your finances">
+      <span class="tn-meter-label">His confidence</span>
       <div class="tn-meter-bar"><span class="tn-meter-fill" id="koMeterFill"></span></div>
     </div>
   </header>
 
   <main class="tn-stage reveal" style="--i:2">
     <div class="tn-scene-wrap ko-wrap">
-
-      <!-- dream/twilight overlay revealed when everyone turns into sheep -->
-      <div class="ko-dream" id="koDream" aria-hidden="true">
-        <div class="ko-moon"></div>
-        <div class="ko-stars"></div>
-      </div>
 
       <!-- the guy's speech bubble -->
       <div class="tn-bubble ko-mainbubble" id="koBubble" role="status" aria-live="polite">
@@ -166,18 +160,16 @@
           <ellipse cx="584" cy="210" rx="6" ry="4" fill="#f3a98a" opacity="0.5" />
         </g>
       </svg>
-
-      <!-- flash mob + sheep spawn here -->
-      <div class="ko-crowd" id="koCrowd" aria-hidden="true"></div>
-
-      <!-- fence for the sheep finale -->
-      <div class="ko-fence" id="koFence" aria-hidden="true"></div>
-
-      <!-- big transition caption -->
-      <div class="ko-caption" id="koCaption" aria-hidden="true"></div>
     </div>
 
-    <div class="tn-choices ko-choices" id="koChoices" aria-label="What do you say?"></div>
+    <!-- the absurd retirement readout -->
+    <div class="ko-readout" id="koReadout" hidden>
+      <span class="ko-readout-label" id="koReadoutLabel">Recommended retirement age</span>
+      <span class="ko-readout-value" id="koReadoutValue">—</span>
+      <p class="ko-readout-note" id="koReadoutNote"></p>
+    </div>
+
+    <div class="tn-choices ko-choices" id="koChoices" aria-label="Answer the financial advisor"></div>
     <p class="tn-hint" id="koHint">He noticed you walk by. There is no escape now.</p>
   </main>
 
