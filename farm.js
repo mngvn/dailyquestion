@@ -23,6 +23,7 @@
   const hazR = document.getElementById("fmHazR");
   const train = document.getElementById("fmTrain");
   const warn = document.getElementById("fmWarn");
+  const props = document.getElementById("fmProps");
 
   const scoreEl = document.getElementById("fmScore");
   const milesEl = document.getElementById("fmMiles");
@@ -42,8 +43,8 @@
     left:  { a: 13, b: 25 },
     right: { a: 75, b: 87 }
   };
-  const TRAIN_START = "-56%";
-  const TRAIN_END = "118%";
+  const TRAIN_START = "-150%";
+  const TRAIN_END = "150%";
 
   // ----- State --------------------------------------------------------------
   let best = 0;
@@ -54,12 +55,19 @@
   let locked = false;         // input locked while the train passes
   let passes = 0;
   let timer = null;
+  let propTimer = null;
+  let curSd = 1.2;
 
   bestEl.textContent = best;
 
   // ----- Helpers ------------------------------------------------------------
   const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
-  const setVar = (s) => field.style.setProperty("--sd", s + "s");
+
+  // Walking speed (smaller = faster) ramps up as you near the farm.
+  function applySpeed() {
+    curSd = Math.max(0.6, 1.3 - passes * 0.07);
+    field.style.setProperty("--sd", curSd.toFixed(2) + "s");
+  }
 
   function placeWalkers() {
     const p = POS[side];
@@ -84,13 +92,38 @@
     });
   }
 
-  function scrollDuration() {
-    // faster the further along you are
-    return Math.max(0.55, 1.45 - passes * 0.09).toFixed(2);
+  // Generous warning, and a long, slow train that takes its time.
+  function walkMs() { return Math.max(1000, 1900 - passes * 70); }
+  function warnMs() { return Math.max(1800, 3000 - passes * 110); }
+  function passMs() { return Math.max(2000, 2900 - passes * 80); }
+
+  // ----- Roadside scenery ---------------------------------------------------
+  const PROP_KINDS = ["tree", "tree", "tree", "bush", "bush", "rock", "flower", "flower", "post"];
+  const FLOWER_COLORS = ["#ffd86b", "#ff8ac2", "#8ad7ff", "#c9a3ff", "#ff7a7a"];
+
+  function spawnProp() {
+    const kind = rand(PROP_KINDS);
+    const el = document.createElement("span");
+    el.className = "fm-prop " + kind;
+    // keep scenery in the outer margins so it never clutters the play lanes
+    const x = Math.random() < 0.5 ? 1 + Math.random() * 9 : 90 + Math.random() * 9;
+    el.style.left = x.toFixed(2) + "%";
+    el.style.setProperty("--s", (0.7 + Math.random() * 0.6).toFixed(2));
+    el.style.setProperty("--pd", (curSd * 3).toFixed(2) + "s");
+    if (kind === "flower") el.style.setProperty("--fc", rand(FLOWER_COLORS));
+    el.style.opacity = (0.75 + Math.random() * 0.25).toFixed(2);
+    props.appendChild(el);
+    el.addEventListener("animationend", () => el.remove());
   }
-  function walkMs() { return Math.max(700, 1500 - passes * 80); }
-  function warnMs() { return Math.max(560, 1250 - passes * 70); }
-  const PASS_MS = 620;
+
+  function startProps() {
+    stopProps();
+    for (let i = 0; i < 5; i++) spawnProp(); // seed a few immediately
+    (function loop() {
+      propTimer = setTimeout(() => { spawnProp(); loop(); }, 220 + Math.random() * 380);
+    })();
+  }
+  function stopProps() { clearTimeout(propTimer); propTimer = null; }
 
   // ----- Input --------------------------------------------------------------
   function move(dir) {
@@ -128,7 +161,7 @@
     startOv.hidden = true;
     overOv.hidden = true;
     winOv.hidden = true;
-    field.classList.remove("fm-won");
+    field.classList.remove("fm-won", "fm-alarm", "fm-shake");
     field.classList.add("fm-live");
     charA.classList.remove("fm-fall", "fm-eaten");
     charB.classList.remove("fm-fall", "fm-eaten");
@@ -140,7 +173,8 @@
     side = "split";
     locked = false;
     updateHud();
-    setVar(scrollDuration());
+    applySpeed();
+    startProps();
     placeWalkers();
     field.focus({ preventScroll: true });
 
@@ -162,9 +196,10 @@
     const haz = danger === "left" ? hazL : hazR;
     haz.classList.add(type, "show");
     warn.classList.add("show");
+    field.classList.add("fm-alarm"); // crossing lights start blinking
 
-    // train descends over the warn + pass window
-    train.style.transition = "top " + (warnMs() + PASS_MS) + "ms linear";
+    // train descends slowly over the (long) warn + pass window
+    train.style.transition = "top " + (warnMs() + passMs()) + "ms linear";
     train.style.top = TRAIN_END;
 
     timer = setTimeout(beginPass, warnMs());
@@ -175,6 +210,7 @@
     state = "pass";
     locked = true;
     warn.classList.remove("show");
+    field.classList.add("fm-shake"); // the train rumbles past
 
     const safe = danger === "left" ? "right" : "left";
     if (side !== safe) {
@@ -182,7 +218,7 @@
       die();
       return;
     }
-    timer = setTimeout(survive, PASS_MS);
+    timer = setTimeout(survive, passMs());
   }
 
   function survive() {
@@ -191,20 +227,22 @@
     locked = false;
     clearHazards();
     resetTrain();
+    field.classList.remove("fm-alarm", "fm-shake");
     side = "split";
     placeWalkers();
     updateHud();
 
     if (passes >= GOAL) { winGame(); return; }
 
-    setVar(scrollDuration());
+    applySpeed();
     state = "walk";
     timer = setTimeout(beginWarn, walkMs());
   }
 
   function die() {
     state = "over";
-    field.classList.remove("fm-live");
+    field.classList.remove("fm-live", "fm-alarm", "fm-shake");
+    stopProps();
     const type = (danger === "left" ? hazL : hazR).classList.contains("pit") ? "pit" : "monster";
 
     // kill whichever walker(s) are on the danger lane
@@ -238,8 +276,9 @@
 
   function winGame() {
     state = "win";
-    field.classList.remove("fm-live");
+    field.classList.remove("fm-live", "fm-alarm", "fm-shake");
     field.classList.add("fm-won");
+    stopProps();
     clearHazards();
     resetTrain();
     // walk the pair up into the farm
@@ -267,4 +306,6 @@
   resetTrain();
   placeWalkers();
   updateHud();
+  applySpeed();
+  startProps(); // ambient scenery scrolls behind the start screen
 })();
