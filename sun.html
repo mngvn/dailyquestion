@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sunball — a strange little detour</title>
+  <meta name="description" content="Grab the sun, throw it, light up the dark. Then bounce it off the walls to wipe out every enemy in one shot." />
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="tunnel.css" />
+  <link rel="stylesheet" href="sun.css" />
+</head>
+<body class="tunnel-page">
+  <div class="bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+    <div class="grain"></div>
+  </div>
+
+  <header class="tn-topbar reveal">
+    <a class="tn-back" href="index.html" aria-label="Back to Daily">
+      <span class="tn-back-arrow">←</span>
+      <span>Back to Daily</span>
+    </a>
+    <div class="tn-title-block">
+      <div class="tn-eyebrow">A strange little detour</div>
+      <h1 class="tn-title">Sunball</h1>
+    </div>
+    <div class="sun-chip" id="sunChip" aria-hidden="true">✨ free play</div>
+  </header>
+
+  <main class="tn-stage reveal" style="--i:2">
+    <div class="sun-hud" id="sunHud" hidden>
+      <div class="sun-stat">Level <b id="sunLevel">1</b><span>/ 5</span></div>
+      <div class="sun-stat">Enemies <b id="sunEnemies">0</b></div>
+      <div class="sun-stat">Bounces <b id="sunBounces">0</b><span>/ <span id="sunBudget">0</span></span></div>
+      <div class="sun-hud-actions">
+        <button class="sun-mini" id="sunRetry" type="button">↺ Retry</button>
+        <button class="sun-mini" id="sunExit" type="button">✦ Free play</button>
+      </div>
+    </div>
+
+    <div class="sun-canvas-wrap" id="sunWrap">
+      <canvas id="sunCanvas" width="960" height="600" aria-label="Sunball play area"></canvas>
+
+      <!-- intro / mode select -->
+      <div class="sun-overlay" id="sunIntro">
+        <h2>☀ Sunball</h2>
+        <p>Grab the little sun with your mouse and <b>fling</b> it — the harder you flick, the faster it
+          flies. It lights up everything it passes.</p>
+        <div class="sun-btn-row">
+          <button class="sun-btn" id="sunPlayBtn" type="button">▶ Play · 5 levels</button>
+          <button class="sun-btn ghost" id="sunFreeBtn" type="button">✨ Free play</button>
+        </div>
+        <p class="sun-sub">In Play mode: bounce off the walls to hit <b>every</b> enemy in a single throw.
+          Run out of bounds or out of bounces and you start the level over.</p>
+      </div>
+
+      <!-- level cleared -->
+      <div class="sun-overlay" id="sunWin" hidden>
+        <h2 id="sunWinTitle">Level cleared! ☀</h2>
+        <p id="sunWinMsg">Every enemy, one throw. Beautiful.</p>
+        <div class="sun-btn-row">
+          <button class="sun-btn" id="sunNextBtn" type="button">Next level →</button>
+        </div>
+      </div>
+
+      <!-- failed -->
+      <div class="sun-overlay sun-overlay-soft" id="sunFail" hidden>
+        <h2 id="sunFailTitle">Missed it.</h2>
+        <p id="sunFailMsg">Some enemies are still standing.</p>
+        <div class="sun-btn-row">
+          <button class="sun-btn" id="sunRetry2" type="button">↺ Try again</button>
+        </div>
+      </div>
+
+      <!-- all levels done -->
+      <div class="sun-overlay" id="sunClear" hidden>
+        <h2>🌞 You lit them all up</h2>
+        <p>Five rooms, five perfect throws. The sun is pleased.</p>
+        <div class="sun-btn-row">
+          <button class="sun-btn" id="sunReplayBtn" type="button">Play again</button>
+          <button class="sun-btn ghost" id="sunFreeBtn2" type="button">✨ Free play</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="tn-hint" id="sunHint">Drag the sun and let go to throw. Try to fling it fast.</p>
+  </main>
+
+  <footer class="tn-footer reveal" style="--i:3">
+    <span>It is, technically, a star. Please do not hold the star.</span>
+  </footer>
+
+  <script src="sun.js"></script>
+</body>
+</html>

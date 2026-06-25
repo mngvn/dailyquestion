@@ -435,6 +435,7 @@ body {
 .egg-link-2 { right: 40px; }
 .egg-link-3 { right: 68px; }
 .egg-link-4 { right: 96px; }
+.egg-link-5 { right: 124px; }
 .egg-link:hover,
 .egg-link:focus-visible {
   opacity: 1;
