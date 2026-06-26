@@ -129,28 +129,14 @@
     }, 950);
   }
 
-  // ------------------------------------------- vibrant particle constellation
-  // A field of glowing dots that drift on their own, link up into a faint
-  // web, and scatter away from the cursor (with lines reaching toward it).
+  // -------------------------------------------------- neon streak field
+  // Thin glowing streaks shoot across the black, scatter away from the
+  // cursor, and throw faint lines toward it. (Streaks, not dots/bubbles.)
   const fx = document.getElementById("fxCanvas");
   if (fx && !reduce) {
     const fctx = fx.getContext("2d");
     const COLORS = ["#a64dff", "#19e3ff", "#ff2e97", "#b6ff5a"];
     let w = 0, h = 0, dpr = 1;
-
-    const sprites = {};
-    function makeSprite(color) {
-      const s = document.createElement("canvas");
-      s.width = s.height = 64;
-      const c = s.getContext("2d");
-      const g = c.createRadialGradient(32, 32, 0, 32, 32, 32);
-      g.addColorStop(0, color);
-      g.addColorStop(0.25, color);
-      g.addColorStop(1, "rgba(0,0,0,0)");
-      c.fillStyle = g; c.beginPath(); c.arc(32, 32, 32, 0, 7); c.fill();
-      return s;
-    }
-    COLORS.forEach((c) => (sprites[c] = makeSprite(c)));
 
     function size() {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -161,66 +147,60 @@
     size();
     window.addEventListener("resize", size);
 
-    const count = Math.max(36, Math.min(92, Math.floor((w * h) / 22000)));
+    const MIN_SP = 0.7, MAX_SP = 3.2;
+    const count = Math.max(28, Math.min(64, Math.floor((w * h) / 30000)));
     const ps = [];
-    for (let i = 0; i < count; i++) {
-      ps.push({
-        x: Math.random() * w, y: Math.random() * h,
-        vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.5) * 0.5,
-        r: 1.2 + Math.random() * 2.4,
-        c: COLORS[i % COLORS.length]
-      });
+    function seed(p) {
+      const a = Math.random() * 6.2832, sp = MIN_SP + Math.random() * 1.3;
+      p.x = Math.random() * w; p.y = Math.random() * h;
+      p.vx = Math.cos(a) * sp; p.vy = Math.sin(a) * sp;
+      p.r = 1 + Math.random() * 1.8;
+      p.c = COLORS[(Math.random() * COLORS.length) | 0];
+      return p;
     }
+    for (let i = 0; i < count; i++) ps.push(seed({}));
 
     let mx = -9999, my = -9999;
     window.addEventListener("pointermove", (e) => { mx = e.clientX; my = e.clientY; });
     window.addEventListener("pointerout", () => { mx = -9999; my = -9999; });
 
-    const LINK = 130, MOUSE = 210;
+    const MOUSE = 220;
     function tickFx() {
       fctx.clearRect(0, 0, w, h);
       fctx.globalCompositeOperation = "lighter";
+      fctx.lineCap = "round";
 
-      // links between nearby particles + reaching toward the cursor
-      for (let i = 0; i < ps.length; i++) {
-        const a = ps[i];
-        for (let j = i + 1; j < ps.length; j++) {
-          const b = ps[j];
-          const dx = a.x - b.x, dy = a.y - b.y;
-          const d = Math.hypot(dx, dy);
-          if (d < LINK) {
-            fctx.strokeStyle = "rgba(150,140,255," + (0.11 * (1 - d / LINK)) + ")";
-            fctx.lineWidth = 1;
-            fctx.beginPath(); fctx.moveTo(a.x, a.y); fctx.lineTo(b.x, b.y); fctx.stroke();
-          }
-        }
-        const mdx = a.x - mx, mdy = a.y - my, md = Math.hypot(mdx, mdy);
-        if (md < MOUSE) {
-          fctx.strokeStyle = "rgba(25,227,255," + (0.22 * (1 - md / MOUSE)) + ")";
-          fctx.lineWidth = 1;
-          fctx.beginPath(); fctx.moveTo(a.x, a.y); fctx.lineTo(mx, my); fctx.stroke();
-        }
-      }
-
-      // move + draw
       for (const p of ps) {
+        // scatter from the cursor + a faint line reaching toward it
         const dx = p.x - mx, dy = p.y - my, d = Math.hypot(dx, dy);
         if (d < MOUSE && d > 0.01) {
-          const f = (1 - d / MOUSE) * 0.6;     // scatter from the cursor
+          const f = (1 - d / MOUSE) * 0.5;
           p.vx += (dx / d) * f; p.vy += (dy / d) * f;
+          fctx.strokeStyle = "rgba(25,227,255," + (0.16 * (1 - d / MOUSE)) + ")";
+          fctx.lineWidth = 1;
+          fctx.beginPath(); fctx.moveTo(p.x, p.y); fctx.lineTo(mx, my); fctx.stroke();
         }
-        p.vx += (Math.random() - 0.5) * 0.02;  // gentle wander
-        p.vy += (Math.random() - 0.5) * 0.02;
-        p.vx *= 0.99; p.vy *= 0.99;
-        const sp = Math.hypot(p.vx, p.vy);
-        if (sp > 2) { p.vx = p.vx / sp * 2; p.vy = p.vy / sp * 2; }
-        p.x += p.vx; p.y += p.vy;
-        if (p.x < -20) p.x = w + 20; else if (p.x > w + 20) p.x = -20;
-        if (p.y < -20) p.y = h + 20; else if (p.y > h + 20) p.y = -20;
+        p.vx += (Math.random() - 0.5) * 0.05;
+        p.vy += (Math.random() - 0.5) * 0.05;
 
-        const s = sprites[p.c], sz = p.r * 7;
-        fctx.globalAlpha = 0.9;
-        fctx.drawImage(s, p.x - sz / 2, p.y - sz / 2, sz, sz);
+        // keep speed inside a band so they always read as streaks
+        let sp = Math.hypot(p.vx, p.vy);
+        if (sp < MIN_SP) { p.vx = p.vx / (sp || 1) * MIN_SP; p.vy = p.vy / (sp || 1) * MIN_SP; sp = MIN_SP; }
+        else if (sp > MAX_SP) { p.vx = p.vx / sp * MAX_SP; p.vy = p.vy / sp * MAX_SP; sp = MAX_SP; }
+
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < -60) p.x = w + 60; else if (p.x > w + 60) p.x = -60;
+        if (p.y < -60) p.y = h + 60; else if (p.y > h + 60) p.y = -60;
+
+        // draw the streak: a glow pass + a bright core, trailing behind motion
+        const ux = p.vx / sp, uy = p.vy / sp;
+        const len = 26 + sp * 26;
+        const tx = p.x - ux * len, ty = p.y - uy * len;
+        fctx.strokeStyle = p.c;
+        fctx.globalAlpha = 0.18; fctx.lineWidth = p.r * 3.2;
+        fctx.beginPath(); fctx.moveTo(tx, ty); fctx.lineTo(p.x, p.y); fctx.stroke();
+        fctx.globalAlpha = 0.95; fctx.lineWidth = Math.max(1, p.r);
+        fctx.beginPath(); fctx.moveTo(tx, ty); fctx.lineTo(p.x, p.y); fctx.stroke();
       }
       fctx.globalAlpha = 1;
       requestAnimationFrame(tickFx);
