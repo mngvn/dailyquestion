@@ -470,23 +470,31 @@ const Puzzles = (function () {
   function mountHub(root) {
     root.innerHTML = "";
 
-    // Exactly one puzzle type is playable per day, chosen by the calendar day.
-    // There is no picker and no "new puzzle" control — you get today's puzzle.
-    const game = GAMES[DAY_NUMBER % GAMES.length];
+    // All five games are available, but each is just one fixed puzzle per day:
+    // seeded from the calendar day, with no "new puzzle" control to re-roll.
+    let idx = 0;
 
-    const header = el("div", "pz-today");
-    header.innerHTML =
-      `<span class="pz-today-ico">${game.icon}</span>` +
-      `<span class="pz-today-name">${game.name}</span>` +
-      `<span class="pz-today-tag">Today's puzzle</span>`;
+    const tabs = el("div", "pz-tabs");
+    GAMES.forEach((game, i) => {
+      const t = el("button", "pz-tab");
+      t.type = "button";
+      t.innerHTML = `<span class="pz-tab-ico">${game.icon}</span><span>${game.name}</span>`;
+      t.addEventListener("click", () => { idx = i; select(); });
+      tabs.append(t);
+    });
 
-    const note = el("div", "pz-intro", "One puzzle a day — no do-overs. A different game unlocks tomorrow.");
+    const note = el("div", "pz-intro", "One of each puzzle every day — no do-overs. Fresh puzzles unlock tomorrow.");
     const gameWrap = el("div", "pz-game");
-    root.append(header, note, gameWrap);
+    root.append(tabs, note, gameWrap);
 
-    // Seed from today's date so the puzzle is fixed for the whole day.
-    seedFor(game.salt);
-    game.mount(gameWrap);
+    function select() {
+      [...tabs.children].forEach((t, i) => t.classList.toggle("active", i === idx));
+      gameWrap.innerHTML = "";
+      // Reseed from today's date so each game is fixed for the whole day.
+      seedFor(GAMES[idx].salt);
+      GAMES[idx].mount(gameWrap);
+    }
+    select();
   }
 
   return { GAMES, mountHub };

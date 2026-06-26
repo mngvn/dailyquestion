@@ -360,6 +360,32 @@
     });
   }
 
+  // ----- Theme (light/dark) -----
+  const THEME_KEY = "daily.theme";
+  const themeToggle = document.getElementById("themeToggle");
+  function systemPrefersLight() {
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
+  }
+  function applyTheme(theme) {
+    const light = theme === "light";
+    document.documentElement.dataset.theme = light ? "light" : "dark";
+    if (themeToggle) {
+      themeToggle.textContent = light ? "☀️" : "🌙";
+      themeToggle.setAttribute("aria-label", light ? "Switch to dark theme" : "Switch to light theme");
+    }
+  }
+  let theme;
+  try { theme = localStorage.getItem(THEME_KEY); } catch (e) { theme = null; }
+  if (theme !== "light" && theme !== "dark") theme = systemPrefersLight() ? "light" : "dark";
+  applyTheme(theme);
+  if (themeToggle) {
+    themeToggle.addEventListener("click", () => {
+      theme = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+      applyTheme(theme);
+      try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* ignore */ }
+    });
+  }
+
   // ----- Init -----
   renderStreak(false);
   renderFooter();

@@ -87,6 +87,19 @@ body {
   box-shadow: var(--shadow);
 }
 .brand { display: flex; align-items: center; gap: 10px; }
+.theme-toggle {
+  margin-left: 4px;
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  font-size: 1.05rem; line-height: 1;
+  border-radius: 50%;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--card-border);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.theme-toggle:hover { background: rgba(124, 92, 255, 0.18); transform: translateY(-1px); }
 .logo-dot {
   width: 14px; height: 14px; border-radius: 50%;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
@@ -588,30 +601,38 @@ body.modal-open { overflow: hidden; }
 /* ---------- Puzzle mini-games ---------- */
 .pz-root { display: flex; flex-direction: column; gap: 16px; }
 
-.pz-today {
+.pz-tabs {
   display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+.pz-tab {
+  flex: 0 0 auto;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  border: 1px solid var(--card-border);
-  border-radius: 14px;
-  background: linear-gradient(120deg, rgba(124, 92, 255, 0.16), rgba(176, 107, 255, 0.08));
-}
-.pz-today-ico { font-size: 1.3rem; }
-.pz-today-name {
+  gap: 6px;
   font-family: "Inter", sans-serif;
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text);
-}
-.pz-today-tag {
-  margin-left: auto;
-  font-size: 0.72rem;
+  font-size: 0.82rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
 }
+.pz-tab:hover { color: var(--text); background: rgba(124, 92, 255, 0.12); }
+.pz-tab.active {
+  color: #fff;
+  background: linear-gradient(120deg, var(--accent), #b06bff);
+  border-color: transparent;
+  box-shadow: 0 6px 18px -6px var(--accent);
+}
+.pz-tab-ico { font-size: 0.95rem; }
 
 .pz-game { display: flex; flex-direction: column; gap: 14px; align-items: center; }
 .pz-intro {
@@ -784,3 +805,59 @@ body.modal-open { overflow: hidden; }
   }
   .reveal { opacity: 1; transform: none; }
 }
+
+/* ---------- Light theme ---------- */
+[data-theme="light"] {
+  --bg: #eef0f8;
+  --card: rgba(255, 255, 255, 0.9);
+  --card-border: rgba(28, 30, 64, 0.14);
+  --text: #1b1d2e;
+  --muted: #585d78;
+  --shadow: 0 18px 50px -24px rgba(40, 40, 90, 0.28);
+}
+[data-theme="light"] .bg {
+  background: radial-gradient(circle at 20% 10%, #e6e2ff, var(--bg) 60%);
+}
+[data-theme="light"] .blob { opacity: 0.22; mix-blend-mode: multiply; }
+[data-theme="light"] .grain { opacity: 0.025; }
+[data-theme="light"] .theme-toggle { background: rgba(28, 30, 64, 0.05); }
+
+/* Gradient text that was white-on-dark needs darker stops on light. */
+[data-theme="light"] .date-main {
+  background: linear-gradient(120deg, #5a3ff0 10%, #7c5cff 45%, #00a78f 85%);
+  -webkit-background-clip: text; background-clip: text;
+}
+[data-theme="light"] .stat-num {
+  background: linear-gradient(120deg, #4a37c8, #7c5cff);
+  -webkit-background-clip: text; background-clip: text;
+}
+
+/* Lift translucent surfaces so they read as panels on a light page. */
+[data-theme="light"] .ghost-btn,
+[data-theme="light"] .pz-tab,
+[data-theme="light"] .pz-input,
+[data-theme="light"] .pz-wtile,
+[data-theme="light"] .pz-ncell,
+[data-theme="light"] .choice,
+[data-theme="light"] .choice .key,
+[data-theme="light"] .vault-item,
+[data-theme="light"] .accuracy-tag,
+[data-theme="light"] .vault-tag,
+[data-theme="light"] .modal-close {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* The modal floats over a backdrop, so give it an opaque light surface. */
+[data-theme="light"] .modal-overlay { background: rgba(20, 22, 45, 0.35); }
+[data-theme="light"] .modal {
+  background: linear-gradient(160deg, #ffffff, #f3f4fc);
+  border-color: rgba(28, 30, 64, 0.14);
+  box-shadow: 0 40px 120px -30px rgba(40, 40, 90, 0.4);
+}
+
+/* Hard-coded light strokes/text inside puzzles, flipped for light mode. */
+[data-theme="light"] .pz-seq { color: var(--text); }
+[data-theme="light"] .pz-sgrid,
+[data-theme="light"] .pz-scell.bdr-r,
+[data-theme="light"] .pz-scell.bdr-b { border-color: rgba(28, 30, 64, 0.35); }
+[data-theme="light"] .pz-wtile.absent { background: #c4c7d6; border-color: #c4c7d6; color: #2a2c3a; }
