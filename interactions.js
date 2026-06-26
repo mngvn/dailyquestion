@@ -128,4 +128,103 @@
       });
     }, 950);
   }
+
+  // ------------------------------------------- vibrant particle constellation
+  // A field of glowing dots that drift on their own, link up into a faint
+  // web, and scatter away from the cursor (with lines reaching toward it).
+  const fx = document.getElementById("fxCanvas");
+  if (fx && !reduce) {
+    const fctx = fx.getContext("2d");
+    const COLORS = ["#a64dff", "#19e3ff", "#ff2e97", "#b6ff5a"];
+    let w = 0, h = 0, dpr = 1;
+
+    const sprites = {};
+    function makeSprite(color) {
+      const s = document.createElement("canvas");
+      s.width = s.height = 64;
+      const c = s.getContext("2d");
+      const g = c.createRadialGradient(32, 32, 0, 32, 32, 32);
+      g.addColorStop(0, color);
+      g.addColorStop(0.25, color);
+      g.addColorStop(1, "rgba(0,0,0,0)");
+      c.fillStyle = g; c.beginPath(); c.arc(32, 32, 32, 0, 7); c.fill();
+      return s;
+    }
+    COLORS.forEach((c) => (sprites[c] = makeSprite(c)));
+
+    function size() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = window.innerWidth; h = window.innerHeight;
+      fx.width = Math.round(w * dpr); fx.height = Math.round(h * dpr);
+      fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    size();
+    window.addEventListener("resize", size);
+
+    const count = Math.max(36, Math.min(92, Math.floor((w * h) / 22000)));
+    const ps = [];
+    for (let i = 0; i < count; i++) {
+      ps.push({
+        x: Math.random() * w, y: Math.random() * h,
+        vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.5) * 0.5,
+        r: 1.2 + Math.random() * 2.4,
+        c: COLORS[i % COLORS.length]
+      });
+    }
+
+    let mx = -9999, my = -9999;
+    window.addEventListener("pointermove", (e) => { mx = e.clientX; my = e.clientY; });
+    window.addEventListener("pointerout", () => { mx = -9999; my = -9999; });
+
+    const LINK = 130, MOUSE = 210;
+    function tickFx() {
+      fctx.clearRect(0, 0, w, h);
+      fctx.globalCompositeOperation = "lighter";
+
+      // links between nearby particles + reaching toward the cursor
+      for (let i = 0; i < ps.length; i++) {
+        const a = ps[i];
+        for (let j = i + 1; j < ps.length; j++) {
+          const b = ps[j];
+          const dx = a.x - b.x, dy = a.y - b.y;
+          const d = Math.hypot(dx, dy);
+          if (d < LINK) {
+            fctx.strokeStyle = "rgba(150,140,255," + (0.11 * (1 - d / LINK)) + ")";
+            fctx.lineWidth = 1;
+            fctx.beginPath(); fctx.moveTo(a.x, a.y); fctx.lineTo(b.x, b.y); fctx.stroke();
+          }
+        }
+        const mdx = a.x - mx, mdy = a.y - my, md = Math.hypot(mdx, mdy);
+        if (md < MOUSE) {
+          fctx.strokeStyle = "rgba(25,227,255," + (0.22 * (1 - md / MOUSE)) + ")";
+          fctx.lineWidth = 1;
+          fctx.beginPath(); fctx.moveTo(a.x, a.y); fctx.lineTo(mx, my); fctx.stroke();
+        }
+      }
+
+      // move + draw
+      for (const p of ps) {
+        const dx = p.x - mx, dy = p.y - my, d = Math.hypot(dx, dy);
+        if (d < MOUSE && d > 0.01) {
+          const f = (1 - d / MOUSE) * 0.6;     // scatter from the cursor
+          p.vx += (dx / d) * f; p.vy += (dy / d) * f;
+        }
+        p.vx += (Math.random() - 0.5) * 0.02;  // gentle wander
+        p.vy += (Math.random() - 0.5) * 0.02;
+        p.vx *= 0.99; p.vy *= 0.99;
+        const sp = Math.hypot(p.vx, p.vy);
+        if (sp > 2) { p.vx = p.vx / sp * 2; p.vy = p.vy / sp * 2; }
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < -20) p.x = w + 20; else if (p.x > w + 20) p.x = -20;
+        if (p.y < -20) p.y = h + 20; else if (p.y > h + 20) p.y = -20;
+
+        const s = sprites[p.c], sz = p.r * 7;
+        fctx.globalAlpha = 0.9;
+        fctx.drawImage(s, p.x - sz / 2, p.y - sz / 2, sz, sz);
+      }
+      fctx.globalAlpha = 1;
+      requestAnimationFrame(tickFx);
+    }
+    requestAnimationFrame(tickFx);
+  }
 })();

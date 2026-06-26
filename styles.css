@@ -1,15 +1,17 @@
 :root {
-  --bg: #0a0a14;
-  --card: rgba(255, 255, 255, 0.045);
-  --card-border: rgba(255, 255, 255, 0.10);
-  --text: #f3f4fb;
-  --muted: #9aa0c0;
-  --accent: #7c5cff;
-  --accent-2: #00e0c6;
+  --bg: #05050a;
+  --card: rgba(255, 255, 255, 0.04);
+  --card-border: rgba(255, 255, 255, 0.09);
+  --text: #f5f6ff;
+  --muted: #8b90b8;
+  --accent: #a64dff;
+  --accent-2: #19e3ff;
+  --accent-3: #ff2e97;
+  --accent-4: #b6ff5a;
   --good: #2fe089;
-  --bad: #ff6b88;
+  --bad: #ff4d7d;
   --radius: 22px;
-  --shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.6);
+  --shadow: 0 24px 70px -24px rgba(0, 0, 0, 0.75);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -35,24 +37,46 @@ body {
 .bg {
   position: fixed;
   inset: -60px;
-  z-index: -2;
+  z-index: -3;
   overflow: hidden;
-  background: radial-gradient(circle at 20% 10%, #14122b, var(--bg) 60%);
+  background: radial-gradient(circle at 22% 8%, #160d33, var(--bg) 58%);
   will-change: transform;
+}
+/* slowly rotating neon aurora wash */
+.aurora {
+  position: absolute;
+  inset: -25%;
+  background: conic-gradient(from 0deg,
+    rgba(166, 77, 255, 0.55),
+    rgba(25, 227, 255, 0.5),
+    rgba(255, 46, 151, 0.55),
+    rgba(182, 255, 90, 0.4),
+    rgba(166, 77, 255, 0.55));
+  filter: blur(130px);
+  opacity: 0.3;
+  mix-blend-mode: screen;
+  animation: auroraSpin 48s linear infinite;
+  will-change: transform;
+}
+@keyframes auroraSpin {
+  0% { transform: rotate(0deg) scale(1.05); }
+  50% { transform: rotate(180deg) scale(1.18); }
+  100% { transform: rotate(360deg) scale(1.05); }
 }
 .blob {
   position: absolute;
-  width: 55vmax;
-  height: 55vmax;
+  width: 52vmax;
+  height: 52vmax;
   border-radius: 50%;
-  filter: blur(70px);
-  opacity: 0.55;
+  filter: blur(64px);
+  opacity: 0.62;
   mix-blend-mode: screen;
   animation: float 26s ease-in-out infinite;
 }
-.blob-1 { background: #7c5cff; top: -18%; left: -12%; }
-.blob-2 { background: #00e0c6; bottom: -22%; right: -10%; animation-delay: -8s; }
-.blob-3 { background: #ff5c9c; top: 30%; right: 25%; animation-duration: 34s; animation-delay: -15s; opacity: 0.4; }
+.blob-1 { background: #a64dff; top: -18%; left: -12%; }
+.blob-2 { background: #19e3ff; bottom: -22%; right: -10%; animation-delay: -8s; }
+.blob-3 { background: #ff2e97; top: 28%; right: 24%; animation-duration: 34s; animation-delay: -15s; opacity: 0.48; }
+.blob-4 { background: #b6ff5a; bottom: 8%; left: 22%; width: 38vmax; height: 38vmax; animation-duration: 30s; animation-delay: -22s; opacity: 0.3; }
 
 @keyframes float {
   0%, 100% { transform: translate(0, 0) scale(1); }
@@ -889,21 +913,31 @@ body.modal-open { overflow: hidden; }
 .pointer-glow {
   position: fixed;
   top: 0; left: 0;
-  width: 620px; height: 620px;
-  margin: -310px 0 0 -310px;
+  width: 680px; height: 680px;
+  margin: -340px 0 0 -340px;
   border-radius: 50%;
   z-index: -1;
   pointer-events: none;
   background: radial-gradient(circle,
-    rgba(124, 92, 255, 0.22),
-    rgba(0, 224, 198, 0.08) 38%,
-    transparent 68%);
-  filter: blur(34px);
+    rgba(166, 77, 255, 0.30),
+    rgba(25, 227, 255, 0.12) 36%,
+    rgba(255, 46, 151, 0.06) 56%,
+    transparent 70%);
+  filter: blur(36px);
   opacity: 0;
   transition: opacity 0.8s ease;
   will-change: transform;
+  mix-blend-mode: screen;
 }
 body.pointer-active .pointer-glow { opacity: 1; }
+
+/* vibrant particle field that drifts and reacts to the cursor */
+.fx-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+}
 
 /* ---------- Ripples ---------- */
 .ripple-layer {
