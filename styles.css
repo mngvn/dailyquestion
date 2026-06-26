@@ -45,36 +45,6 @@ body {
   will-change: transform;
 }
 
-/* neon light streaks sweeping diagonally across the black */
-.streaks { position: absolute; inset: 0; overflow: hidden; }
-.streak {
-  position: absolute;
-  top: -28%;
-  left: 0;
-  width: 2px;
-  height: 156%;
-  border-radius: 3px;
-  filter: blur(1.4px);
-  opacity: 0;
-  mix-blend-mode: screen;
-  background: linear-gradient(to bottom, transparent, var(--sc, #a64dff) 42%, var(--sc, #a64dff) 58%, transparent);
-  transform: translateX(-15vw) rotate(var(--sa, 18deg));
-  animation: streakSweep var(--sd, 13s) linear infinite;
-  animation-delay: var(--sdelay, 0s);
-}
-@keyframes streakSweep {
-  0%   { transform: translateX(-15vw) rotate(var(--sa, 18deg)); opacity: 0; }
-  10%  { opacity: 0.7; }
-  88%  { opacity: 0.5; }
-  100% { transform: translateX(118vw) rotate(var(--sa, 18deg)); opacity: 0; }
-}
-.streak.s1 { --sc: #a64dff; --sd: 13s; --sa: 16deg; --sdelay: -1s; }
-.streak.s2 { --sc: #19e3ff; --sd: 18s; --sa: 21deg; --sdelay: -7s; }
-.streak.s3 { --sc: #ff2e97; --sd: 10s; --sa: 13deg; --sdelay: -3s; width: 1.5px; }
-.streak.s4 { --sc: #b6ff5a; --sd: 21s; --sa: 23deg; --sdelay: -13s; width: 1px; }
-.streak.s5 { --sc: #19e3ff; --sd: 12s; --sa: 17deg; --sdelay: -9s; width: 1.5px; }
-.streak.s6 { --sc: #a64dff; --sd: 16s; --sa: 19deg; --sdelay: -5s; }
-
 @keyframes float {
   0%, 100% { transform: translate(0, 0) scale(1); }
   33%      { transform: translate(8vw, 6vh) scale(1.12); }

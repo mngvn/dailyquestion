@@ -15,16 +15,10 @@
 <body class="tunnel-page">
   <!-- animated background (matches the main page) -->
   <div class="bg">
-    <div class="streaks">
-      <span class="streak s1"></span>
-      <span class="streak s2"></span>
-      <span class="streak s3"></span>
-      <span class="streak s4"></span>
-      <span class="streak s5"></span>
-      <span class="streak s6"></span>
-    </div>
     <div class="grain"></div>
   </div>
+
+  <canvas id="fxCanvas" class="fx-canvas" aria-hidden="true"></canvas>
 
   <header class="tn-topbar reveal">
     <a class="tn-back" href="index.html" aria-label="Back to Daily">
@@ -177,5 +171,6 @@
   </footer>
 
   <script src="tunnel.js"></script>
+  <script src="trail.js"></script>
 </body>
 </html>
