@@ -1022,6 +1022,19 @@ body.modal-open .fx-canvas { opacity: 0; }
 /* ============================================================= *
  *  Light theme
  * ============================================================= */
+/* a gentle cross-fade when flipping themes (enabled after first paint) */
+body.theme-ready,
+body.theme-ready .topbar,
+body.theme-ready .card,
+body.theme-ready .vault,
+body.theme-ready .footer,
+body.theme-ready .vault-item,
+body.theme-ready .choice,
+body.theme-ready .modal,
+body.theme-ready .controls,
+body.theme-ready .ctrl-btn {
+  transition: background-color 0.45s ease, color 0.45s ease, border-color 0.45s ease;
+}
 body.light {
   --bg: #eaf0fb;
   --card: rgba(255, 255, 255, 0.74);
@@ -1267,6 +1280,15 @@ body.ev-quake { animation: evQuakeShake 0.4s linear infinite; }
   25% { transform: translate(-3px, 2px) rotate(-0.6deg); }
   50% { transform: translate(3px, -2px) rotate(0.5deg); }
   75% { transform: translate(-2px, -2px) rotate(-0.4deg); }
+}
+/* a harder shake for an open modal that's being fractured */
+.ev-rattle-hard { animation: evRattleHard 0.12s linear infinite !important; }
+@keyframes evRattleHard {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  20% { transform: translate(-7px, 4px) rotate(-1deg); }
+  40% { transform: translate(8px, -5px) rotate(1.1deg); }
+  60% { transform: translate(-5px, -4px) rotate(-0.8deg); }
+  80% { transform: translate(6px, 3px) rotate(0.9deg); }
 }
 
 /* an event caption that announces what's happening */

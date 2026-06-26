@@ -1,7 +1,7 @@
-// theme.js — light / dark mode toggle for the home page. Persists the choice
-// to localStorage and reflects it on <body> via the `light` class. The default
-// remains the near-black dark theme; light mode is opt-in and tuned in
-// styles.css so modal text stays readable.
+// theme.js — light / dark mode for the home page. The choice is persisted to
+// localStorage; with no saved choice we follow the OS preference. The mode is
+// reflected on <body> via the `light` class and read by styles.css, trail.js
+// and events.js so the whole page (and its effects) adapt.
 
 (function () {
   "use strict";
@@ -9,6 +9,7 @@
   const KEY = "daily.theme.v1";
   const btn = document.getElementById("themeToggle");
   const body = document.body;
+  const mq = window.matchMedia("(prefers-color-scheme: light)");
 
   function apply(theme) {
     const light = theme === "light";
@@ -20,18 +21,30 @@
     }
   }
 
-  let theme = "dark";
-  try {
-    const saved = localStorage.getItem(KEY);
-    if (saved === "light" || saved === "dark") theme = saved;
-  } catch (e) { /* ignore */ }
-  apply(theme);
+  function saved() {
+    try {
+      const s = localStorage.getItem(KEY);
+      if (s === "light" || s === "dark") return s;
+    } catch (e) { /* ignore */ }
+    return null;
+  }
+
+  // initial: explicit choice wins, otherwise mirror the system setting
+  apply(saved() || (mq.matches ? "light" : "dark"));
+
+  // allow a brief cross-fade only after first paint (avoids a flash on load)
+  requestAnimationFrame(() => body.classList.add("theme-ready"));
 
   if (btn) {
     btn.addEventListener("click", () => {
-      theme = body.classList.contains("light") ? "dark" : "light";
-      apply(theme);
-      try { localStorage.setItem(KEY, theme); } catch (e) { /* ignore */ }
+      const next = body.classList.contains("light") ? "dark" : "light";
+      apply(next);
+      try { localStorage.setItem(KEY, next); } catch (e) { /* ignore */ }
     });
   }
+
+  // if the user hasn't chosen explicitly, keep following the OS
+  mq.addEventListener("change", (e) => {
+    if (!saved()) apply(e.matches ? "light" : "dark");
+  });
 })();
