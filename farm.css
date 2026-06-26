@@ -1,0 +1,486 @@
+/* farm.css — "The Long Walk to the Farm" mini-game.
+   Reuses styles.css (tokens/background) and tunnel.css (topbar/title/back).
+   Top-down dodge game with a hand-built, indie-ish world: scrolling
+   roadside scenery, a blinking railroad crossing, a long lit train, and
+   two detailed walkers. */
+
+.fm-howto {
+  justify-self: end;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-border);
+  padding: 8px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* ---------- HUD ---------- */
+.fm-hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--muted);
+}
+.fm-stat { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.fm-stat:last-child { align-items: flex-end; }
+.fm-stat b {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.5rem; font-weight: 700;
+  color: var(--text); letter-spacing: 0;
+}
+.fm-stat-mid {
+  align-items: center;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1rem; font-weight: 600;
+  letter-spacing: 0.5px; color: var(--accent-2); text-transform: none;
+}
+.fm-stat-mid span { color: var(--text); }
+
+/* ---------- Playfield ---------- */
+.fm-field {
+  position: relative;
+  width: 100%;
+  height: clamp(460px, 66vh, 680px);
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.5), var(--shadow);
+  outline: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  background: #244a2a;
+}
+.fm-field:focus-visible { border-color: var(--accent); }
+
+/* scrolling grass with rows + tone variation */
+.fm-ground {
+  position: absolute;
+  inset: -80px 0;
+  background:
+    repeating-linear-gradient(180deg, #347f43 0 26px, #2c7339 26px 52px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,0.05) 0 60px, transparent 60px 120px),
+    radial-gradient(circle at 50% 0%, rgba(0,0,0,0.22), transparent 65%);
+  background-size: 100% 52px, 120px 100%, 100% 100%;
+  animation: fmRoll var(--sd, 1.2s) linear infinite;
+}
+.fm-ground::after { /* drifting flecks of texture */
+  content: "";
+  position: absolute; inset: 0;
+  background-image:
+    radial-gradient(2px 2px at 12% 20%, rgba(255,255,255,0.22), transparent),
+    radial-gradient(2px 2px at 84% 36%, rgba(255,255,255,0.16), transparent),
+    radial-gradient(3px 3px at 30% 70%, rgba(255,236,140,0.5), transparent),
+    radial-gradient(2px 2px at 92% 84%, rgba(255,236,140,0.4), transparent),
+    radial-gradient(2px 2px at 6% 92%, rgba(255,255,255,0.18), transparent);
+  background-size: 100% 240px;
+  animation: fmRoll2 var(--sd, 1.2s) linear infinite;
+}
+@keyframes fmRoll  { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 0 52px, 0 0, 0 0; } }
+@keyframes fmRoll2 { from { background-position: 0 0; } to { background-position: 0 240px; } }
+
+/* ---------- Roadside scenery (spawned by JS) ---------- */
+.fm-props { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.fm-prop {
+  position: absolute;
+  top: -80px;
+  transform: translate(-50%, 0) scale(var(--s, 1));
+  will-change: transform;
+  animation: fmPropFall var(--pd, 4s) linear forwards;
+}
+@keyframes fmPropFall { to { transform: translate(-50%, 820px) scale(var(--s, 1)); } }
+
+.fm-prop.tree {
+  width: 50px; height: 50px; border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #4fae5b, #2f8b40 55%, #246e32 100%);
+  box-shadow: 0 10px 14px -6px rgba(0,0,0,0.6), inset -4px -6px 8px rgba(0,0,0,0.3);
+}
+.fm-prop.tree::after {
+  content: ""; position: absolute; inset: 30% 30% 26% 30%;
+  border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,0.12), transparent 70%);
+}
+.fm-prop.bush {
+  width: 34px; height: 26px; border-radius: 50% 50% 46% 46%;
+  background: radial-gradient(circle at 40% 30%, #4aa455, #2c8038 70%);
+  box-shadow: 0 6px 10px -4px rgba(0,0,0,0.5);
+}
+.fm-prop.rock {
+  width: 26px; height: 22px; border-radius: 46% 54% 50% 50%;
+  background: radial-gradient(circle at 38% 30%, #9aa0ad, #6b7180 70%);
+  box-shadow: 0 5px 8px -3px rgba(0,0,0,0.5);
+}
+.fm-prop.flower { width: 16px; height: 16px; }
+.fm-prop.flower::before {
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: var(--fc, #ffd86b);
+  box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
+}
+.fm-prop.flower::after {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  width: 5px; height: 5px; transform: translate(-50%,-50%);
+  border-radius: 50%; background: #fff7d6;
+}
+.fm-prop.post { /* roadside fence post */
+  width: 8px; height: 26px; border-radius: 3px;
+  background: linear-gradient(180deg, #b07a44, #7c4f2c);
+  box-shadow: 0 5px 8px -3px rgba(0,0,0,0.5);
+}
+
+/* ---------- Track ---------- */
+.fm-track {
+  position: absolute;
+  top: 0; bottom: 0; left: 38%; width: 24%;
+  background:
+    linear-gradient(90deg, rgba(0,0,0,0.35), transparent 12%, transparent 88%, rgba(0,0,0,0.35)),
+    repeating-linear-gradient(90deg, #4a4738 0 6px, #423f32 6px 12px); /* gravel ballast */
+  box-shadow: inset 0 0 28px rgba(0,0,0,0.55);
+}
+.fm-ties {
+  position: absolute; inset: -52px 5px;
+  background: repeating-linear-gradient(180deg, #7a6038 0 13px, transparent 13px 52px);
+  filter: drop-shadow(0 2px 1px rgba(0,0,0,0.4));
+  animation: fmRoll3 var(--sd, 1.2s) linear infinite;
+}
+@keyframes fmRoll3 { from { background-position: 0 0; } to { background-position: 0 52px; } }
+.fm-track::after { /* two continuous steel rails */
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg,
+    transparent 25%, #c2c8d6 25% 28%, #868c9e 28% 30%, transparent 30%,
+    transparent 70%, #868c9e 70% 72%, #c2c8d6 72% 75%, transparent 75%);
+}
+
+/* ---------- Railroad crossing signals ---------- */
+.fm-signal {
+  position: absolute;
+  top: 60%;
+  width: 30px; height: 56px;
+  z-index: 6;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 6px 8px rgba(0,0,0,0.5));
+}
+.fm-signal-l { left: 31%; }
+.fm-signal-r { left: 69%; }
+.fm-crossbuck { position: absolute; left: 50%; top: 58%; width: 30px; height: 8px; transform: translate(-50%,-50%); }
+.fm-crossbuck::before, .fm-crossbuck::after {
+  content: ""; position: absolute; left: 0; top: 0;
+  width: 30px; height: 7px; border-radius: 2px;
+  background: #eef1f8; box-shadow: 0 0 0 1px rgba(0,0,0,0.3);
+}
+.fm-crossbuck::before { transform: rotate(45deg); }
+.fm-crossbuck::after  { transform: rotate(-45deg); }
+.fm-sign-light {
+  position: absolute; left: 50%; width: 11px; height: 11px;
+  transform: translateX(-50%); border-radius: 50%;
+  background: #5a1f1f; border: 1px solid #2a0d0d;
+}
+.fm-sign-light.a { top: 2px; }
+.fm-sign-light.b { top: 20px; }
+.fm-field.fm-alarm .fm-sign-light.a { animation: fmBlink 0.52s steps(1) infinite; }
+.fm-field.fm-alarm .fm-sign-light.b { animation: fmBlink 0.52s steps(1) infinite; animation-delay: 0.26s; }
+@keyframes fmBlink {
+  0%, 49.9% { background: #ff3b3b; box-shadow: 0 0 12px 3px rgba(255,59,59,0.9); }
+  50%, 100% { background: #5a1f1f; box-shadow: none; }
+}
+
+/* ---------- Farm goal (revealed on win) ---------- */
+.fm-farm {
+  position: absolute;
+  top: 4%; left: 50%;
+  transform: translateX(-50%) scale(0.7);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  opacity: 0;
+  transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 6; pointer-events: none;
+}
+.fm-field.fm-won .fm-farm { opacity: 1; transform: translateX(-50%) scale(1); }
+.fm-barn {
+  position: relative;
+  width: 124px; height: 78px; margin-top: 26px;
+  background: linear-gradient(180deg, #c5443a, #a3322a);
+  border-radius: 6px 6px 4px 4px;
+  box-shadow: 0 16px 32px -10px rgba(0,0,0,0.6), inset 0 0 0 3px rgba(255,255,255,0.08);
+}
+.fm-barn::before { /* roof */
+  content: ""; position: absolute; left: -12px; right: -12px; top: -27px; height: 0;
+  border-left: 74px solid transparent; border-right: 74px solid transparent;
+  border-bottom: 28px solid #8c2a23;
+}
+.fm-barn::after { /* white trim cross on the door area */
+  content: ""; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 44px; height: 52px;
+  background:
+    linear-gradient(#f3e6d0, #f3e6d0) center/4px 100% no-repeat,
+    linear-gradient(#f3e6d0, #f3e6d0) center/100% 4px no-repeat,
+    #6f211c;
+  border-radius: 4px 4px 0 0;
+}
+.fm-barn-door { display: none; }
+.fm-farm-extras { font-size: 1.7rem; letter-spacing: 3px; }
+
+/* ---------- Hazards ---------- */
+.fm-hazard {
+  position: absolute; top: 54%;
+  width: 92px; height: 92px;
+  transform: translate(-50%, -50%) scale(0.3);
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 4;
+  pointer-events: none;
+}
+.fm-haz-left { left: 19%; }
+.fm-haz-right { left: 81%; }
+.fm-hazard.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+/* pit */
+.fm-hazard.pit {
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 36%, #050509 52%, #161320 74%, #2c2740 100%);
+  box-shadow: 0 0 0 5px rgba(0,0,0,0.4), inset 0 10px 20px rgba(0,0,0,0.95), inset 0 -4px 8px rgba(120,90,180,0.15);
+}
+.fm-hazard.pit::after { /* crumbling rim highlight */
+  content: ""; position: absolute; inset: -2px;
+  border-radius: 50%;
+  box-shadow: inset 0 3px 4px rgba(255,255,255,0.12);
+}
+/* monster */
+.fm-hazard.monster {
+  border-radius: 46% 46% 42% 42%;
+  background: radial-gradient(circle at 50% 32%, #9a6cff, #5a36c8 68%, #3a2280 100%);
+  box-shadow: 0 10px 18px -4px rgba(0,0,0,0.6), inset -6px -8px 14px rgba(0,0,0,0.35);
+  animation: fmMonBob 0.6s ease-in-out infinite;
+}
+@keyframes fmMonBob { 0%,100% { margin-top: 0; } 50% { margin-top: -5px; } }
+.fm-hazard.monster::before, .fm-hazard.monster::after {
+  content: ""; position: absolute; top: 28%;
+  width: 20px; height: 24px; background: #fff; border-radius: 50%;
+  box-shadow: inset 0 0 0 6px #170a2c;
+}
+.fm-hazard.monster::before { left: 20%; }
+.fm-hazard.monster::after  { right: 20%; }
+/* monster horns + teeth via a child-less trick: use the show wrapper glow */
+.fm-hazard.monster.show { box-shadow: 0 10px 18px -4px rgba(0,0,0,0.6), inset -6px -8px 14px rgba(0,0,0,0.35), 0 0 22px rgba(154,108,255,0.5); }
+
+/* ---------- Train (long & slow) ---------- */
+.fm-train {
+  position: absolute;
+  top: -150%; left: 50%;
+  transform: translateX(-50%);
+  width: 20.5%;
+  height: 130%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 5;
+  filter: drop-shadow(0 14px 22px rgba(0,0,0,0.7));
+}
+.fm-car {
+  flex: 1;
+  border-radius: 9px;
+  background: linear-gradient(90deg, #15171f, #2c2f3d 50%, #15171f);
+  border: 1px solid #0a0b10;
+  position: relative;
+  overflow: hidden;
+}
+.fm-car::before { /* lit windows */
+  content: ""; position: absolute;
+  left: 16%; right: 16%; top: 9%; bottom: 9%;
+  border-radius: 4px;
+  background: repeating-linear-gradient(180deg, rgba(150,210,255,0.22) 0 9px, transparent 9px 22px);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+}
+.fm-car::after { /* roof walkway */
+  content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 4px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, rgba(255,255,255,0.2), rgba(255,255,255,0.04));
+}
+.fm-loco {
+  background: linear-gradient(90deg, #201019, #54222f 50%, #201019);
+  border-radius: 8px 8px 22px 22px; /* rounded nose (leading edge at bottom) */
+  flex: 1.4 1 0;
+}
+.fm-loco::before { background: repeating-linear-gradient(180deg, rgba(255,216,107,0.28) 0 8px, transparent 8px 20px); }
+.fm-loco::after  { background: linear-gradient(180deg, #ffd86b, rgba(255,216,107,0.08)); }
+.fm-headlight {
+  position: absolute;
+  left: 50%; bottom: 4px;
+  width: 16px; height: 16px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff7d0, #ffd86b 60%, transparent 75%);
+  box-shadow: 0 8px 26px 10px rgba(255,225,140,0.5);
+}
+
+/* ---------- Characters ---------- */
+.fm-char {
+  position: absolute;
+  top: 70%; left: 19%;
+  width: 44px; height: 48px;
+  transform: translate(-50%, -50%);
+  transition: left 0.18s cubic-bezier(0.34, 1.4, 0.5, 1), top 0.3s ease;
+  z-index: 5;
+}
+.fm-char::before { /* shoulders / torso from above */
+  content: ""; position: absolute;
+  left: 50%; top: 60%; width: 36px; height: 28px;
+  transform: translate(-50%, -50%);
+  border-radius: 48% 48% 44% 44%;
+  box-shadow: inset -3px -4px 6px rgba(0,0,0,0.28);
+}
+.fm-char::after { /* head + hair */
+  content: ""; position: absolute;
+  left: 50%; top: 38%; width: 25px; height: 25px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  box-shadow: inset -2px -3px 5px rgba(0,0,0,0.3), inset 3px 3px 5px rgba(255,255,255,0.18), 0 2px 3px rgba(0,0,0,0.4);
+  z-index: 2;
+}
+.fm-pack { /* backpack peeking from under the shoulders */
+  position: absolute; left: 50%; top: 52%;
+  width: 26px; height: 22px;
+  transform: translate(-50%, -50%);
+  border-radius: 8px;
+  box-shadow: inset -2px -3px 5px rgba(0,0,0,0.3);
+}
+.fm-arm {
+  position: absolute; top: 50%;
+  width: 9px; height: 19px;
+  border-radius: 6px;
+  transform-origin: 50% 15%;
+  box-shadow: inset -1px -2px 3px rgba(0,0,0,0.25);
+}
+.fm-arm-l { left: 12%; }
+.fm-arm-r { right: 12%; }
+.fm-shadow {
+  position: absolute; left: 50%; bottom: -5px;
+  width: 36px; height: 11px;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.34);
+  border-radius: 50%;
+  filter: blur(1.5px);
+  z-index: -1;
+}
+
+/* per-character colours */
+.fm-char-a::before, .fm-char-a .fm-arm { background: #3f7ff0; }   /* blue shirt */
+.fm-char-a::after  { background: radial-gradient(circle at 42% 32%, #875733, #6b4423 70%); } /* brown hair */
+.fm-char-a .fm-pack { background: #d2483c; }
+.fm-char-b::before, .fm-char-b .fm-arm { background: #2fe089; }   /* green shirt */
+.fm-char-b::after  { background: radial-gradient(circle at 42% 32%, #f3cf72, #e3b341 70%); } /* blonde hair */
+.fm-char-b .fm-pack { background: #7c5cff; }
+
+/* walk cycle */
+.fm-field.fm-live .fm-char { animation: fmWalk 0.42s ease-in-out infinite; }
+.fm-field.fm-live .fm-char-b { animation-delay: 0.21s; }
+.fm-field.fm-live .fm-arm-l { animation: fmArm 0.42s ease-in-out infinite; }
+.fm-field.fm-live .fm-arm-r { animation: fmArm 0.42s ease-in-out infinite reverse; }
+.fm-field.fm-live .fm-char-b .fm-arm-l { animation-delay: 0.21s; }
+.fm-field.fm-live .fm-char-b .fm-arm-r { animation-delay: 0.21s; }
+@keyframes fmWalk { 0%, 100% { margin-top: 0; } 50% { margin-top: -5px; } }
+@keyframes fmArm  { 0%, 100% { transform: rotate(14deg); } 50% { transform: rotate(-14deg); } }
+
+/* death states */
+.fm-char.fm-fall { animation: fmFall 0.7s ease-in forwards; z-index: 3; }
+@keyframes fmFall { to { transform: translate(-50%, -50%) scale(0.08) rotate(240deg); opacity: 0; } }
+.fm-char.fm-eaten { animation: fmEaten 0.55s ease-in forwards; }
+@keyframes fmEaten {
+  0% { transform: translate(-50%, -50%) scale(1); }
+  35% { transform: translate(-50%, -50%) scale(1.18) rotate(-8deg); }
+  100% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+}
+
+/* ---------- Warning banner ---------- */
+.fm-warn {
+  position: absolute; top: 14px; left: 50%;
+  transform: translateX(-50%) translateY(-14px);
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700; font-size: clamp(0.78rem, 2vw, 1rem);
+  letter-spacing: 1px; color: #fff;
+  background: linear-gradient(90deg, #ff5c9c, #ff8a5c);
+  padding: 8px 18px; border-radius: 999px;
+  box-shadow: 0 10px 26px -8px rgba(255,92,156,0.7);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 9;
+}
+.fm-warn.show { opacity: 1; transform: translateX(-50%) translateY(0); animation: fmWarnPulse 0.5s ease-in-out infinite; }
+@keyframes fmWarnPulse { 0%,100% { transform: translateX(-50%) translateY(0) scale(1); } 50% { transform: translateX(-50%) translateY(0) scale(1.05); } }
+
+/* ---------- Atmosphere ---------- */
+.fm-vignette {
+  position: absolute; inset: 0; z-index: 8; pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 70% at 50% 45%, transparent 55%, rgba(0,0,0,0.5) 100%),
+    linear-gradient(180deg, rgba(10,20,12,0.35), transparent 18%);
+}
+.fm-field.fm-shake { animation: fmShake 0.45s ease-in-out infinite; }
+@keyframes fmShake {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-2px, 1px); }
+  50% { transform: translate(2px, -1px); }
+  75% { transform: translate(-1px, -1px); }
+}
+
+/* ---------- Overlays ---------- */
+.fm-overlay {
+  position: absolute; inset: 0; z-index: 10;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center; gap: 14px;
+  padding: clamp(20px, 5vw, 48px);
+  background: rgba(8, 8, 18, 0.74);
+  backdrop-filter: blur(6px);
+}
+.fm-overlay[hidden] { display: none; }
+.fm-overlay h2 {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(1.5rem, 4vw, 2.2rem); font-weight: 700;
+  background: linear-gradient(120deg, #fff, #b9a8ff 60%, #8af0e3);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.fm-overlay p { font-size: 0.98rem; line-height: 1.55; color: #e7e9f7; max-width: 460px; }
+.fm-rules { font-size: 0.9rem; color: var(--muted); }
+.fm-keys { font-size: 0.8rem; color: var(--muted); }
+.fm-bigstat {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700; font-size: 1.2rem;
+  color: var(--accent-2) !important;
+}
+.fm-bigstat span { font-size: 1.8rem; color: var(--text); }
+.fm-btn {
+  font-family: "Inter", sans-serif;
+  font-size: 1rem; font-weight: 600; color: #fff;
+  background: linear-gradient(120deg, var(--accent), #b06bff);
+  border: none; border-radius: 14px;
+  padding: 13px 30px; cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.fm-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -8px var(--accent); }
+.fm-btn:active { transform: translateY(0) scale(0.98); }
+
+/* ---------- Touch controls ---------- */
+.fm-controls { display: flex; gap: 14px; margin-top: 16px; }
+.fm-ctrl {
+  flex: 1; font-size: 1.6rem; color: var(--text);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--card-border);
+  border-radius: 16px; padding: 16px;
+  cursor: pointer; user-select: none;
+  transition: background 0.18s ease, transform 0.12s ease, border-color 0.18s ease;
+}
+.fm-ctrl:hover { background: rgba(124,92,255,0.16); border-color: var(--accent); }
+.fm-ctrl:active { transform: scale(0.96); background: rgba(124,92,255,0.28); }
+
+@media (min-width: 760px) { .fm-controls { display: none; } }
+
+/* The reduced-motion rule in styles.css freezes the scenery and snaps the
+   train, but the game's timing is JS-driven (setTimeout), so it stays
+   playable — you just lose the smooth motion. */

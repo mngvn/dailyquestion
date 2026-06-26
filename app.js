@@ -386,6 +386,35 @@
     });
   }
 
+  // Collapse the whole vault section + a "reveal all" control.
+  const vaultSection = document.getElementById("vault");
+  const vaultHead = document.getElementById("vaultHead");
+  const vaultRevealAll = document.getElementById("vaultRevealAll");
+
+  if (vaultSection && vaultHead) {
+    const toggleVault = () => {
+      const collapsed = vaultSection.classList.toggle("collapsed");
+      vaultHead.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    };
+    vaultHead.addEventListener("click", toggleVault);
+    vaultHead.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleVault(); }
+    });
+  }
+
+  if (vaultRevealAll && vaultList) {
+    vaultRevealAll.addEventListener("click", () => {
+      const rows = [...vaultList.children];
+      const reveal = rows.some((r) => !r.classList.contains("open"));
+      rows.forEach((r) => {
+        r.classList.toggle("open", reveal);
+        r.setAttribute("aria-expanded", reveal ? "true" : "false");
+      });
+      vaultRevealAll.textContent = reveal ? "Hide all answers" : "Reveal all answers";
+      vaultRevealAll.setAttribute("aria-pressed", reveal ? "true" : "false");
+    });
+  }
+
   // ----- Init -----
   renderStreak(false);
   renderFooter();
