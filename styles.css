@@ -621,20 +621,6 @@ body.modal-open { overflow: hidden; }
 }
 .pz-tab-ico { font-size: 0.95rem; }
 
-.pz-bar { display: flex; justify-content: flex-end; }
-.pz-new {
-  font-family: "Inter", sans-serif;
-  font-size: 0.8rem; font-weight: 600;
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--card-border);
-  border-radius: 999px;
-  padding: 7px 16px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.pz-new:hover { background: rgba(255, 255, 255, 0.14); transform: translateY(-1px); }
-
 .pz-game { display: flex; flex-direction: column; gap: 14px; align-items: center; }
 .pz-intro {
   font-size: 0.92rem;
