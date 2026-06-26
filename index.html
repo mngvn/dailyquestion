@@ -87,13 +87,20 @@
     </div>
   </main>
 
-  <section class="vault reveal" style="--i:5">
-    <div class="vault-head">
+  <section class="vault reveal" style="--i:5" id="vault">
+    <div class="vault-head" id="vaultHead" role="button" tabindex="0" aria-expanded="true" aria-controls="vaultBody">
       <span class="card-icon">📚</span>
       <h2>Most Common Trivia Questions</h2>
-      <span class="vault-tag">Tap to reveal</span>
+      <span class="vault-chevron" id="vaultChevron" aria-hidden="true">▾</span>
     </div>
-    <div class="vault-list" id="vaultList"></div>
+    <div class="vault-collapse" id="vaultBody">
+      <div class="vault-collapse-inner">
+        <div class="vault-controls">
+          <button class="vault-revealall" id="vaultRevealAll" type="button" aria-pressed="false">Reveal all answers</button>
+        </div>
+        <div class="vault-list" id="vaultList"></div>
+      </div>
+    </div>
   </section>
 
   <footer class="footer reveal">
