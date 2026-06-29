@@ -1,12 +1,12 @@
-// orbit.js — "Orbit Surfer". You're a satellite riding a ring of surf ramps
-// around the Earth. Gravity always pulls toward the planet's core; the ramps
-// are frictionless, so sliding down them trades altitude for speed (just like
-// CS / Garry's Mod surf), and the glowing bounce pads fling you back up and
-// onward. Keep your momentum and ride a full 360° lap. Lose it and you fall.
+// orbit.js — "Orbit Surfer". A third-person surf runner set in orbit. The
+// camera floats BEHIND and ABOVE your satellite, looking forward down a
+// glowing surf ribbon that weaves and banks through space above the Earth.
 //
-// The world is polar: everything lives in cartesian coords around the Earth's
-// centre at (0,0), and the camera rotates so that "down toward the core" is
-// always screen-down — giving a classic side-on surf view of a curving world.
+// Gravity pulls you down; the ribbon is frictionless, so dropping down its
+// banked walls trades height for speed (classic CS / Garry's Mod surf). You
+// STRAFE left and right to follow the weave and ride up the sloped walls —
+// over-steer past the edge, or miss the ribbon entirely, and you drift off
+// into the void. Hold your line a full lap to make it all the way around.
 
 (function () {
   "use strict";
@@ -16,31 +16,33 @@
   const ctx = canvas.getContext("2d");
 
   // ---- world constants -----------------------------------------------------
-  const RE = 1600;                            // Earth radius
-  const PR = 11;                              // player radius
-  const WAVES = 16;                           // surf moguls around the ring
-  const R_MID = RE + 330, R_AMP = 84;         // ring radius + wave amplitude
-  const GAP_EVERY = 4;                        // every Nth crest is a jump gap
-  const GAP_HALF = 0.062;                     // half-width of a gap (radians)
-  const R_CEIL = R_MID + R_AMP + 60;          // soft "atmosphere" ceiling
-  const rOf = (th) => R_MID - R_AMP * Math.cos(WAVES * th); // θ=0 is a trough
+  const PR = 0.7;            // player radius (world units)
+  const W = 7.2;             // ribbon half-width
+  const LAP = 1500;          // forward distance for a full 360° lap
+  const VOID = 26;           // how far you can drop below the ribbon before you're lost
 
-  // physics (tuned for 60fps; scaled by frame-time)
-  const G = 0.24;          // gravity accel toward core
-  const TH = 0.5;          // tangential thrust
-  const WS = 14.5;         // thrust speed cap (ramps let you exceed it)
-  const JUMP = 5;          // hop impulse (outward) — a small adjustment hop
-  const BOUNCE_OUT = 4;    // gentle outward hop off a bounce pad
-  const BOUNCE_BOOST = 1.6; // small prograde nudge off a pad (not a free ride)
-  const START_SPEED = 12;
+  // physics (tuned for 60fps; scaled by frame-time factor f)
+  const G = 0.022;           // gravity accel (−y)
+  const STRAFE = 0.052;      // lateral thrust per frame
+  const VX_CAP = 1.25;       // lateral speed cap
+  const THRUST_Z = 0.012;    // gentle forward engine so you never fully stall
+  const VZ_CAP = 1.85;       // forward speed soft cap
+  const HOP = 0.62;          // upward hop impulse
+  const DRAG = 0.9992;       // mild space drag
 
   // flavour scales for the HUD
-  const SPEED_SCALE = 31;  // world u/frame -> "m/s"
-  const ALT_SCALE = 6.2;   // world u -> "km"
+  const SPEED_SCALE = 150;   // world u/frame -> "m/s"
+  const ALT_SCALE = 9;       // world u -> "km"
 
   // ---- view / scaling ------------------------------------------------------
   const view = { scale: 1, ox: 0, oy: 0, dpr: 1, cw: VW, ch: VH };
-  const cam = { ax: VW * 0.36, ay: VH * 0.54, zoom: 0.56 };
+  // camera rig: behind + above the player, pitched down to look along the ribbon
+  const CAM_BACK = 17, CAM_UP = 9.5, PITCH = 0.34;
+  const FOC = VH * 1.12;                      // focal length (perspective)
+  const HORIZON = VH * 0.40;
+  const cosP = Math.cos(PITCH), sinP = Math.sin(PITCH);
+  const cam = { x: 0, y: 0 };                 // smoothed follow target
+
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const cw = window.innerWidth, ch = window.innerHeight;
@@ -54,198 +56,165 @@
   resize();
   window.addEventListener("resize", resize);
 
-  // ---- track ---------------------------------------------------------------
-  function P(ang, r) { return { x: Math.cos(ang) * r, y: Math.sin(ang) * r }; }
-  function seg(a, b, bouncy) {
-    return {
-      ax: a.x, ay: a.y, bx: b.x, by: b.y, bouncy: !!bouncy,
-      mid: Math.atan2((a.y + b.y) / 2, (a.x + b.x) / 2),
-    };
+  // ---- the surf ribbon -----------------------------------------------------
+  // A winding, banked road through space. Difficulty grows with distance: the
+  // weave gets wider and tighter the further you ride.
+  function xAmp(z) { return 9 + z * 0.0045; }
+  function xPath(z) {
+    const a = xAmp(z);
+    return a * Math.sin(z * 0.019) + 4.2 * Math.sin(z * 0.043 + 1.3);
   }
-  let segs = [], gaps = [];
-  function crestAngle(m) { return (2 * m + 1) * Math.PI / WAVES; } // local maxima of rOf
-  function inGap(th) {
-    for (const g of gaps) if (Math.abs(wrapPi(th - g)) < GAP_HALF) return true;
-    return false;
+  function yPath(z) {                          // gentle rolling hills
+    return 5.5 * Math.sin(z * 0.013 + 0.5) + 2.4 * Math.sin(z * 0.031);
   }
-  function buildTrack() {
-    segs = []; gaps = [];
-    for (let m = 0; m < WAVES; m++) if (m % GAP_EVERY === 0) gaps.push(crestAngle(m));
-
-    // continuous wavy surface, broken by the gaps
-    const SAMPLES = 480;
-    let prev = null;
-    for (let i = 0; i <= SAMPLES; i++) {
-      const th = (i / SAMPLES) * Math.PI * 2;
-      if (inGap(th)) { prev = null; continue; }
-      const pt = P(th, rOf(th));
-      if (prev) segs.push(seg(prev, pt, false));
-      prev = pt;
-    }
-    // a bounce pad on the lip leading into each gap, kicked outward to launch
-    for (const g of gaps) {
-      const t1 = g - GAP_HALF - 0.012;
-      segs.push(seg(P(t1 - 0.045, rOf(t1 - 0.045)), P(t1, rOf(t1) + 55), true));
-    }
+  // numeric 2nd derivative of the path → banks the turns (ride the walls)
+  function bank(z) {
+    const h = 1.5;
+    const dd = (xPath(z + h) - 2 * xPath(z) + xPath(z - h)) / (h * h);
+    return clamp(-dd * 1.7, -0.85, 0.85);
+  }
+  // surface height across the ribbon (u is offset from the centre, in world-x)
+  function groundY(x, z) { return yPath(z) + bank(z) * (x - xPath(z)); }
+  // outward surface normal via finite differences
+  function surfaceNormal(x, z) {
+    const e = 0.6;
+    const dyx = (groundY(x + e, z) - groundY(x - e, z)) / (2 * e);
+    const dyz = (groundY(x, z + e) - groundY(x, z - e)) / (2 * e);
+    return norm3(-dyx, 1, -dyz);
   }
 
   // ---- state ---------------------------------------------------------------
   let phase = "intro";                 // intro | play | fail | win
-  const pos = { x: 0, y: 0 }, vel = { x: 0, y: 0 };
-  let onSurface = false, lastNx = 0, lastNy = -1;
-  let prevAng = 0, totalAng = 0, best = 0;
+  const pos = { x: 0, y: 0, z: 0 }, vel = { x: 0, y: 0, z: 0 };
+  let onSurface = false, offRamp = false;
+  let best = 0, clock = 0, shake = 0, camYsmooth = 0;
   let jumpQueued = false;
   let particles = [], trail = [];
-  let shake = 0, clock = 0;
-  const input = { pro: false, retro: false };
+  const input = { left: false, right: false };
 
   try { best = Math.max(0, Math.min(100, +localStorage.getItem("orbit.best") || 0)); } catch (e) { /* ignore */ }
 
   function reset() {
-    buildTrack();
-    // start nestled in the first trough (θ=0) just above the surface
-    const p = P(0, rOf(0) + PR);
-    pos.x = p.x; pos.y = p.y;
-    const out = norm(pos);
-    const pro = { x: -out.y, y: out.x };          // CCW tangential
-    vel.x = pro.x * START_SPEED; vel.y = pro.y * START_SPEED;
-    onSurface = false;
-    prevAng = Math.atan2(pos.y, pos.x); totalAng = 0;
+    pos.z = 0; pos.x = xPath(0); pos.y = groundY(pos.x, 0) + PR;
+    vel.x = 0; vel.y = 0; vel.z = 1.0;         // a little starting momentum
+    onSurface = true; offRamp = false;
+    cam.x = pos.x; cam.y = pos.y; camYsmooth = pos.y;
     particles = []; trail = []; shake = 0;
-    input.pro = input.retro = false; jumpQueued = false;
+    input.left = input.right = false; jumpQueued = false;
   }
 
   // ---- math helpers --------------------------------------------------------
-  function norm(v) { const d = Math.hypot(v.x, v.y) || 1; return { x: v.x / d, y: v.y / d }; }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
-  function wrapPi(a) { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; }
+  function norm3(x, y, z) { const d = Math.hypot(x, y, z) || 1; return { x: x / d, y: y / d, z: z / d }; }
 
   // ---- physics -------------------------------------------------------------
-  function resolveSeg(s) {
-    const ex = s.bx - s.ax, ey = s.by - s.ay;
-    const L2 = ex * ex + ey * ey || 1;
-    let t = ((pos.x - s.ax) * ex + (pos.y - s.ay) * ey) / L2;
-    t = clamp(t, 0, 1);
-    const cx = s.ax + ex * t, cy = s.ay + ey * t;
-    let dx = pos.x - cx, dy = pos.y - cy;
-    let d = Math.hypot(dx, dy);
-    if (d >= PR) return;
-    if (d < 1e-4) { dx = -ey; dy = ex; d = Math.hypot(dx, dy) || 1; }
-    const nx = dx / d, ny = dy / d;
-    pos.x = cx + nx * PR; pos.y = cy + ny * PR;
-    const vn = vel.x * nx + vel.y * ny;
-    if (vn < 0) {
-      if (s.bouncy) {
-        // Redirect into a controlled forward hop: a modest outward kick plus a
-        // guaranteed prograde push, so you arc across the gap — never launched
-        // off into deep space.
-        const d2 = Math.hypot(pos.x, pos.y) || 1;
-        const ox = pos.x / d2, oy = pos.y / d2;       // outward
-        const px = -oy, py = ox;                       // CCW prograde
-        const vpro = vel.x * px + vel.y * py + BOUNCE_BOOST; // keep your speed (+nudge)
-        vel.x = ox * BOUNCE_OUT + px * vpro; vel.y = oy * BOUNCE_OUT + py * vpro;
-        burst(cx, cy, 14, "#5ffbf1"); shake = Math.min(14, shake + 7);
-      } else {
-        vel.x -= vn * nx; vel.y -= vn * ny;     // frictionless → surf
-        if (Math.random() < 0.6) spark(cx, cy);
-      }
-    }
-    onSurface = true; lastNx = nx; lastNy = ny;
-  }
-
   function step(f) {
-    const d = Math.hypot(pos.x, pos.y) || 1;
-    const outx = pos.x / d, outy = pos.y / d;     // outward (away from core)
-    // gravity toward core
-    vel.x -= outx * G * f; vel.y -= outy * G * f;
-    // soft ceiling: thin upper atmosphere reels you back toward the ring, so
-    // an over-fast launch arcs back down instead of escaping into the void
-    if (d > R_CEIL) {
-      const k = Math.min(3, (d - R_CEIL) * 0.06) * f;
-      vel.x -= outx * k; vel.y -= outy * k;
-    }
-    // tangential thrust toward a wish-speed cap (surfing can exceed it)
-    const progx = -outy, progy = outx;            // CCW tangential
-    let wish = (input.pro ? 1 : 0) - (input.retro ? 1 : 0);
-    if (wish !== 0) {
-      const tang = vel.x * progx + vel.y * progy;
-      const cap = WS * wish;
-      if (wish > 0 ? tang < cap : tang > cap) {
-        let nt = tang + TH * f * wish;
-        nt = wish > 0 ? Math.min(nt, cap) : Math.max(nt, cap);
-        const dv = nt - tang;
-        vel.x += progx * dv; vel.y += progy * dv;
-      }
-    }
-    pos.x += vel.x * f; pos.y += vel.y * f;
+    // gravity
+    vel.y -= G * f;
+    // forward engine toward the soft cap (keeps you from ever fully stalling)
+    if (vel.z < VZ_CAP) vel.z = Math.min(VZ_CAP, vel.z + THRUST_Z * f);
+    // strafe input
+    const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+    if (dir) vel.x = clamp(vel.x + dir * STRAFE * f, -VX_CAP, VX_CAP);
+    else vel.x *= Math.pow(0.86, f);           // ease back when not steering
+
+    // integrate
+    pos.x += vel.x * f; pos.y += vel.y * f; pos.z += vel.z * f;
+
+    // mild drag so surfing speed stays bounded
+    vel.x *= Math.pow(DRAG, f); vel.z *= Math.pow(DRAG, f);
+
+    // ribbon contact
+    const cx = xPath(pos.z);
+    offRamp = Math.abs(pos.x - cx) > W;
     onSurface = false;
-    const lo = wrapPi(Math.atan2(pos.y, pos.x));
-    for (const s of segs) {
-      if (Math.abs(wrapPi(s.mid - lo)) < 0.45) resolveSeg(s);
-    }
-    if (jumpQueued && onSurface) {
-      const o = norm(pos);
-      vel.x += o.x * JUMP; vel.y += o.y * JUMP;
-      jumpQueued = false; onSurface = false;
+    if (!offRamp) {
+      const gy = groundY(pos.x, pos.z) + PR;
+      if (pos.y <= gy) {
+        pos.y = gy;
+        const n = surfaceNormal(pos.x, pos.z);
+        const vn = vel.x * n.x + vel.y * n.y + vel.z * n.z;
+        if (vn < 0) {                          // frictionless: cancel into-surface velocity → surf
+          vel.x -= vn * n.x; vel.y -= vn * n.y; vel.z -= vn * n.z;
+          if (Math.random() < 0.5) spark(pos.x, gy - PR, pos.z);
+        }
+        onSurface = true;
+        if (jumpQueued) {
+          vel.x += n.x * HOP; vel.y += n.y * HOP + HOP * 0.5; vel.z += n.z * HOP;
+          jumpQueued = false; onSurface = false;
+        }
+      }
     }
   }
 
   function physics(dt) {
     const f = Math.min(2.2, dt * 60);
-    const speed = Math.hypot(vel.x, vel.y);
-    const steps = clamp(Math.ceil(speed * f / 7), 1, 10);
+    const speed = Math.hypot(vel.x, vel.y, vel.z);
+    const steps = clamp(Math.ceil(speed * f / 1.2), 1, 8);
     const sf = f / steps;
     for (let i = 0; i < steps; i++) step(sf);
 
-    // progress (CCW positive)
-    const a = Math.atan2(pos.y, pos.x);
-    totalAng += wrapPi(a - prevAng); prevAng = a;
+    // camera follow (lag the lateral + vertical so strafing reads nicely)
+    cam.x += (pos.x - cam.x) * Math.min(1, 0.12 * f);
+    camYsmooth += (pos.y - camYsmooth) * Math.min(1, 0.08 * f);
 
     // trail + particle upkeep
-    trail.push({ x: pos.x, y: pos.y }); if (trail.length > 26) trail.shift();
+    trail.push({ x: pos.x, y: pos.y, z: pos.z }); if (trail.length > 30) trail.shift();
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
-      p.x += p.vx * f; p.y += p.vy * f; p.vx *= 0.94; p.vy *= 0.94;
+      p.x += p.vx * f; p.y += p.vy * f; p.z += p.vz * f;
+      p.vx *= 0.93; p.vy *= 0.93; p.vz *= 0.93;
       p.life -= f; if (p.life <= 0) particles.splice(i, 1);
     }
     if (shake > 0) shake = Math.max(0, shake - f);
 
-    // outcomes — crashing into the Earth is the only way to lose
-    const r = Math.hypot(pos.x, pos.y);
-    if (totalAng / (Math.PI * 2) * 100 >= 100) return win();
-    if (r <= RE + PR - 2) return fail("Burned up on re-entry.");
+    // outcomes
+    if (pos.z / LAP * 100 >= 100) return win();
+    if (pos.y < yPath(pos.z) - VOID) return fail("Drifted off into the void.");
   }
 
   // ---- particles -----------------------------------------------------------
-  function spark(x, y) {
-    particles.push({ x, y, vx: (Math.random() - 0.5) * 3, vy: (Math.random() - 0.5) * 3,
-      life: 8 + Math.random() * 8, max: 16, c: "#ffd86b", r: 1.5 + Math.random() * 1.5 });
+  function spark(x, y, z) {
+    particles.push({ x, y, z, vx: (Math.random() - 0.5) * 0.3, vy: Math.random() * 0.25,
+      vz: -0.2 - Math.random() * 0.2, life: 8 + Math.random() * 8, max: 16, c: "#ffd86b", r: 1.6 });
   }
-  function burst(x, y, n, c) {
+  function burst(x, y, z, n, c) {
     for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2, sp = 2 + Math.random() * 5;
-      particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
-        life: 14 + Math.random() * 14, max: 28, c, r: 1.5 + Math.random() * 2.5 });
+      const a = Math.random() * Math.PI * 2, e = (Math.random() - 0.5) * 1.5, sp = 0.2 + Math.random() * 0.5;
+      particles.push({ x, y, z, vx: Math.cos(a) * sp, vy: Math.abs(e) * sp + 0.2, vz: Math.sin(a) * sp,
+        life: 14 + Math.random() * 16, max: 30, c, r: 2 + Math.random() * 2.5 });
     }
+  }
+
+  // ---- projection (behind + above, looking forward) ------------------------
+  // Returns logical-space screen coords + depth, or null if behind the camera.
+  function project(X, Y, Z) {
+    const rx = X - cam.x;
+    const ry = Y - (camYsmooth + CAM_UP);
+    const rz = Z - (pos.z - CAM_BACK);
+    const ru = ry * cosP + rz * sinP;          // along camera "up"
+    const rf = -ry * sinP + rz * cosP;         // along camera "forward" (depth)
+    if (rf < 0.6) return null;
+    const inv = FOC / rf;
+    return { sx: VW / 2 + rx * inv, sy: HORIZON - ru * inv, depth: rf };
   }
 
   // ---- rendering -----------------------------------------------------------
   const stars = [];
-  for (let i = 0; i < 140; i++) stars.push({ x: Math.random(), y: Math.random(), r: Math.random() * 1.4 + 0.3, tw: Math.random() * Math.PI * 2 });
+  for (let i = 0; i < 150; i++) stars.push({ x: Math.random(), y: Math.random() * 0.55, r: Math.random() * 1.4 + 0.3, tw: Math.random() * Math.PI * 2 });
+  const LIGHT = norm3(-0.3, 0.9, -0.25);
 
   function draw() {
     const cw = view.cw, ch = view.ch;
     ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
-    ctx.clearRect(0, 0, cw, ch);
-
-    // starfield (screen space, gentle parallax drift with progress)
-    const drift = totalAng * 40;
     ctx.fillStyle = "#03040c"; ctx.fillRect(0, 0, cw, ch);
+
+    // starfield (screen space, drifts sideways as you weave, up/down won't matter)
+    const drift = cam.x * 6;
     for (const s of stars) {
       const sx = ((s.x * cw - drift) % cw + cw) % cw;
-      const a = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(clock * 2 + s.tw));
-      ctx.globalAlpha = a;
-      ctx.fillStyle = "#cfe0ff";
+      const a = 0.35 + 0.55 * (0.5 + 0.5 * Math.sin(clock * 2 + s.tw));
+      ctx.globalAlpha = a; ctx.fillStyle = "#cfe0ff";
       ctx.fillRect(sx, s.y * ch, s.r, s.r);
     }
     ctx.globalAlpha = 1;
@@ -254,127 +223,146 @@
     ctx.translate(view.ox, view.oy);
     ctx.scale(view.scale, view.scale);
 
-    // camera: rotate so outward = up, player anchored on screen
-    const theta = Math.atan2(pos.y, pos.x);
     const sh = shake > 0 ? (Math.random() - 0.5) * shake : 0;
-    ctx.save();
-    ctx.translate(cam.ax + sh, cam.ay + sh);
-    ctx.scale(cam.zoom, cam.zoom);
-    ctx.rotate(-Math.PI / 2 - theta);
-    ctx.translate(-pos.x, -pos.y);
+    ctx.translate(sh, sh);
 
-    drawEarth();
-    drawTrack(theta);
+    drawEarthHorizon();
+    drawRibbon();
     drawTrail();
     drawPlayer();
     drawParticles();
+  }
 
+  // The Earth fills the sky far ahead/below for the orbital backdrop + glow.
+  function drawEarthHorizon() {
+    const grad = ctx.createLinearGradient(0, HORIZON - 70, 0, HORIZON + 60);
+    grad.addColorStop(0, "rgba(90,170,255,0)");
+    grad.addColorStop(0.55, "rgba(90,170,255,0.28)");
+    grad.addColorStop(1, "rgba(20,60,130,0.05)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(-200, HORIZON - 70, VW + 400, 130);
+
+    // a huge, gently curved limb of the planet sitting on the horizon
+    ctx.save();
+    const cxp = VW / 2 - cam.x * 2;
+    const g = ctx.createRadialGradient(cxp, HORIZON + 1400, 900, cxp, HORIZON + 1400, 1500);
+    g.addColorStop(0, "#2b6fd6"); g.addColorStop(0.7, "#11407f"); g.addColorStop(1, "#0a2247");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(cxp, HORIZON + 1400, 1480, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = 4; ctx.strokeStyle = "rgba(150,210,255,0.45)";
+    ctx.beginPath(); ctx.arc(cxp, HORIZON + 1400, 1480, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
     ctx.restore();
   }
 
-  function drawEarth() {
-    // atmosphere glow
-    const atmo = ctx.createRadialGradient(0, 0, RE * 0.9, 0, 0, RE + 360);
-    atmo.addColorStop(0, "rgba(90,170,255,0.0)");
-    atmo.addColorStop(0.55, "rgba(90,170,255,0.30)");
-    atmo.addColorStop(1, "rgba(90,170,255,0)");
-    ctx.fillStyle = atmo;
-    ctx.beginPath(); ctx.arc(0, 0, RE + 360, 0, Math.PI * 2); ctx.fill();
+  // Draw the ribbon as a tessellated strip, far → near (painter's algorithm).
+  function drawRibbon() {
+    const NX = 7;                              // columns across the width
+    const STEP = 4, FAR = 240;
+    const z0 = Math.floor(pos.z / STEP) * STEP - 12;
 
-    // ocean
-    const g = ctx.createRadialGradient(-RE * 0.3, -RE * 0.3, RE * 0.2, 0, 0, RE);
-    g.addColorStop(0, "#2b6fd6");
-    g.addColorStop(0.7, "#11407f");
-    g.addColorStop(1, "#0a2247");
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(0, 0, RE, 0, Math.PI * 2); ctx.fill();
+    ctx.lineJoin = "round";
+    for (let z = z0 + FAR; z >= z0; z -= STEP) {
+      const za = z, zb = z + STEP;
+      for (let j = 0; j < NX; j++) {
+        const ua = -1 + (2 * j) / NX, ub = -1 + (2 * (j + 1)) / NX;
+        const xa0 = xPath(za) + ua * W, xa1 = xPath(za) + ub * W;
+        const xb0 = xPath(zb) + ua * W, xb1 = xPath(zb) + ub * W;
+        const p1 = project(xa0, groundY(xa0, za), za);
+        const p2 = project(xa1, groundY(xa1, za), za);
+        const p3 = project(xb1, groundY(xb1, zb), zb);
+        const p4 = project(xb0, groundY(xb0, zb), zb);
+        if (!p1 || !p2 || !p3 || !p4) continue;
 
-    // continents — small blobs hugging the surface (scroll past as you orbit)
-    ctx.fillStyle = "rgba(70,165,95,0.9)";
-    for (let i = 0; i < 40; i++) {
-      const a = i * 0.61, rr = RE - 36 - (i % 3) * 16;
-      const c = P(a, rr);
-      ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(a + Math.PI / 2);
-      ctx.beginPath();
-      ctx.ellipse(0, 0, 46 + (i % 4) * 22, 26 + (i % 3) * 12, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+        // shade by surface normal + distance fog
+        const n = surfaceNormal(xPath(za) + (ua + ub) / 2 * W, za);
+        const lit = clamp(0.45 + (n.x * LIGHT.x + n.y * LIGHT.y + n.z * LIGHT.z) * 0.7, 0.2, 1);
+        const fog = clamp(1 - (za - z0) / FAR, 0.12, 1);
+        const checker = (j + Math.floor(za / STEP)) % 2 === 0 ? 1 : 0.82;
+        const r = Math.round(120 * lit * checker), gg = Math.round(96 * lit * checker), b = Math.round(210 * lit);
+        ctx.globalAlpha = fog;
+        ctx.fillStyle = `rgb(${r},${gg},${b})`;
+        ctx.beginPath();
+        ctx.moveTo(p1.sx, p1.sy); ctx.lineTo(p2.sx, p2.sy);
+        ctx.lineTo(p3.sx, p3.sy); ctx.lineTo(p4.sx, p4.sy); ctx.closePath(); ctx.fill();
+      }
+      // glowing edge rails + periodic boost chevrons
+      drawRail(za, zb, -1, z0, FAR);
+      drawRail(za, zb, 1, z0, FAR);
     }
-    // shoreline highlight
-    ctx.lineWidth = 6; ctx.strokeStyle = "rgba(150,210,255,0.5)";
-    ctx.beginPath(); ctx.arc(0, 0, RE, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
   }
 
-  function drawTrack(theta) {
-    for (const s of segs) {
-      if (Math.abs(wrapPi(s.mid - theta)) > 0.7) continue;
-      ctx.lineCap = "round";
-      if (s.bouncy) {
-        ctx.lineWidth = 13; ctx.strokeStyle = "rgba(95,251,241,0.25)";
-        ctx.beginPath(); ctx.moveTo(s.ax, s.ay); ctx.lineTo(s.bx, s.by); ctx.stroke();
-        ctx.lineWidth = 6; ctx.strokeStyle = "#5ffbf1";
-        ctx.beginPath(); ctx.moveTo(s.ax, s.ay); ctx.lineTo(s.bx, s.by); ctx.stroke();
-        // little chevrons pointing outward
-        const mx = (s.ax + s.bx) / 2, my = (s.ay + s.by) / 2;
-        const o = norm({ x: mx, y: my });
-        ctx.fillStyle = "#5ffbf1";
-        ctx.beginPath();
-        ctx.moveTo(mx + o.x * 6, my + o.y * 6);
-        ctx.lineTo(mx - o.y * 9, my + o.x * 9);
-        ctx.lineTo(mx + o.y * 9, my - o.x * 9);
-        ctx.closePath(); ctx.fill();
-      } else {
-        ctx.lineWidth = 11; ctx.strokeStyle = "rgba(160,120,255,0.22)";
-        ctx.beginPath(); ctx.moveTo(s.ax, s.ay); ctx.lineTo(s.bx, s.by); ctx.stroke();
-        ctx.lineWidth = 5; ctx.strokeStyle = "#b69bff";
-        ctx.beginPath(); ctx.moveTo(s.ax, s.ay); ctx.lineTo(s.bx, s.by); ctx.stroke();
-      }
-    }
+  function drawRail(za, zb, side, z0, FAR) {
+    const xa = xPath(za) + side * W, xb = xPath(zb) + side * W;
+    const pa = project(xa, groundY(xa, za), za);
+    const pb = project(xb, groundY(xb, zb), zb);
+    if (!pa || !pb) return;
+    const fog = clamp(1 - (za - z0) / FAR, 0.12, 1);
+    ctx.globalAlpha = fog;
+    ctx.lineWidth = clamp(60 / pa.depth, 1, 6);
+    ctx.strokeStyle = "rgba(95,251,241,0.35)";
+    ctx.beginPath(); ctx.moveTo(pa.sx, pa.sy); ctx.lineTo(pb.sx, pb.sy); ctx.stroke();
+    ctx.lineWidth = clamp(28 / pa.depth, 0.6, 3);
+    ctx.strokeStyle = "#5ffbf1";
+    ctx.beginPath(); ctx.moveTo(pa.sx, pa.sy); ctx.lineTo(pb.sx, pb.sy); ctx.stroke();
   }
 
   function drawTrail() {
     for (let i = 0; i < trail.length; i++) {
       const t = trail[i], a = i / trail.length;
+      const p = project(t.x, t.y, t.z);
+      if (!p) continue;
       ctx.globalAlpha = a * 0.5;
       ctx.fillStyle = "#9fd0ff";
-      ctx.beginPath(); ctx.arc(t.x, t.y, PR * a * 0.8, 0, Math.PI * 2); ctx.fill();
+      const rr = clamp((PR * 70) / p.depth, 0.5, 7) * a;
+      ctx.beginPath(); ctx.arc(p.sx, p.sy, rr, 0, Math.PI * 2); ctx.fill();
     }
     ctx.globalAlpha = 1;
   }
 
   function drawPlayer() {
-    const o = norm(pos);
-    const ang = Math.atan2(vel.y, vel.x);
+    // shadow on the ribbon directly beneath
+    if (!offRamp) {
+      const sp = project(pos.x, groundY(pos.x, pos.z) + 0.05, pos.z);
+      if (sp) {
+        ctx.globalAlpha = 0.35; ctx.fillStyle = "#000";
+        const sr = clamp((PR * 110) / sp.depth, 1, 18);
+        ctx.beginPath(); ctx.ellipse(sp.sx, sp.sy, sr, sr * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
+    const p = project(pos.x, pos.y, pos.z);
+    if (!p) return;
+    const sc = clamp((PR * 150) / p.depth, 6, 60);
+    const roll = clamp(-vel.x * 0.5, -0.6, 0.6);   // bank into the strafe
     ctx.save();
-    ctx.translate(pos.x, pos.y);
+    ctx.translate(p.sx, p.sy);
     // glow
-    const gl = ctx.createRadialGradient(0, 0, 0, 0, 0, PR * 3);
-    gl.addColorStop(0, "rgba(150,210,255,0.9)");
-    gl.addColorStop(1, "rgba(150,210,255,0)");
-    ctx.fillStyle = gl;
-    ctx.beginPath(); ctx.arc(0, 0, PR * 3, 0, Math.PI * 2); ctx.fill();
-    // body (little satellite)
-    ctx.rotate(ang);
-    ctx.fillStyle = "#eaf2ff";
-    ctx.beginPath(); ctx.arc(0, 0, PR, 0, Math.PI * 2); ctx.fill();
+    const gl = ctx.createRadialGradient(0, 0, 0, 0, 0, sc * 2.4);
+    gl.addColorStop(0, "rgba(150,210,255,0.85)"); gl.addColorStop(1, "rgba(150,210,255,0)");
+    ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(0, 0, sc * 2.4, 0, Math.PI * 2); ctx.fill();
+    // satellite, seen from behind/above: body + two solar panels
+    ctx.rotate(roll);
     ctx.fillStyle = "#3a7bff";
-    ctx.fillRect(-PR * 1.9, -PR * 0.42, PR * 0.8, PR * 0.84); // solar panel
-    ctx.fillRect(PR * 1.1, -PR * 0.42, PR * 0.8, PR * 0.84);
-    ctx.strokeStyle = "#3a7bff"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(-PR, 0); ctx.lineTo(PR, 0); ctx.stroke();
+    ctx.fillRect(-sc * 2.0, -sc * 0.32, sc * 1.0, sc * 0.64);   // left panel
+    ctx.fillRect(sc * 1.0, -sc * 0.32, sc * 1.0, sc * 0.64);    // right panel
+    ctx.strokeStyle = "#2a5fd0"; ctx.lineWidth = sc * 0.08;
+    ctx.beginPath(); ctx.moveTo(-sc * 1.0, 0); ctx.lineTo(sc * 1.0, 0); ctx.stroke();
+    ctx.fillStyle = "#eaf2ff";
+    ctx.beginPath(); ctx.arc(0, 0, sc * 0.62, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#9ec6ff";
+    ctx.beginPath(); ctx.arc(0, -sc * 0.12, sc * 0.28, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
-    // a tiny "down" tick to read gravity
-    ctx.globalAlpha = 0.4;
-    ctx.strokeStyle = "#ff9a3c"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(pos.x, pos.y); ctx.lineTo(pos.x - o.x * 22, pos.y - o.y * 22); ctx.stroke();
-    ctx.globalAlpha = 1;
   }
 
   function drawParticles() {
-    for (const p of particles) {
+    const list = particles.map((p) => ({ p, pr: project(p.x, p.y, p.z) })).filter((o) => o.pr);
+    list.sort((a, b) => b.pr.depth - a.pr.depth);
+    for (const { p, pr } of list) {
       ctx.globalAlpha = clamp(p.life / p.max, 0, 1);
       ctx.fillStyle = p.c;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+      const rr = clamp((p.r * 60) / pr.depth, 0.6, 9);
+      ctx.beginPath(); ctx.arc(pr.sx, pr.sy, rr, 0, Math.PI * 2); ctx.fill();
     }
     ctx.globalAlpha = 1;
   }
@@ -385,59 +373,58 @@
     elBest = $("orbitBest"), elAltWrap = $("orbitAltWrap"), hud = $("orbitHud"),
     hint = $("orbitHint");
   function updateHud() {
-    const pct = clamp(totalAng / (Math.PI * 2) * 100, 0, 100);
-    const spd = Math.hypot(vel.x, vel.y);
-    const alt = Math.hypot(pos.x, pos.y) - RE;
+    const pct = clamp(pos.z / LAP * 100, 0, 100);
+    const spd = Math.hypot(vel.x, vel.y, vel.z);
+    const height = pos.y - yPath(pos.z);        // height above the ribbon centreline
     elPct.textContent = Math.floor(pct);
     elSpeed.textContent = Math.round(spd * SPEED_SCALE);
-    elAlt.textContent = Math.max(0, Math.round(alt * ALT_SCALE));
+    elAlt.textContent = Math.max(0, Math.round((height + VOID) * ALT_SCALE));
     elBest.textContent = Math.floor(best);
-    elAltWrap.classList.toggle("warn", alt < 130);
+    elAltWrap.classList.toggle("warn", offRamp || height < -VOID * 0.55);
   }
 
   // ---- game states ---------------------------------------------------------
   function startPlay() {
     reset();
     phase = "play";
-    hud.hidden = false;
-    hint.hidden = false;
+    hud.hidden = false; hint.hidden = false;
     $("orbitIntro").hidden = true; $("orbitFail").hidden = true; $("orbitWin").hidden = true;
   }
   function fail(title) {
     if (phase !== "play") return;
     phase = "fail";
-    burst(pos.x, pos.y, 26, "#ff7a4d"); shake = 16;
+    burst(pos.x, pos.y, pos.z, 26, "#ff7a4d"); shake = 16;
     saveBest();
     $("orbitFailTitle").textContent = title;
-    $("orbitFailMsg").innerHTML = "You made it <b>" + Math.floor(clamp(totalAng / (Math.PI * 2) * 100, 0, 100)) + "%</b> of the way around.";
+    $("orbitFailMsg").innerHTML = "You made it <b>" + Math.floor(clamp(pos.z / LAP * 100, 0, 100)) + "%</b> of the way around.";
     setTimeout(() => { $("orbitFail").hidden = false; hud.hidden = true; hint.hidden = true; }, 650);
   }
   function win() {
     if (phase !== "play") return;
     phase = "win";
-    totalAng = Math.PI * 2; best = 100; saveBest();
-    burst(pos.x, pos.y, 40, "#5ffbf1");
+    pos.z = LAP; best = 100; saveBest();
+    burst(pos.x, pos.y, pos.z, 40, "#5ffbf1");
     setTimeout(() => { $("orbitWin").hidden = false; hud.hidden = true; hint.hidden = true; }, 500);
   }
   function saveBest() {
-    const pct = clamp(totalAng / (Math.PI * 2) * 100, 0, 100);
+    const pct = clamp(pos.z / LAP * 100, 0, 100);
     if (pct > best) best = pct;
     try { localStorage.setItem("orbit.best", String(best)); } catch (e) { /* ignore */ }
   }
 
   // ---- input ---------------------------------------------------------------
-  const PRO = new Set(["ArrowRight", "d", "D"]);
-  const RETRO = new Set(["ArrowLeft", "a", "A"]);
-  const JUMPK = new Set([" ", "Spacebar", "ArrowUp", "w", "W"]);
+  const LEFT = new Set(["ArrowLeft", "a", "A"]);
+  const RIGHT = new Set(["ArrowRight", "d", "D"]);
+  const HOPK = new Set([" ", "Spacebar", "ArrowUp", "w", "W"]);
   window.addEventListener("keydown", (e) => {
-    if (PRO.has(e.key)) { input.pro = true; e.preventDefault(); }
-    else if (RETRO.has(e.key)) { input.retro = true; e.preventDefault(); }
-    else if (JUMPK.has(e.key)) { if (phase === "play") jumpQueued = true; e.preventDefault(); }
+    if (LEFT.has(e.key)) { input.left = true; e.preventDefault(); }
+    else if (RIGHT.has(e.key)) { input.right = true; e.preventDefault(); }
+    else if (HOPK.has(e.key)) { if (phase === "play") jumpQueued = true; e.preventDefault(); }
     else if (e.key === "Enter" && phase !== "play") { startPlay(); }
   });
   window.addEventListener("keyup", (e) => {
-    if (PRO.has(e.key)) input.pro = false;
-    else if (RETRO.has(e.key)) input.retro = false;
+    if (LEFT.has(e.key)) input.left = false;
+    else if (RIGHT.has(e.key)) input.right = false;
   });
 
   // touch
@@ -451,8 +438,8 @@
     el.addEventListener("pointercancel", up);
     el.addEventListener("pointerleave", up);
   }
-  hold("touchThrust", () => input.pro = true, () => input.pro = false);
-  hold("touchBrake", () => input.retro = true, () => input.retro = false);
+  hold("touchBrake", () => input.left = true, () => input.left = false);   // ◀ strafe left
+  hold("touchThrust", () => input.right = true, () => input.right = false); // ▶ strafe right
   const tj = $("touchJump");
   if (tj) tj.addEventListener("pointerdown", (e) => { e.preventDefault(); if (phase === "play") jumpQueued = true; });
 
@@ -475,11 +462,10 @@
 
   // expose a little for tuning/automated checks
   window.OrbitGame = {
-    get state() { return { phase, pos: { ...pos }, vel: { ...vel }, pct: totalAng / (Math.PI * 2) * 100, onSurface }; },
-    setInput(p, r) { input.pro = p; input.retro = r; },
+    get state() { return { phase, pos: { ...pos }, vel: { ...vel }, pct: pos.z / LAP * 100, onSurface, offRamp }; },
+    setInput(left, right) { input.left = left; input.right = right; },
     queueJump() { jumpQueued = true; },
-    get gaps() { return gaps.slice(); },
-    get angle() { return Math.atan2(pos.y, pos.x); },
+    get angle() { return pos.z / LAP * Math.PI * 2; },
     start: startPlay,
   };
 })();
