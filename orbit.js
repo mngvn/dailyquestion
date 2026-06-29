@@ -17,18 +17,22 @@
   const ctx = canvas.getContext("2d");
 
   // ---- world constants -----------------------------------------------------
+  // Each "wall" is a downhill chute: a flat floor you ride forward along, with
+  // steep side walls that keep you in. Chutes are offset left/right and broken
+  // by forward gaps you hop across, air-steering onto the next one.
   const PR = 0.7;            // player radius (world units)
-  const XI = 6;              // inner edge of each wall (the void side)
-  const XO = 24;             // outer edge of each wall
-  const VOID = 28;           // how far you can fall below the walls before you're lost
+  const HW = 9;              // half-width of a chute floor
+  const OFF = 8;             // lateral offset of alternating chute centres (±OFF)
+  const WALL_H = 11;         // visual height of the chute side walls
+  const VOID = 26;           // how far you can fall below the floor before you're lost
 
   // physics (tuned for 60fps; scaled by frame-time factor f)
   const G = 0.024;           // gravity accel (−y), only acts while airborne
-  const STRAFE = 0.045;      // lateral steer accel — also your in-air control
-  const VX_CAP = 1.2;        // lateral speed cap
-  const HOP_Y = 0.78;        // lofty upward hop — high and floaty so you can steer it
-  const PULL = 0.0065;       // the gentle inward "pull" of a wall: slide + build momentum
-  const DRAG = 0.9996;       // very mild lateral drag
+  const STRAFE = 0.03;       // lateral steer accel — gentle, for fine air control
+  const VX_CAP = 0.7;        // lateral speed cap — keeps left/right drift slow + controllable
+  const HOP_Y = 0.82;        // lofty upward hop — high and floaty so you can steer it
+  const RIDE_DRAG = 0.86;    // on the floor: drift settles quickly when you stop steering
+  const AIR_DRAG = 0.992;    // in the air: keep most momentum so you carry across the gap
   const HOP_AIR = 2 * HOP_Y / G;   // ≈ airtime of a hop, in frames (used to size the course)
 
   // forward pace: starts slow, ramps up with distance
@@ -70,25 +74,25 @@
   function norm3(x, y, z) { const d = Math.hypot(x, y, z) || 1; return { x: x / d, y: y / d, z: z / d }; }
 
   // ---- the course ----------------------------------------------------------
-  // A procedurally generated chain of wall segments on alternating sides, with
-  // empty gaps between them. Sizes scale with the forward speed at that point,
-  // so one lofty hop always reaches roughly the next wall — the course stays
-  // fair as the pace ramps up. Some gaps hold a central bounce pad.
-  function tiltAt(z) { return clamp(0.8 + z * 0.0004, 0.8, 1.5); }   // walls get steeper with distance
-  function yBase(z) { return 4 * Math.sin(z * 0.01); }               // gentle roll
-  function dYBase(z) { const e = 1.0; return (yBase(z + e) - yBase(z - e)) / (2 * e); }
+  // A procedurally generated chain of downhill chutes that alternate left/right,
+  // separated by forward gaps. Gap sizes scale with the local speed so one lofty
+  // hop always reaches the next chute. Some gaps hold a central bounce pad.
+  const SLOPE = 0.1;                                                  // course descends forward — you're falling
+  function yBase(z) { return -z * SLOPE + 3 * Math.sin(z * 0.012); }  // downhill floor height
 
   let segs = [], plats = [];
   let genZ = 0, segIdx = 0, lastSide = 1;
   const GEN_AHEAD = 340;
 
   function genSeg() {
-    const side = -lastSide; lastSide = side;
-    const reach = vzCap(genZ) * HOP_AIR;          // forward distance one hop covers here
-    const len = clamp(reach * 0.5, 18, 80);
+    const side = -lastSide; lastSide = side;             // chute centre at side*OFF
+    const reach = vzCap(genZ) * HOP_AIR;                 // forward distance one hop covers here
+    // long chutes (lots of time to ride), with extra runway on the first few
+    let len = clamp(reach * 0.85, 40, 110);
+    if (segIdx === 0) len += 46; else if (segIdx < 3) len += 20;
     const z0 = genZ, z1 = z0 + len;
-    segs.push({ side, z0, z1 });
-    const gap = clamp(reach * 0.55, 16, 80);
+    segs.push({ side, xc: side * OFF, z0, z1 });
+    const gap = clamp(reach * 0.5, 14, 70);
     if (segIdx > 0 && segIdx % 2 === 0) {
       const pz = z1 + gap / 2;
       plats.push({ x: 0, z: pz, topY: yBase(pz) + PLAT_RISE, used: false });
@@ -96,8 +100,8 @@
     genZ = z1 + gap; segIdx++;
   }
   function genReset() {
-    // first segment is on the LEFT and straddles z=0, so the player starts on it
-    segs = []; plats = []; segIdx = 0; lastSide = 1; genZ = -12;
+    // first chute is on the LEFT and straddles z=0, so the player starts on it
+    segs = []; plats = []; segIdx = 0; lastSide = 1; genZ = -16;
     while (genZ < pos.z + GEN_AHEAD) genSeg();
   }
   function genMore() {
@@ -110,15 +114,12 @@
     return null;
   }
 
-  // Surface query: is there a wall at (x,z)? If so, its height + (un-normalised) normal.
+  // Surface query: is there a chute floor at (x,z)? Floor is flat across; the
+  // side walls just contain you (handled by clamping while riding).
   function surfaceAt(x, z) {
-    const yb = yBase(z), dz = dYBase(z), t = tiltAt(z);
     const s = segAt(z);
-    if (s) {
-      if (s.side < 0 && x <= -XI && x >= -XO) return { onWall: true, y: yb + t * (-XI - x), nx: t, ny: 1, nz: -dz };
-      if (s.side > 0 && x >= XI && x <= XO) return { onWall: true, y: yb + t * (x - XI), nx: -t, ny: 1, nz: -dz };
-    }
-    return { onWall: false, y: yb, nx: 0, ny: 1, nz: -dz };
+    if (s && x >= s.xc - HW && x <= s.xc + HW) return { onWall: true, y: yBase(z), seg: s };
+    return { onWall: false, y: yBase(z), seg: null };
   }
 
   // ---- state ---------------------------------------------------------------
@@ -134,10 +135,10 @@
   try { best = Math.max(0, +localStorage.getItem("orbit.bestDist") || 0); } catch (e) { /* ignore */ }
 
   function reset() {
-    pos.z = 0; pos.x = -(XI + XO) / 2;
+    pos.z = 0; pos.x = -OFF;                    // centred on the first (left) chute
     genReset();
     pos.y = surfaceAt(pos.x, 0).y + PR;
-    vel.x = 0.1; vel.y = 0; vel.z = VZ0;
+    vel.x = 0; vel.y = 0; vel.z = VZ0;
     riding = true; ridingSide = -1;
     onSurface = true; offRamp = false; boost = 0;
     cam.x = pos.x; cam.y = pos.y; camYsmooth = pos.y;
@@ -153,28 +154,34 @@
     if (vel.z < cap) vel.z = Math.min(cap, vel.z + THRUST_Z * (boost > 0 ? 3 : 1) * f);
     else vel.z = Math.max(cap, vel.z - 0.012 * f);
 
-    // strafe (works on the wall and in the air — that's how you aim a hop)
+    // strafe (gentle; the only thing driving left/right, so it's easy to control)
     const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
     if (dir) vel.x = clamp(vel.x + dir * STRAFE * f, -VX_CAP, VX_CAP);
-    vel.x *= Math.pow(DRAG, f);
 
     if (riding) {
-      // glued to the wall: a gentle inward pull builds momentum; the surface is
-      // tracked exactly (up or down), so steepness is purely cosmetic.
-      vel.x += (ridingSide < 0 ? 1 : -1) * PULL * f;
+      // riding the chute floor: lateral drift settles fast when you let go, and
+      // the steep side walls keep you in (we clamp to the floor width).
+      if (!dir) vel.x *= Math.pow(RIDE_DRAG, f);
       pos.x += vel.x * f; pos.z += vel.z * f;
-      const s = surfaceAt(pos.x, pos.z);
-      if (s.onWall) { pos.y = s.y + PR; onSurface = true; offRamp = false; if (Math.random() < 0.25) spark(pos.x, s.y, pos.z); }
-      else { riding = false; onSurface = false; offRamp = true; }    // slid off an edge → now airborne
+      let s = surfaceAt(pos.x, pos.z);
+      if (s.onWall) {
+        const lo = s.seg.xc - HW, hi = s.seg.xc + HW;
+        if (pos.x < lo) { pos.x = lo; if (vel.x < 0) vel.x = 0; }   // side wall stops you
+        if (pos.x > hi) { pos.x = hi; if (vel.x > 0) vel.x = 0; }
+        pos.y = s.y + PR; onSurface = true; offRamp = false;
+        if (Math.random() < 0.25) spark(pos.x, s.y, pos.z);
+      } else { riding = false; onSurface = false; offRamp = true; }  // ran off the end → airborne
       if (jumpQueued && riding) { vel.y = HOP_Y; riding = false; onSurface = false; burst(pos.x, pos.y - PR, pos.z, 8, "#5ffbf1"); jumpQueued = false; }
     } else {
-      // airborne: gravity, until we touch a wall (then we stick and ride)
+      // airborne: gravity + air-steer, until we drop onto a chute floor
       vel.y -= G * f;
+      vel.x *= Math.pow(AIR_DRAG, f);
       pos.x += vel.x * f; pos.y += vel.y * f; pos.z += vel.z * f;
       const s = surfaceAt(pos.x, pos.z);
       offRamp = !s.onWall; onSurface = false;
       if (s.onWall && pos.y <= s.y + PR && vel.y <= 0) {
-        pos.y = s.y + PR; vel.y = 0; riding = true; ridingSide = s.side; onSurface = true; offRamp = false;
+        pos.y = s.y + PR; vel.y = 0; vel.x *= 0.5;     // land + absorb some sideways speed
+        riding = true; ridingSide = s.seg.side; onSurface = true; offRamp = false;
         burst(pos.x, s.y, pos.z, 6, "#9fd0ff");
       }
     }
@@ -292,56 +299,54 @@
     ctx.restore();
   }
 
-  function wallX(side, u) { return side < 0 ? -XO + u * (XO - XI) : XI + u * (XO - XI); }
+  function quad(ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz, fill, alpha) {
+    const p1 = project(ax, ay, az), p2 = project(bx, by, bz), p3 = project(cx, cy, cz), p4 = project(dx, dy, dz);
+    if (!p1 || !p2 || !p3 || !p4) return;
+    ctx.globalAlpha = alpha; ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.moveTo(p1.sx, p1.sy); ctx.lineTo(p2.sx, p2.sy); ctx.lineTo(p3.sx, p3.sy); ctx.lineTo(p4.sx, p4.sy);
+    ctx.closePath(); ctx.fill();
+  }
 
-  // Far → near painter's pass over z bands; draw whichever wall (if any) covers
-  // each band, plus any bounce pad centred in it.
+  // Far → near painter's pass over z bands; draw whichever chute (if any) covers
+  // each band — floor + two steep side walls — plus any bounce pad centred in it.
   function drawWorld() {
-    const STEP = 4, FAR = 240, NX = 5;
+    const STEP = 4, FAR = 240, NX = 4;
     const z0 = Math.floor(pos.z / STEP) * STEP - 12;
     ctx.lineJoin = "round";
     for (let z = z0 + FAR; z >= z0; z -= STEP) {
       const s = segAt(z + STEP / 2);
       const fog = clamp(1 - (z - z0) / FAR, 0.12, 1);
       if (s) {
-        const side = s.side;
-        const n = norm3(side < 0 ? tiltAt(z) : -tiltAt(z), 1, -dYBase(z));
-        const lit = clamp(0.45 + (n.x * LIGHT.x + n.y * LIGHT.y + n.z * LIGHT.z) * 0.7, 0.2, 1);
+        const lo = s.xc - HW, hi = s.xc + HW;
+        const ya = yBase(z), yb = yBase(z + STEP);
+        // side walls (steep, darker) — drawn first so the floor reads on top
+        quad(lo, ya, z, lo, ya + WALL_H, z, lo, yb + WALL_H, z + STEP, lo, yb, z + STEP, "rgb(70,58,150)", fog);
+        quad(hi, ya, z, hi, ya + WALL_H, z, hi, yb + WALL_H, z + STEP, hi, yb, z + STEP, "rgb(70,58,150)", fog);
+        // floor (lit, with a moving checker)
         for (let j = 0; j < NX; j++) {
-          const ua = j / NX, ub = (j + 1) / NX;
-          const xa = wallX(side, ua), xb = wallX(side, ub);
-          const p1 = project(xa, surfaceAt(xa, z).y, z);
-          const p2 = project(xb, surfaceAt(xb, z).y, z);
-          const p3 = project(xb, surfaceAt(xb, z + STEP).y, z + STEP);
-          const p4 = project(xa, surfaceAt(xa, z + STEP).y, z + STEP);
-          if (!p1 || !p2 || !p3 || !p4) continue;
-          const checker = (j + Math.floor(z / 4)) % 2 === 0 ? 1 : 0.82;
-          const r = Math.round(120 * lit * checker), gg = Math.round(96 * lit * checker), b = Math.round(210 * lit);
-          ctx.globalAlpha = fog;
-          ctx.fillStyle = `rgb(${r},${gg},${b})`;
-          ctx.beginPath();
-          ctx.moveTo(p1.sx, p1.sy); ctx.lineTo(p2.sx, p2.sy);
-          ctx.lineTo(p3.sx, p3.sy); ctx.lineTo(p4.sx, p4.sy); ctx.closePath(); ctx.fill();
+          const xa = lo + (hi - lo) * j / NX, xb = lo + (hi - lo) * (j + 1) / NX;
+          const checker = (j + Math.floor(z / 4)) % 2 === 0 ? 1 : 0.84;
+          const fill = `rgb(${Math.round(120 * checker)},${Math.round(96 * checker)},210)`;
+          quad(xa, ya, z, xb, ya, z, xb, yb, z + STEP, xa, yb, z + STEP, fill, fog);
         }
-        drawEdge(z, z + STEP, side * XI, fog, "#5ffbf1", true);
-        drawEdge(z, z + STEP, side * XO, fog, "#b69bff", false);
+        // glowing rails along the top of each wall
+        drawEdge(z, z + STEP, lo, yBase(z) + WALL_H, yBase(z + STEP) + WALL_H, fog, "#5ffbf1");
+        drawEdge(z, z + STEP, hi, yBase(z) + WALL_H, yBase(z + STEP) + WALL_H, fog, "#5ffbf1");
       }
       for (const p of plats) if (p.z >= z && p.z < z + STEP) drawPlatform(p);
     }
     ctx.globalAlpha = 1;
   }
 
-  function drawEdge(za, zb, x, fog, color, bright) {
-    const pa = project(x, surfaceAt(x, za).y, za);
-    const pb = project(x, surfaceAt(x, zb).y, zb);
+  function drawEdge(za, zb, x, ya, yb, fog, color) {
+    const pa = project(x, ya, za), pb = project(x, yb, zb);
     if (!pa || !pb) return;
     ctx.globalAlpha = fog;
-    if (bright) {
-      ctx.lineWidth = clamp(60 / pa.depth, 1, 6);
-      ctx.strokeStyle = "rgba(95,251,241,0.35)";
-      ctx.beginPath(); ctx.moveTo(pa.sx, pa.sy); ctx.lineTo(pb.sx, pb.sy); ctx.stroke();
-    }
-    ctx.lineWidth = clamp((bright ? 28 : 18) / pa.depth, 0.6, bright ? 3 : 2);
+    ctx.lineWidth = clamp(40 / pa.depth, 1, 5);
+    ctx.strokeStyle = "rgba(95,251,241,0.3)";
+    ctx.beginPath(); ctx.moveTo(pa.sx, pa.sy); ctx.lineTo(pb.sx, pb.sy); ctx.stroke();
+    ctx.lineWidth = clamp(20 / pa.depth, 0.6, 2.5);
     ctx.strokeStyle = color;
     ctx.beginPath(); ctx.moveTo(pa.sx, pa.sy); ctx.lineTo(pb.sx, pb.sy); ctx.stroke();
   }
@@ -528,7 +533,7 @@
     get state() { return { phase, pos: { ...pos }, vel: { ...vel }, dist: pos.z, onSurface, offRamp, boost }; },
     get segs() { return segs.map((s) => ({ ...s })); },
     get plats() { return plats.map((p) => ({ ...p })); },
-    consts: { XI, XO },
+    consts: { HW, OFF },
     setInput(left, right) { input.left = left; input.right = right; },
     queueJump() { jumpQueued = true; },
     start: startPlay,
