@@ -1,9 +1,33 @@
 // puzzles.js — five self-contained logic mini-games for the Daily Puzzle
-// section. Every game generates a fresh random variation on each mount, so
-// there is no fixed answer to memorize. Exposes Puzzles.mountHub(root).
+// section. Each game is seeded from the calendar day, so every player gets the
+// same puzzle and there is exactly one puzzle per game per day — no rerolling.
+// Exposes Puzzles.mountHub(root).
 
 const Puzzles = (function () {
   "use strict";
+
+  // ---------- daily seed + deterministic RNG ----------
+  // A stable integer that increments once per local day. The whole module draws
+  // randomness from a seeded generator keyed off this number, so the puzzles are
+  // identical for everyone all day and cannot be re-rolled into an easier draw.
+  const _now = new Date();
+  const DAY_NUMBER = Math.floor(
+    new Date(_now.getFullYear(), _now.getMonth(), _now.getDate()).getTime() / 86400000
+  );
+
+  // mulberry32 — small, fast, deterministic PRNG in [0, 1).
+  function makeRng(seed) {
+    let s = seed >>> 0;
+    return function () {
+      s = (s + 0x6d2b79f5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  // Current source of randomness. Reseeded per game (by salt) before each mount.
+  let rng = Math.random;
+  function seedFor(salt) { rng = makeRng((DAY_NUMBER * 2654435761 + salt) >>> 0); }
 
   // ---------- tiny helpers ----------
   function el(tag, className, text) {
@@ -12,7 +36,7 @@ const Puzzles = (function () {
     if (text != null) n.textContent = text;
     return n;
   }
-  const randInt = (n) => Math.floor(Math.random() * n);
+  const randInt = (n) => Math.floor(rng() * n);
   const pickRand = (arr) => arr[randInt(arr.length)];
   function shuffle(arr) {
     for (let i = arr.length - 1; i > 0; i--) {
@@ -37,17 +61,19 @@ const Puzzles = (function () {
   // ========================================================
   // Game 1 — Wordle
   // ========================================================
+  // Less-common / trickier words (repeated letters, awkward vowels, uncommon
+  // consonant clusters) to keep the daily Wordle genuinely challenging.
   const WORDLE_WORDS = [
-    "APPLE", "BRAVE", "CRANE", "DELTA", "EAGLE", "FROST", "GLOVE", "HONEY",
-    "IVORY", "JOLLY", "KNEEL", "LEMON", "MANGO", "NORTH", "OCEAN", "PIANO",
-    "QUILT", "RIVER", "STONE", "TIGER", "ULTRA", "VIVID", "WHALE", "XENON",
-    "YACHT", "ZEBRA", "BLAZE", "CHARM", "DREAM", "EMBER", "FLAME", "GRAPE",
-    "HOUSE", "INPUT", "JUDGE", "KOALA", "LIGHT", "MUSIC", "NIGHT", "OLIVE",
-    "PRIZE", "QUEEN", "ROBOT", "SUGAR", "TRAIN", "UNITY", "VOICE", "WATER",
-    "YOUTH", "ANGEL", "BERRY", "CLOUD", "DAISY", "EARTH", "FAIRY", "GIANT",
-    "HEART", "IGLOO", "JEWEL", "KAYAK", "LUNAR", "MAPLE", "NOBLE", "ORBIT",
-    "PEARL", "QUICK", "RAVEN", "SOLAR", "TULIP", "URBAN", "VENUS", "WAGON",
-    "ZESTY", "BREAD", "CANDY", "DANCE", "FENCE", "GHOST", "HAPPY", "JUICE"
+    "AZURE", "BIJOU", "CRYPT", "DWELT", "EQUIP", "FJORD", "GLYPH", "HYMNS",
+    "IDYLL", "JUMBO", "KNACK", "LYMPH", "MIRTH", "NYMPH", "OZONE", "PIXEL",
+    "QUASH", "RHYME", "SYRUP", "THYME", "USURP", "VIXEN", "WALTZ", "XYLEM",
+    "YEARN", "ZILCH", "ABYSS", "BLITZ", "CIVIC", "DODGE", "EXILE", "FLUFF",
+    "GAUZE", "HAVOC", "ICILY", "JOUST", "KIOSK", "LLAMA", "MUMMY", "NINTH",
+    "OAKEN", "PROXY", "QUIRK", "RUGBY", "SWIRL", "TWEAK", "UNZIP", "VOUCH",
+    "WHARF", "YOLKS", "ZESTY", "BUXOM", "CHAFF", "DROLL", "EPOXY", "FRANK",
+    "GECKO", "HUTCH", "INLET", "JAZZY", "KAPPA", "LURID", "MOTTO", "NUDGE",
+    "ONION", "PUTTY", "QUELL", "ROUSE", "SHEEN", "TRUCE", "UDDER", "VYING",
+    "WOOZY", "XEBEC", "YODEL", "ZONAL", "BOOZY", "CRANK", "DITTY", "EGRET"
   ];
 
   function scoreGuess(guess, target) {
@@ -67,10 +93,10 @@ const Puzzles = (function () {
 
   function gameWordle(c) {
     const target = pickRand(WORDLE_WORDS);
-    const maxRows = 6;
+    const maxRows = 5;
     let row = 0, done = false;
 
-    c.append(el("div", "pz-intro", "Guess the hidden 5-letter word in 6 tries."));
+    c.append(el("div", "pz-intro", "Guess the hidden 5-letter word in 5 tries."));
     const grid = el("div", "pz-wgrid");
     const tiles = [];
     for (let r = 0; r < maxRows; r++) {
@@ -126,31 +152,49 @@ const Puzzles = (function () {
   // ========================================================
   function genSequence() {
     const builders = [
+      // Linear with a multiplier baked in: a*n + b — harder to spot than a plain gap.
       () => {
-        const a = randInt(9) + 1, d = randInt(8) + 2, t = [];
-        for (let i = 0; i < 5; i++) t.push(a + d * i);
-        return { terms: t, next: a + d * 5, rule: `add ${d} each time` };
+        const m = randInt(4) + 2, b = randInt(7) + 1, t = [];
+        for (let i = 0; i < 5; i++) t.push(m * (i + 1) + b);
+        return { terms: t, next: m * 6 + b, rule: `multiply the position by ${m}, then add ${b}` };
       },
+      // Geometric growth.
       () => {
-        const a = randInt(4) + 2, r = randInt(2) + 2, t = [];
+        const a = randInt(3) + 2, r = randInt(2) + 2, t = [];
         for (let i = 0; i < 5; i++) t.push(a * Math.pow(r, i));
         return { terms: t, next: a * Math.pow(r, 5), rule: `multiply by ${r} each time` };
       },
+      // Quadratic: n^2 + c (second differences are constant).
       () => {
-        const s = randInt(3) + 1, t = [];
-        for (let i = 0; i < 5; i++) { const n = s + i; t.push(n * n); }
+        const s = randInt(3) + 1, c = randInt(5), t = [];
+        for (let i = 0; i < 5; i++) { const n = s + i; t.push(n * n + c); }
         const n = s + 5;
-        return { terms: t, next: n * n, rule: "consecutive perfect squares" };
+        return { terms: t, next: n * n + c, rule: `square the running number${c ? ` and add ${c}` : ""}` };
       },
+      // Fibonacci-style with a head start.
       () => {
-        const t = [randInt(3) + 1, randInt(4) + 2];
+        const t = [randInt(4) + 2, randInt(5) + 3];
         for (let i = 2; i < 6; i++) t.push(t[i - 1] + t[i - 2]);
         return { terms: t.slice(0, 5), next: t[5], rule: "add the two previous terms (Fibonacci-style)" };
       },
+      // Accelerating gap: the step grows by a fixed amount each time.
       () => {
-        const t = []; let cur = randInt(5) + 1, add = randInt(3) + 1;
-        for (let i = 0; i < 5; i++) { t.push(cur); cur += add; add++; }
-        return { terms: t, next: cur, rule: "the gap grows by 1 each step" };
+        const t = []; let cur = randInt(5) + 1, add = randInt(3) + 2; const grow = randInt(2) + 1;
+        for (let i = 0; i < 5; i++) { t.push(cur); cur += add; add += grow; }
+        return { terms: t, next: cur, rule: `the gap grows by ${grow} each step` };
+      },
+      // Alternating two operations: ×k then +j, repeating.
+      () => {
+        const k = randInt(2) + 2, j = randInt(5) + 1, t = [randInt(4) + 2];
+        for (let i = 1; i < 6; i++) t.push(i % 2 ? t[i - 1] * k : t[i - 1] + j);
+        return { terms: t.slice(0, 5), next: t[5], rule: `alternate ×${k} and +${j}` };
+      },
+      // Two interleaved arithmetic sequences (odd vs. even positions).
+      () => {
+        const a = randInt(5) + 1, da = randInt(4) + 2, b = randInt(6) + 3, db = randInt(4) + 2;
+        const t = [];
+        for (let i = 0; i < 6; i++) t.push(i % 2 === 0 ? a + da * (i / 2) : b + db * ((i - 1) / 2));
+        return { terms: t.slice(0, 5), next: t[5], rule: `two interleaved sequences (+${da} and +${db})` };
       }
     ];
     return pickRand(builders)();
@@ -210,7 +254,7 @@ const Puzzles = (function () {
       (x) => swapCols(x, 0, 1), (x) => swapCols(x, 2, 3),
       swapBands, swapStacks, transpose
     ];
-    for (let i = 0; i < 24; i++) if (Math.random() < 0.5) g = pickRand(ops)(g);
+    for (let i = 0; i < 24; i++) if (rng() < 0.5) g = pickRand(ops)(g);
     return g;
   }
 
@@ -232,7 +276,8 @@ const Puzzles = (function () {
     for (let r = 0; r < 4; r++) for (let col = 0; col < 4; col++) cells.push([r, col]);
     shuffle(cells);
     const given = [[1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1]];
-    for (let i = 0; i < 7; i++) { const [r, col] = cells[i]; given[r][col] = 0; }
+    // Leave only 6 clues (10 blanks) — fewer givens means more deduction.
+    for (let i = 0; i < 10; i++) { const [r, col] = cells[i]; given[r][col] = 0; }
 
     c.append(el("div", "pz-intro", "Fill the grid so every row, column, and 2×2 box holds 1–4."));
     const grid = el("div", "pz-sgrid");
@@ -293,12 +338,14 @@ const Puzzles = (function () {
   }
 
   function gameCode(c) {
-    const secret = shuffle([1, 2, 3, 4, 5, 6]).slice(0, 4);
-    const maxG = 8;
+    // Digits may now repeat, so deduction is harder and there are more codes.
+    const secret = [];
+    for (let i = 0; i < 4; i++) secret.push(randInt(6) + 1);
+    const maxG = 7;
     let guesses = 0, done = false;
 
     c.append(el("div", "pz-intro",
-      "Crack the secret 4-digit code (digits 1–6, all different). Bulls 🎯 = right digit & spot, Cows 🐮 = right digit, wrong spot."));
+      "Crack the secret 4-digit code (digits 1–6, repeats allowed). Bulls 🎯 = right digit & spot, Cows 🐮 = right digit, wrong spot."));
     const history = el("div", "pz-history");
     const form = el("form", "pz-form");
     const input = el("input", "pz-input");
@@ -348,13 +395,13 @@ const Puzzles = (function () {
   }
 
   function gameNonogram(c) {
-    const N = 5;
+    const N = 6;
     let sol;
     do {
       sol = [];
       for (let r = 0; r < N; r++) {
         sol.push([]);
-        for (let col = 0; col < N; col++) sol[r].push(Math.random() < 0.55 ? 1 : 0);
+        for (let col = 0; col < N; col++) sol[r].push(rng() < 0.55 ? 1 : 0);
       }
     } while (sol.every((row) => row.every((v) => v === 0)));
 
@@ -366,6 +413,8 @@ const Puzzles = (function () {
 
     c.append(el("div", "pz-intro", "Fill cells to match the clues — numbers are the lengths of filled runs in each row/column. Click to fill or clear."));
     const wrap = el("div", "pz-nono");
+    // CSS sizes a 5-wide board; size the columns to N so larger boards render.
+    wrap.style.gridTemplateColumns = `40px repeat(${N}, 40px)`;
     wrap.append(el("div", "pz-ncorner"));
     for (let col = 0; col < N; col++) {
       const cc = el("div", "pz-nclue pz-ncol");
@@ -409,16 +458,20 @@ const Puzzles = (function () {
   // ========================================================
   // Hub
   // ========================================================
+  // Each game carries a salt so its daily seed is independent of the others.
   const GAMES = [
-    { id: "wordle", name: "Wordle", icon: "🟩", mount: gameWordle },
-    { id: "sequence", name: "Sequence", icon: "🔢", mount: gameSequence },
-    { id: "sudoku", name: "Mini Sudoku", icon: "🔲", mount: gameSudoku },
-    { id: "code", name: "Code Breaker", icon: "🔐", mount: gameCode },
-    { id: "nonogram", name: "Nonogram", icon: "🎨", mount: gameNonogram }
+    { id: "wordle", name: "Wordle", icon: "🟩", salt: 101, mount: gameWordle },
+    { id: "sequence", name: "Sequence", icon: "🔢", salt: 211, mount: gameSequence },
+    { id: "sudoku", name: "Mini Sudoku", icon: "🔲", salt: 337, mount: gameSudoku },
+    { id: "code", name: "Code Breaker", icon: "🔐", salt: 443, mount: gameCode },
+    { id: "nonogram", name: "Nonogram", icon: "🎨", salt: 569, mount: gameNonogram }
   ];
 
   function mountHub(root) {
     root.innerHTML = "";
+
+    // All five games are available, but each is just one fixed puzzle per day:
+    // seeded from the calendar day, with no "new puzzle" control to re-roll.
     let idx = 0;
 
     const tabs = el("div", "pz-tabs");
@@ -430,20 +483,15 @@ const Puzzles = (function () {
       tabs.append(t);
     });
 
-    const bar = el("div", "pz-bar");
-    const newBtn = button("↻ New puzzle", "pz-new");
-    newBtn.addEventListener("click", mountGame);
-    bar.append(newBtn);
-
+    const note = el("div", "pz-intro", "One of each puzzle every day — no do-overs. Fresh puzzles unlock tomorrow.");
     const gameWrap = el("div", "pz-game");
-    root.append(tabs, bar, gameWrap);
+    root.append(tabs, note, gameWrap);
 
     function select() {
       [...tabs.children].forEach((t, i) => t.classList.toggle("active", i === idx));
-      mountGame();
-    }
-    function mountGame() {
       gameWrap.innerHTML = "";
+      // Reseed from today's date so each game is fixed for the whole day.
+      seedFor(GAMES[idx].salt);
       GAMES[idx].mount(gameWrap);
     }
     select();

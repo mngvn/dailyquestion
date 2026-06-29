@@ -11,7 +11,12 @@
   if (!fx || reduce) return;
 
   const ctx = fx.getContext("2d");
-  const COLORS = ["#a64dff", "#19e3ff", "#ff2e97", "#b6ff5a"];
+  // Two palettes: neon that glows additively on black, and deeper, saturated
+  // tones that read on a light background.
+  const COLORS_DARK = ["#a64dff", "#19e3ff", "#ff2e97", "#b6ff5a"];
+  const COLORS_LIGHT = ["#7b2ff7", "#0094c6", "#e0218a", "#3a9e1b"];
+  const isLight = () => document.body.classList.contains("light");
+  const palette = () => (isLight() ? COLORS_LIGHT : COLORS_DARK);
 
   let w = 0, h = 0, dpr = 1;
   function size() {
@@ -46,7 +51,7 @@
             vx: ux * sp + (Math.random() - 0.5) * 0.5,
             vy: uy * sp + (Math.random() - 0.5) * 0.5,
             life: 1, decay: 1 / (28 + Math.random() * 26),   // ~0.5–0.9s
-            c: COLORS[(Math.random() * COLORS.length) | 0],
+            c: palette()[(Math.random() * 4) | 0],
             r: 1 + Math.random() * 1.7,
             len: 12 + speed * 70
           });
@@ -61,7 +66,9 @@
 
   function tick() {
     ctx.clearRect(0, 0, w, h);
-    ctx.globalCompositeOperation = "lighter";
+    // Additive glow on dark; normal blending on light so the colors stay visible.
+    const light = isLight();
+    ctx.globalCompositeOperation = light ? "source-over" : "lighter";
     ctx.lineCap = "round";
 
     for (let i = streaks.length - 1; i >= 0; i--) {
@@ -78,9 +85,9 @@
       const tx = s.x - ux * len, ty = s.y - uy * len;
 
       ctx.strokeStyle = s.c;
-      ctx.globalAlpha = a * 0.2; ctx.lineWidth = s.r * 3.2;
+      ctx.globalAlpha = a * (light ? 0.14 : 0.2); ctx.lineWidth = s.r * 3.2;
       ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(s.x, s.y); ctx.stroke();
-      ctx.globalAlpha = a * 0.95; ctx.lineWidth = Math.max(1, s.r);
+      ctx.globalAlpha = a * (light ? 0.8 : 0.95); ctx.lineWidth = Math.max(1, s.r);
       ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(s.x, s.y); ctx.stroke();
     }
     ctx.globalAlpha = 1;

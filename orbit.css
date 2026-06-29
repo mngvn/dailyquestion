@@ -1,0 +1,163 @@
+/* orbit.css — "Orbit Surfer": full-screen canvas game. Mirrors sun.css's
+   floating-chrome layout but with a cold, deep-space palette. */
+
+.orbit-body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #03040c;
+  height: 100vh;
+  font-family: "Inter", system-ui, sans-serif;
+  color: var(--text);
+}
+
+#orbitCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #03040c;
+  touch-action: none;
+  z-index: 0;
+}
+
+/* ---------- Floating chrome ---------- */
+.orbit-back, .orbit-chip {
+  position: fixed;
+  top: 16px;
+  z-index: 10;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--text);
+  background: rgba(10, 14, 30, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 9px 16px;
+  border-radius: 999px;
+  text-decoration: none;
+  backdrop-filter: blur(8px);
+}
+.orbit-back { left: 16px; transition: background 0.2s ease, transform 0.2s ease; }
+.orbit-back:hover { background: rgba(70, 130, 255, 0.3); transform: translateX(-2px); }
+.orbit-chip { right: 16px; color: var(--muted); pointer-events: none; }
+
+/* progress ring + readouts */
+.orbit-hud {
+  position: fixed;
+  top: 14px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 2vw, 22px);
+  padding: 10px 18px;
+  background: rgba(10, 14, 30, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  backdrop-filter: blur(8px);
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--muted);
+  max-width: calc(100vw - 32px);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.orbit-hud[hidden] { display: none; }
+.orbit-stat { display: flex; align-items: baseline; gap: 5px; }
+.orbit-stat b {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.2rem; font-weight: 700; color: var(--text); letter-spacing: 0;
+}
+.orbit-stat span { font-size: 0.62rem; }
+.orbit-stat.warn b { color: #ff7a7a; }
+
+.orbit-hint {
+  position: fixed;
+  bottom: 16px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: rgba(10, 14, 30, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 7px 16px;
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+  text-align: center;
+  max-width: calc(100vw - 32px);
+}
+
+/* touch controls (only shown on coarse pointers) */
+.orbit-touch {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 12;
+  display: none;
+  justify-content: space-between;
+  padding: 0 18px 76px;
+  pointer-events: none;
+}
+.orbit-touch button {
+  pointer-events: auto;
+  width: 78px; height: 78px;
+  border-radius: 50%;
+  font-size: 1.7rem;
+  color: var(--text);
+  background: rgba(70, 110, 220, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(6px);
+}
+.orbit-touch button:active { background: rgba(70, 130, 255, 0.4); }
+.orbit-touch .orbit-touch-right { display: flex; gap: 14px; }
+body.touch .orbit-touch { display: flex; }
+
+/* ---------- Overlays ---------- */
+.orbit-overlay {
+  position: fixed; inset: 0; z-index: 20;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center; gap: 18px;
+  padding: clamp(22px, 5vw, 52px);
+  background: radial-gradient(circle at 50% 38%, rgba(12, 20, 48, 0.86), rgba(3, 4, 12, 0.95));
+  backdrop-filter: blur(5px);
+}
+.orbit-overlay[hidden] { display: none; }
+.orbit-overlay-soft { background: rgba(3, 4, 12, 0.82); }
+.orbit-overlay h2 {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(1.7rem, 5vw, 2.8rem); font-weight: 700; margin: 0;
+  background: linear-gradient(120deg, #cfe6ff, #6fb3ff 50%, #3a7bff);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.orbit-overlay p { font-size: 1rem; line-height: 1.6; color: #dfe6ff; max-width: 540px; margin: 0; }
+.orbit-sub { font-size: 0.88rem !important; color: var(--muted) !important; }
+.orbit-keys { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin: 2px 0; }
+.orbit-keys kbd {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.82rem; color: #dfe6ff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-bottom-width: 3px;
+  border-radius: 8px; padding: 6px 11px;
+}
+.orbit-btn-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.orbit-btn {
+  font-family: "Inter", sans-serif;
+  font-size: 1rem; font-weight: 600; color: #04122b;
+  background: linear-gradient(120deg, #8fd0ff, #3a7bff);
+  border: none; border-radius: 14px;
+  padding: 14px 28px; cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.orbit-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -8px rgba(58, 123, 255, 0.6); }
+.orbit-btn:active { transform: translateY(0) scale(0.98); }
+.orbit-btn.ghost {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.orbit-btn.ghost:hover { background: rgba(255, 255, 255, 0.14); box-shadow: none; }

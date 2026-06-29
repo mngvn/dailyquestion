@@ -10,6 +10,8 @@
   --accent-4: #b6ff5a;
   --good: #2fe089;
   --bad: #ff4d7d;
+  /* opaque surface used for modals (and other solid panels) */
+  --panel: #14141f;
   --radius: 22px;
   --shadow: 0 24px 70px -24px rgba(0, 0, 0, 0.75);
 }
@@ -82,6 +84,19 @@ body {
   box-shadow: var(--shadow);
 }
 .brand { display: flex; align-items: center; gap: 10px; }
+.theme-toggle {
+  margin-left: 4px;
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  font-size: 1.05rem; line-height: 1;
+  border-radius: 50%;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--card-border);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.theme-toggle:hover { background: rgba(124, 92, 255, 0.18); transform: translateY(-1px); }
 .logo-dot {
   width: 14px; height: 14px; border-radius: 50%;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
@@ -201,7 +216,7 @@ body {
 .card-body {
   font-size: clamp(1rem, 1.4vw, 1.18rem);
   line-height: 1.55;
-  color: #e7e9f7;
+  color: var(--text);
 }
 .card-foot { margin-top: auto; }
 
@@ -500,7 +515,7 @@ body {
 .card-preview {
   font-size: 1rem;
   line-height: 1.55;
-  color: #e7e9f7;
+  color: var(--text);
   display: -webkit-box;
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
@@ -562,7 +577,11 @@ body.modal-open { overflow: hidden; }
   width: min(640px, 100%);
   max-height: 85vh;
   overflow-y: auto;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
+  /* A solid, consistent panel surface so every modal reads the same and the
+     cursor streaks behind it never bleed through at different intensities. */
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0)),
+    var(--panel, #14141f);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 26px;
   padding: clamp(26px, 4vw, 40px);
@@ -631,7 +650,7 @@ body.modal-open { overflow: hidden; }
 .modal-text {
   font-size: clamp(1.05rem, 1.6vw, 1.22rem);
   line-height: 1.6;
-  color: #eef0fb;
+  color: var(--text);
 }
 .modal-foot { margin-top: 4px; }
 .modal-note {
@@ -676,20 +695,6 @@ body.modal-open { overflow: hidden; }
   box-shadow: 0 6px 18px -6px var(--accent);
 }
 .pz-tab-ico { font-size: 0.95rem; }
-
-.pz-bar { display: flex; justify-content: flex-end; }
-.pz-new {
-  font-family: "Inter", sans-serif;
-  font-size: 0.8rem; font-weight: 600;
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--card-border);
-  border-radius: 999px;
-  padding: 7px 16px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.pz-new:hover { background: rgba(255, 255, 255, 0.14); transform: translateY(-1px); }
 
 .pz-game { display: flex; flex-direction: column; gap: 14px; align-items: center; }
 .pz-intro {
@@ -876,6 +881,66 @@ body.modal-open { overflow: hidden; }
   .pointer-glow { display: none; }
 }
 
+/* ---------- Light theme ---------- */
+[data-theme="light"] {
+  --bg: #eef0f8;
+  --card: rgba(255, 255, 255, 0.9);
+  --card-border: rgba(28, 30, 64, 0.14);
+  --text: #1b1d2e;
+  --muted: #585d78;
+  --shadow: 0 18px 50px -24px rgba(40, 40, 90, 0.28);
+}
+[data-theme="light"] .bg {
+  background: radial-gradient(circle at 20% 10%, #e6e2ff, var(--bg) 60%);
+}
+[data-theme="light"] .blob { opacity: 0.22; mix-blend-mode: multiply; }
+[data-theme="light"] .grain { opacity: 0.025; }
+[data-theme="light"] .theme-toggle { background: rgba(28, 30, 64, 0.05); }
+
+/* Gradient text that was white-on-dark needs darker stops on light. */
+[data-theme="light"] .date-main {
+  background: linear-gradient(120deg, #5a3ff0 10%, #7c5cff 45%, #00a78f 85%);
+  -webkit-background-clip: text; background-clip: text;
+}
+[data-theme="light"] .stat-num {
+  background: linear-gradient(120deg, #4a37c8, #7c5cff);
+  -webkit-background-clip: text; background-clip: text;
+}
+
+/* Lift translucent surfaces so they read as panels on a light page. */
+[data-theme="light"] .ghost-btn,
+[data-theme="light"] .pz-tab,
+[data-theme="light"] .pz-input,
+[data-theme="light"] .pz-wtile,
+[data-theme="light"] .pz-ncell,
+[data-theme="light"] .choice,
+[data-theme="light"] .choice .key,
+[data-theme="light"] .vault-item,
+[data-theme="light"] .accuracy-tag,
+[data-theme="light"] .vault-tag,
+[data-theme="light"] .modal-close {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* The modal floats over a backdrop, so give it an opaque light surface. */
+[data-theme="light"] .modal-overlay { background: rgba(20, 22, 45, 0.35); }
+[data-theme="light"] .modal {
+  background: linear-gradient(160deg, #ffffff, #f3f4fc);
+  border-color: rgba(28, 30, 64, 0.14);
+  box-shadow: 0 40px 120px -30px rgba(40, 40, 90, 0.4);
+}
+
+/* Hard-coded light strokes/text inside puzzles, flipped for light mode. */
+[data-theme="light"] .pz-seq { color: var(--text); }
+[data-theme="light"] .pz-sgrid,
+[data-theme="light"] .pz-scell.bdr-r,
+[data-theme="light"] .pz-scell.bdr-b { border-color: rgba(28, 30, 64, 0.35); }
+[data-theme="light"] .pz-wtile.absent { background: #c4c7d6; border-color: #c4c7d6; color: #2a2c3a; }
+/* Tone the neon cursor effects down so they read on a light page. */
+[data-theme="light"] .pointer-glow { mix-blend-mode: normal; }
+[data-theme="light"] body.pointer-active .pointer-glow { opacity: 0.45; }
+[data-theme="light"] .fx-canvas { opacity: 0.45; }
+
 /* ---------- Cursor-reactive light ---------- */
 .pointer-glow {
   position: fixed;
@@ -904,7 +969,12 @@ body.pointer-active .pointer-glow { opacity: 1; }
   inset: 0;
   z-index: -2;
   pointer-events: none;
+  transition: opacity 0.3s ease;
 }
+/* While a modal is open the streaks would bleed through its panel unevenly,
+   making different modals look like they have different opacity — so fade
+   them out for a clean, consistent surface. */
+body.modal-open .fx-canvas { opacity: 0; }
 
 /* ---------- Ripples ---------- */
 .ripple-layer {
@@ -963,3 +1033,345 @@ body.pointer-active .pointer-glow { opacity: 1; }
 
 /* smoother, GPU-friendly tilt on the cards */
 .card { will-change: transform; transform-style: preserve-3d; }
+
+/* ============================================================= *
+ *  Floating controls — theme toggle + random-event triggers
+ * ============================================================= */
+.controls {
+  position: fixed;
+  right: clamp(12px, 2vw, 22px);
+  bottom: clamp(12px, 2vw, 22px);
+  z-index: 300;
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 999px;
+  background: rgba(12, 12, 20, 0.6);
+  border: 1px solid var(--card-border);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 18px 50px -22px rgba(0, 0, 0, 0.85);
+}
+.ctrl-btn {
+  width: 42px; height: 42px;
+  display: grid; place-items: center;
+  font-size: 1.2rem; line-height: 1;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-border);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.25s ease, background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.ctrl-btn:hover {
+  transform: translateY(-3px);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 10px 24px -10px var(--accent);
+}
+.ctrl-btn:active { transform: translateY(0) scale(0.94); }
+.ctrl-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ctrl-btn[disabled] { opacity: 0.4; cursor: default; transform: none; box-shadow: none; }
+/* small divider between the theme toggle and the event buttons */
+.ctrl-sep { width: 1px; align-self: stretch; margin: 4px 2px; background: var(--card-border); }
+@media (max-width: 640px) {
+  .ctrl-btn { width: 38px; height: 38px; font-size: 1.05rem; }
+}
+
+/* ============================================================= *
+ *  Light theme
+ * ============================================================= */
+/* a gentle cross-fade when flipping themes (enabled after first paint) */
+body.theme-ready,
+body.theme-ready .topbar,
+body.theme-ready .card,
+body.theme-ready .vault,
+body.theme-ready .footer,
+body.theme-ready .vault-item,
+body.theme-ready .choice,
+body.theme-ready .modal,
+body.theme-ready .controls,
+body.theme-ready .ctrl-btn {
+  transition: background-color 0.45s ease, color 0.45s ease, border-color 0.45s ease;
+}
+body.light {
+  --bg: #eaf0fb;
+  --card: rgba(255, 255, 255, 0.74);
+  --card-border: rgba(28, 34, 70, 0.14);
+  --text: #1a1d33;
+  --muted: #5a6086;
+  --panel: #ffffff;
+  --shadow: 0 24px 60px -28px rgba(40, 50, 100, 0.45);
+}
+body.light .bg {
+  background:
+    radial-gradient(120% 80% at 50% -15%, #ffffff 0%, #e9eef9 44%, #d7e0f2 82%),
+    #e9eef9;
+}
+body.light .grain { opacity: 0.025; }
+/* gradient texts that were tuned for a black background */
+body.light .date-main {
+  background: linear-gradient(120deg, #2a2db0 18%, #8b3bd6 52%, #1f86c9 82%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+body.light .stat-num {
+  background: linear-gradient(120deg, #262a72, #7a52d6);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+/* glassy white fills that vanish on a light page → subtle dark tints */
+body.light .choice,
+body.light .vault-item,
+body.light .ghost-btn,
+body.light .card-badge,
+body.light .vault-tag,
+body.light .accuracy-tag,
+body.light .modal-close,
+body.light .choice .key,
+body.light .ctrl-btn {
+  background: rgba(28, 34, 80, 0.05);
+}
+body.light .controls { background: rgba(255, 255, 255, 0.7); }
+body.light .modal { border-color: rgba(28, 34, 70, 0.16); }
+body.light .card::before {
+  background: radial-gradient(260px circle at var(--spot-x, 50%) var(--spot-y, 0%), rgba(60, 70, 160, 0.14), transparent 60%);
+}
+body.light .card:hover { border-color: rgba(40, 50, 110, 0.28); }
+body.light .card-icon,
+body.light .modal-icon { filter: none; }
+/* the neon cursor light is invisible on white — give it a soft cool tint */
+body.light .pointer-glow {
+  background: radial-gradient(circle,
+    rgba(120, 90, 230, 0.18),
+    rgba(40, 160, 220, 0.10) 38%,
+    transparent 68%);
+  mix-blend-mode: multiply;
+}
+
+/* ============================================================= *
+ *  Random ambient events (train · storm · earthquake)
+ * ============================================================= */
+.event-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.event-canvas.on { opacity: 1; }
+.event-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 160;
+  pointer-events: none;
+  overflow: hidden;
+}
+/* during an event the cards shouldn't react to the pointer (avoids the tilt
+   handler fighting the event's own transforms) */
+body.ev-active .card { pointer-events: none; }
+
+/* ----- shared screen rumble ----- */
+@keyframes evRumble {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-2px, 1px); }
+  40% { transform: translate(2px, -1px); }
+  60% { transform: translate(-1px, -2px); }
+  80% { transform: translate(1px, 2px); }
+}
+
+/* ----- TRAIN ----- */
+.ev-train {
+  position: absolute;
+  top: 46%;
+  left: 0;
+  width: 760px;
+  height: 150px;
+  transform: translateX(110vw);
+  filter: drop-shadow(0 16px 30px rgba(0, 0, 0, 0.55));
+}
+.ev-train.run { animation: evTrainRun 4.6s cubic-bezier(0.45, 0, 0.55, 1) forwards; }
+@keyframes evTrainRun {
+  0%   { transform: translateX(110vw) translateY(0); }
+  50%  { transform: translateX(20vw)  translateY(-3px); }
+  100% { transform: translateX(-130vw) translateY(0); }
+}
+.ev-loco {
+  position: absolute; left: 0; bottom: 26px;
+  width: 280px; height: 96px;
+  background: linear-gradient(180deg, #3a4a66 0%, #222c40 55%, #161d2c 100%);
+  border-radius: 16px 26px 8px 8px;
+  box-shadow: inset 0 6px 0 rgba(255, 255, 255, 0.08), inset 0 -10px 18px rgba(0, 0, 0, 0.5);
+}
+.ev-loco::before { /* cab roof */
+  content: ""; position: absolute; right: 8px; top: -24px;
+  width: 120px; height: 34px;
+  background: linear-gradient(180deg, #46587a, #2a3550);
+  border-radius: 12px 12px 0 0;
+}
+.ev-loco::after { /* nose stripe */
+  content: ""; position: absolute; left: 0; bottom: 0;
+  width: 26px; height: 100%;
+  background: linear-gradient(180deg, #ffd23f, #ff8a1e);
+  border-radius: 16px 0 0 8px;
+}
+.ev-window {
+  position: absolute; right: 22px; top: -16px;
+  width: 40px; height: 26px;
+  background: radial-gradient(circle at 40% 35%, #bdf3ff, #2aa7c8);
+  border: 2px solid #11202f; border-radius: 5px;
+  box-shadow: 0 0 16px rgba(150, 240, 255, 0.7);
+}
+.ev-headlight {
+  position: absolute; left: -2px; bottom: 24px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: radial-gradient(circle, #fff7d6, #ffd23f 60%, transparent 72%);
+  box-shadow: 0 0 24px 10px rgba(255, 230, 140, 0.85);
+}
+.ev-beam {
+  position: absolute; left: -160px; bottom: 6px;
+  width: 170px; height: 90px;
+  background: linear-gradient(90deg, rgba(255, 240, 170, 0.35), transparent);
+  clip-path: polygon(100% 38%, 100% 62%, 0 100%, 0 0);
+  filter: blur(2px);
+}
+.ev-car {
+  position: absolute; bottom: 26px;
+  width: 200px; height: 78px;
+  background: linear-gradient(180deg, #45324f 0%, #2c2036 60%, #1c1424 100%);
+  border-radius: 10px;
+  box-shadow: inset 0 5px 0 rgba(255, 255, 255, 0.06), inset 0 -8px 16px rgba(0, 0, 0, 0.5);
+}
+.ev-car.c1 { left: 296px; }
+.ev-car.c2 { left: 512px; background: linear-gradient(180deg, #243d4a, #14222b); }
+.ev-car .pane {
+  position: absolute; top: 16px; left: 18px;
+  width: 44px; height: 24px; border-radius: 4px;
+  background: rgba(190, 240, 255, 0.5);
+  box-shadow: 64px 0 rgba(190, 240, 255, 0.5), 128px 0 rgba(190, 240, 255, 0.5);
+}
+.ev-wheel {
+  position: absolute; bottom: 6px;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: radial-gradient(circle, #6b748c 0 30%, #2a3142 32% 70%, #11151f 72%);
+  border: 2px solid #0a0d14;
+}
+.ev-train.run .ev-wheel { animation: evWheel 0.5s linear infinite; }
+@keyframes evWheel { to { transform: rotate(360deg); } }
+.ev-coupling {
+  position: absolute; bottom: 46px; width: 18px; height: 8px;
+  background: #0d1018; border-radius: 3px;
+}
+
+/* ----- STORM + TORNADO ----- */
+.ev-sky {
+  position: absolute; inset: 0;
+  background: radial-gradient(120% 90% at 50% -10%, rgba(40, 46, 70, 0.2), rgba(6, 8, 16, 0.86));
+  opacity: 0;
+  transition: opacity 1s ease;
+}
+.ev-sky.on { opacity: 1; }
+.ev-flash {
+  position: absolute; inset: 0;
+  background: radial-gradient(60% 50% at var(--fx, 50%) 0%, rgba(220, 235, 255, 0.95), rgba(180, 210, 255, 0.2) 40%, transparent 70%);
+  opacity: 0;
+}
+.ev-flash.zap { animation: evZap 0.5s ease; }
+@keyframes evZap {
+  0% { opacity: 0; } 6% { opacity: 1; } 14% { opacity: 0.2; }
+  22% { opacity: 0.9; } 40% { opacity: 0; } 100% { opacity: 0; }
+}
+.ev-tornado {
+  position: absolute;
+  top: -8%;
+  left: 50%;
+  width: 220px;
+  height: 86vh;
+  margin-left: -110px;
+  opacity: 0;
+  transform-origin: 50% 0;
+  background:
+    radial-gradient(70% 26% at 50% 3%, rgba(150, 158, 186, 0.95), rgba(110, 118, 150, 0.7) 60%, transparent 80%),
+    linear-gradient(180deg, rgba(120, 128, 158, 0.92) 0%, rgba(78, 86, 116, 0.85) 45%, rgba(44, 50, 76, 0.6) 80%, transparent 100%);
+  clip-path: polygon(6% 0, 94% 0, 68% 58%, 57% 100%, 43% 100%, 32% 58%);
+  filter: blur(1.5px) drop-shadow(0 0 24px rgba(40, 46, 70, 0.6));
+}
+.ev-tornado .swirl {
+  position: absolute; inset: 0;
+  background:
+    repeating-linear-gradient(112deg, rgba(255, 255, 255, 0.22) 0 7px, transparent 7px 18px),
+    repeating-linear-gradient(70deg, rgba(20, 24, 40, 0.28) 0 6px, transparent 6px 16px);
+  mix-blend-mode: overlay;
+  animation: evTornadoSpin 0.4s linear infinite;
+}
+@keyframes evTornadoSpin { to { background-position: 120px 0; } }
+.ev-tornado.on { animation: evTornadoMove 8s ease-in-out forwards; }
+@keyframes evTornadoMove {
+  0%   { opacity: 0; transform: translateX(-30vw) rotate(-4deg) scaleX(0.6); }
+  14%  { opacity: 1; transform: translateX(-22vw) rotate(3deg) scaleX(1); }
+  50%  { opacity: 1; transform: translateX(8vw)  rotate(-3deg) scaleX(1.05); }
+  80%  { opacity: 1; transform: translateX(26vw) rotate(4deg) scaleX(1); }
+  100% { opacity: 0; transform: translateX(60vw) rotate(6deg) scaleX(0.7); }
+}
+
+/* ----- EARTHQUAKE ----- */
+body.ev-quake { animation: evQuakeShake 0.4s linear infinite; }
+@keyframes evQuakeShake {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  10% { transform: translate(-6px, 3px) rotate(-0.25deg); }
+  30% { transform: translate(7px, -4px) rotate(0.3deg); }
+  50% { transform: translate(-5px, 5px) rotate(-0.2deg); }
+  70% { transform: translate(6px, -3px) rotate(0.25deg); }
+  90% { transform: translate(-4px, 2px) rotate(-0.15deg); }
+}
+.ev-quake-tint {
+  position: absolute; inset: 0;
+  background: radial-gradient(120% 90% at 50% 120%, rgba(120, 70, 30, 0.22), transparent 60%);
+  box-shadow: inset 0 0 180px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+.ev-quake-tint.on { opacity: 1; }
+.ev-rattle { animation: evRattle 0.18s linear infinite; }
+@keyframes evRattle {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  25% { transform: translate(-3px, 2px) rotate(-0.6deg); }
+  50% { transform: translate(3px, -2px) rotate(0.5deg); }
+  75% { transform: translate(-2px, -2px) rotate(-0.4deg); }
+}
+/* a harder shake for an open modal that's being fractured */
+.ev-rattle-hard { animation: evRattleHard 0.12s linear infinite !important; }
+@keyframes evRattleHard {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  20% { transform: translate(-7px, 4px) rotate(-1deg); }
+  40% { transform: translate(8px, -5px) rotate(1.1deg); }
+  60% { transform: translate(-5px, -4px) rotate(-0.8deg); }
+  80% { transform: translate(6px, 3px) rotate(0.9deg); }
+}
+
+/* an event caption that announces what's happening */
+.ev-caption {
+  position: absolute;
+  left: 50%; top: 18%;
+  transform: translateX(-50%) translateY(-12px);
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.6rem, 5vw, 3rem);
+  letter-spacing: 2px;
+  color: #fff;
+  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.7);
+  opacity: 0;
+}
+.ev-caption.show { animation: evCaption 2.6s ease forwards; }
+@keyframes evCaption {
+  0% { opacity: 0; transform: translateX(-50%) translateY(-24px) scale(0.9); }
+  15% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  78% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-10px) scale(1.04); }
+}
+
+/* under reduced motion keep the theme toggle, drop the animated events */
+@media (prefers-reduced-motion: reduce) {
+  .ev-trigger, .ctrl-sep { display: none; }
+}

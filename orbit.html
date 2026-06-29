@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Orbit Surfer — a strange little detour</title>
+  <meta name="description" content="Surf the ramps ringing the Earth, keep your momentum, and ride all the way around without crashing back down." />
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="orbit.css" />
+</head>
+<body class="orbit-body">
+  <canvas id="orbitCanvas"></canvas>
+
+  <a class="orbit-back" href="index.html" aria-label="Back to Daily">← Back</a>
+  <div class="orbit-chip" id="orbitChip" aria-hidden="true">🛰️ orbit surfer</div>
+
+  <div class="orbit-hud" id="orbitHud" hidden>
+    <div class="orbit-stat">Orbit <b id="orbitPct">0</b><span>%</span></div>
+    <div class="orbit-stat">Speed <b id="orbitSpeed">0</b><span>m/s</span></div>
+    <div class="orbit-stat" id="orbitAltWrap">Altitude <b id="orbitAlt">0</b><span>km</span></div>
+    <div class="orbit-stat">Best <b id="orbitBest">0</b><span>%</span></div>
+  </div>
+
+  <p class="orbit-hint" id="orbitHint">Strafe ← → to follow the weave and ride up the banked walls.</p>
+
+  <!-- on-screen controls for touch devices -->
+  <div class="orbit-touch" id="orbitTouch" aria-hidden="true">
+    <button id="touchBrake" type="button" aria-label="Strafe left">◀</button>
+    <div class="orbit-touch-right">
+      <button id="touchJump" type="button" aria-label="Hop">▲</button>
+      <button id="touchThrust" type="button" aria-label="Strafe right">▶</button>
+    </div>
+  </div>
+
+  <!-- intro -->
+  <div class="orbit-overlay" id="orbitIntro">
+    <h2>🛰️ Orbit Surfer</h2>
+    <p>You're a satellite riding a glowing surf ribbon through space — the camera floats
+      <b>behind and above</b> you, looking forward down the track. Gravity is always
+      pulling you <b>down</b>, and the ribbon is frictionless.</p>
+    <p class="orbit-sub">The road <b>weaves and banks</b> as it winds around the Earth. <b>Strafe</b>
+      left and right to stay on it and ride up the sloped walls — drop back down a bank to trade
+      height for <b>speed</b>. Over-steer past the edge, or miss the ribbon, and you drift off into the void.</p>
+    <div class="orbit-keys">
+      <kbd>← / A</kbd><kbd>→ / D</kbd> strafe
+      <kbd>Space / ↑</kbd> hop
+    </div>
+    <div class="orbit-btn-row">
+      <button class="orbit-btn" id="orbitPlayBtn" type="button">▶ Launch</button>
+    </div>
+    <p class="orbit-sub">Goal: hold your line a full <b>360°</b> lap around the Earth. How far can you get?</p>
+  </div>
+
+  <div class="orbit-overlay orbit-overlay-soft" id="orbitFail" hidden>
+    <h2 id="orbitFailTitle">Burned up on re-entry.</h2>
+    <p id="orbitFailMsg">You made it <b>0%</b> of the way around.</p>
+    <div class="orbit-btn-row">
+      <button class="orbit-btn" id="orbitRetry" type="button">↺ Try again</button>
+    </div>
+  </div>
+
+  <div class="orbit-overlay" id="orbitWin" hidden>
+    <h2>🌍 Full orbit!</h2>
+    <p id="orbitWinMsg">You rode the ramps all the way around the Earth. Escape velocity achieved.</p>
+    <div class="orbit-btn-row">
+      <button class="orbit-btn" id="orbitReplay" type="button">Ride again</button>
+    </div>
+  </div>
+
+  <script src="orbit.js"></script>
+</body>
+</html>
