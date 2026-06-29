@@ -1,12 +1,13 @@
 // orbit.js — "Orbit Surfer". A third-person surf runner set in orbit. The
 // camera floats BEHIND and ABOVE your satellite, looking forward down a
-// glowing surf ribbon that weaves and banks through space above the Earth.
+// channel of opposing surf ramps suspended in space above the Earth.
 //
-// Gravity pulls you down; the ribbon is frictionless, so dropping down its
-// banked walls trades height for speed (classic CS / Garry's Mod surf). You
-// STRAFE left and right to follow the weave and ride up the sloped walls —
-// over-steer past the edge, or miss the ribbon entirely, and you drift off
-// into the void. Hold your line a full lap to make it all the way around.
+// Two angled walls face each other across a central void. Each wall is
+// frictionless and tilts in toward the gap, so gravity slides you down it,
+// trading height for speed (classic CS / Garry's Mod surf). Ride a wall to
+// build momentum, then HOP across the gap and land on the opposite wall —
+// over and over — STRAFING to control how high you ride and when you leave.
+// Miss a wall, or fly off the outer edge, and you fall into the void.
 
 (function () {
   "use strict";
@@ -17,27 +18,30 @@
 
   // ---- world constants -----------------------------------------------------
   const PR = 0.7;            // player radius (world units)
-  const W = 7.2;             // ribbon half-width
-  const LAP = 1500;          // forward distance for a full 360° lap
-  const VOID = 26;           // how far you can drop below the ribbon before you're lost
+  const XI = 8;              // inner edge: the central void spans [-XI, XI]
+  const XO = 30;             // outer edge: each wall runs from ±XI to ±XO
+  const LAP = 900;           // forward distance for a full 360° lap
+  const VOID = 22;           // how far you can fall below the walls before you're lost
 
-  // physics (tuned for 60fps; scaled by frame-time factor f)
-  const G = 0.022;           // gravity accel (−y)
-  const STRAFE = 0.052;      // lateral thrust per frame
-  const VX_CAP = 1.25;       // lateral speed cap
-  const THRUST_Z = 0.012;    // gentle forward engine so you never fully stall
-  const VZ_CAP = 1.85;       // forward speed soft cap
-  const HOP = 0.62;          // upward hop impulse
-  const DRAG = 0.9992;       // mild space drag
+  // physics (tuned for 60fps; scaled by frame-time factor f) — deliberately
+  // gentle, so the rhythm of riding a wall and hopping to the next is readable.
+  const G = 0.028;           // gravity accel (−y) — snappy enough to keep leaps controllable
+  const STRAFE = 0.04;       // lateral steer accel per frame
+  const VX_CAP = 1.1;        // lateral speed cap
+  const THRUST_Z = 0.006;    // gentle forward engine so you never fully stall
+  const VZ_CAP = 0.95;       // forward speed soft cap
+  const HOP_Y = 0.5;         // upward part of a wall-to-wall leap
+  const HOP_X = 0.35;        // lateral part — flings you across the void to the other wall
+  const DRAG = 0.9996;       // very mild space drag
 
   // flavour scales for the HUD
-  const SPEED_SCALE = 150;   // world u/frame -> "m/s"
+  const SPEED_SCALE = 120;   // world u/frame -> "m/s"
   const ALT_SCALE = 9;       // world u -> "km"
 
   // ---- view / scaling ------------------------------------------------------
   const view = { scale: 1, ox: 0, oy: 0, dpr: 1, cw: VW, ch: VH };
-  // camera rig: behind + above the player, pitched down to look along the ribbon
-  const CAM_BACK = 17, CAM_UP = 9.5, PITCH = 0.34;
+  // camera rig: behind + above the player, pitched down to look along the channel
+  const CAM_BACK = 16, CAM_UP = 10, PITCH = 0.36;
   const FOC = VH * 1.12;                      // focal length (perspective)
   const HORIZON = VH * 0.40;
   const cosP = Math.cos(PITCH), sinP = Math.sin(PITCH);
@@ -56,31 +60,21 @@
   resize();
   window.addEventListener("resize", resize);
 
-  // ---- the surf ribbon -----------------------------------------------------
-  // A winding, banked road through space. Difficulty grows with distance: the
-  // weave gets wider and tighter the further you ride.
-  function xAmp(z) { return 9 + z * 0.0045; }
-  function xPath(z) {
-    const a = xAmp(z);
-    return a * Math.sin(z * 0.019) + 4.2 * Math.sin(z * 0.043 + 1.3);
-  }
-  function yPath(z) {                          // gentle rolling hills
-    return 5.5 * Math.sin(z * 0.013 + 0.5) + 2.4 * Math.sin(z * 0.031);
-  }
-  // numeric 2nd derivative of the path → banks the turns (ride the walls)
-  function bank(z) {
-    const h = 1.5;
-    const dd = (xPath(z + h) - 2 * xPath(z) + xPath(z - h)) / (h * h);
-    return clamp(-dd * 1.7, -0.85, 0.85);
-  }
-  // surface height across the ribbon (u is offset from the centre, in world-x)
-  function groundY(x, z) { return yPath(z) + bank(z) * (x - xPath(z)); }
-  // outward surface normal via finite differences
-  function surfaceNormal(x, z) {
-    const e = 0.6;
-    const dyx = (groundY(x + e, z) - groundY(x - e, z)) / (2 * e);
-    const dyz = (groundY(x, z + e) - groundY(x, z - e)) / (2 * e);
-    return norm3(-dyx, 1, -dyz);
+  // ---- the surf channel ----------------------------------------------------
+  // Two opposing walls. Each tilts down toward the central void, so a satellite
+  // resting on it slides inward + down. Walls also descend gently forward, so
+  // surfing one builds forward speed. The tilt steepens with distance for a
+  // gradual difficulty ramp.
+  function tiltAt(z) { return clamp(0.5 + z * 0.00009, 0.5, 0.85); }
+  function yBase(z) { return -z * 0.05 + 4 * Math.sin(z * 0.009); }   // inner-edge height
+  function dYBase(z) { const e = 1.0; return (yBase(z + e) - yBase(z - e)) / (2 * e); }
+
+  // Surface query: is there a wall at (x,z)? If so, its height + (un-normalised) normal.
+  function surfaceAt(x, z) {
+    const t = tiltAt(z), yb = yBase(z), dz = dYBase(z);
+    if (x <= -XI && x >= -XO) return { onWall: true, y: yb + t * (-XI - x), nx: t, ny: 1, nz: -dz };
+    if (x >= XI && x <= XO) return { onWall: true, y: yb + t * (x - XI), nx: -t, ny: 1, nz: -dz };
+    return { onWall: false, y: yb, nx: 0, ny: 1, nz: -dz };
   }
 
   // ---- state ---------------------------------------------------------------
@@ -95,8 +89,9 @@
   try { best = Math.max(0, Math.min(100, +localStorage.getItem("orbit.best") || 0)); } catch (e) { /* ignore */ }
 
   function reset() {
-    pos.z = 0; pos.x = xPath(0); pos.y = groundY(pos.x, 0) + PR;
-    vel.x = 0; vel.y = 0; vel.z = 1.0;         // a little starting momentum
+    pos.z = 0; pos.x = -(XI + XO) / 2;                 // partway up the left wall
+    pos.y = surfaceAt(pos.x, 0).y + PR;
+    vel.x = 0.18; vel.y = 0; vel.z = 0.5;              // drift gently inward to get going
     onSurface = true; offRamp = false;
     cam.x = pos.x; cam.y = pos.y; camYsmooth = pos.y;
     particles = []; trail = []; shake = 0;
@@ -111,38 +106,35 @@
   function step(f) {
     // gravity
     vel.y -= G * f;
-    // forward engine toward the soft cap (keeps you from ever fully stalling)
+    // gentle forward engine toward the soft cap (so you never fully stall)
     if (vel.z < VZ_CAP) vel.z = Math.min(VZ_CAP, vel.z + THRUST_Z * f);
-    // strafe input
+    // strafe input → lateral accel (momentum is preserved; that's what carries you across)
     const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
     if (dir) vel.x = clamp(vel.x + dir * STRAFE * f, -VX_CAP, VX_CAP);
-    else vel.x *= Math.pow(0.86, f);           // ease back when not steering
 
     // integrate
     pos.x += vel.x * f; pos.y += vel.y * f; pos.z += vel.z * f;
-
-    // mild drag so surfing speed stays bounded
     vel.x *= Math.pow(DRAG, f); vel.z *= Math.pow(DRAG, f);
 
-    // ribbon contact
-    const cx = xPath(pos.z);
-    offRamp = Math.abs(pos.x - cx) > W;
+    // wall contact
+    const s = surfaceAt(pos.x, pos.z);
+    offRamp = !s.onWall;
     onSurface = false;
-    if (!offRamp) {
-      const gy = groundY(pos.x, pos.z) + PR;
-      if (pos.y <= gy) {
-        pos.y = gy;
-        const n = surfaceNormal(pos.x, pos.z);
-        const vn = vel.x * n.x + vel.y * n.y + vel.z * n.z;
-        if (vn < 0) {                          // frictionless: cancel into-surface velocity → surf
-          vel.x -= vn * n.x; vel.y -= vn * n.y; vel.z -= vn * n.z;
-          if (Math.random() < 0.5) spark(pos.x, gy - PR, pos.z);
-        }
-        onSurface = true;
-        if (jumpQueued) {
-          vel.x += n.x * HOP; vel.y += n.y * HOP + HOP * 0.5; vel.z += n.z * HOP;
-          jumpQueued = false; onSurface = false;
-        }
+    if (s.onWall && pos.y <= s.y + PR) {
+      pos.y = s.y + PR;
+      const n = norm3(s.nx, s.ny, s.nz);
+      const vn = vel.x * n.x + vel.y * n.y + vel.z * n.z;
+      if (vn < 0) {                          // frictionless: cancel into-surface velocity → surf
+        vel.x -= vn * n.x; vel.y -= vn * n.y; vel.z -= vn * n.z;
+        if (Math.random() < 0.5) spark(pos.x, s.y, pos.z);
+      }
+      onSurface = true;
+      if (jumpQueued) {
+        // a deliberate leap across the void toward the opposite wall
+        vel.y += HOP_Y;
+        vel.x += (pos.x < 0 ? 1 : -1) * HOP_X;
+        burst(pos.x, s.y, pos.z, 8, "#5ffbf1");
+        jumpQueued = false; onSurface = false;
       }
     }
   }
@@ -150,13 +142,13 @@
   function physics(dt) {
     const f = Math.min(2.2, dt * 60);
     const speed = Math.hypot(vel.x, vel.y, vel.z);
-    const steps = clamp(Math.ceil(speed * f / 1.2), 1, 8);
+    const steps = clamp(Math.ceil(speed * f / 1.0), 1, 8);
     const sf = f / steps;
     for (let i = 0; i < steps; i++) step(sf);
 
-    // camera follow (lag the lateral + vertical so strafing reads nicely)
-    cam.x += (pos.x - cam.x) * Math.min(1, 0.12 * f);
-    camYsmooth += (pos.y - camYsmooth) * Math.min(1, 0.08 * f);
+    // camera follow (lag the lateral + vertical so strafing/hopping reads nicely)
+    cam.x += (pos.x - cam.x) * Math.min(1, 0.1 * f);
+    camYsmooth += (pos.y - camYsmooth) * Math.min(1, 0.07 * f);
 
     // trail + particle upkeep
     trail.push({ x: pos.x, y: pos.y, z: pos.z }); if (trail.length > 30) trail.shift();
@@ -170,7 +162,9 @@
 
     // outcomes
     if (pos.z / LAP * 100 >= 100) return win();
-    if (pos.y < yPath(pos.z) - VOID) return fail("Drifted off into the void.");
+    if (pos.y < yBase(pos.z) - VOID) {
+      return fail(Math.abs(pos.x) > XO ? "Flew off the outer wall." : "Missed the jump — into the void.");
+    }
   }
 
   // ---- particles -----------------------------------------------------------
@@ -209,7 +203,7 @@
     ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     ctx.fillStyle = "#03040c"; ctx.fillRect(0, 0, cw, ch);
 
-    // starfield (screen space, drifts sideways as you weave, up/down won't matter)
+    // starfield (screen space, drifts sideways as you weave between walls)
     const drift = cam.x * 6;
     for (const s of stars) {
       const sx = ((s.x * cw - drift) % cw + cw) % cw;
@@ -227,7 +221,7 @@
     ctx.translate(sh, sh);
 
     drawEarthHorizon();
-    drawRibbon();
+    drawWalls();
     drawTrail();
     drawPlayer();
     drawParticles();
@@ -242,7 +236,6 @@
     ctx.fillStyle = grad;
     ctx.fillRect(-200, HORIZON - 70, VW + 400, 130);
 
-    // a huge, gently curved limb of the planet sitting on the horizon
     ctx.save();
     const cxp = VW / 2 - cam.x * 2;
     const g = ctx.createRadialGradient(cxp, HORIZON + 1400, 900, cxp, HORIZON + 1400, 1500);
@@ -254,56 +247,61 @@
     ctx.restore();
   }
 
-  // Draw the ribbon as a tessellated strip, far → near (painter's algorithm).
-  function drawRibbon() {
-    const NX = 7;                              // columns across the width
-    const STEP = 4, FAR = 240;
+  // Draw both walls as tessellated strips, far → near (painter's algorithm).
+  function drawWalls() {
+    const STEP = 4, FAR = 200, NX = 5;
     const z0 = Math.floor(pos.z / STEP) * STEP - 12;
-
     ctx.lineJoin = "round";
     for (let z = z0 + FAR; z >= z0; z -= STEP) {
-      const za = z, zb = z + STEP;
-      for (let j = 0; j < NX; j++) {
-        const ua = -1 + (2 * j) / NX, ub = -1 + (2 * (j + 1)) / NX;
-        const xa0 = xPath(za) + ua * W, xa1 = xPath(za) + ub * W;
-        const xb0 = xPath(zb) + ua * W, xb1 = xPath(zb) + ub * W;
-        const p1 = project(xa0, groundY(xa0, za), za);
-        const p2 = project(xa1, groundY(xa1, za), za);
-        const p3 = project(xb1, groundY(xb1, zb), zb);
-        const p4 = project(xb0, groundY(xb0, zb), zb);
-        if (!p1 || !p2 || !p3 || !p4) continue;
-
-        // shade by surface normal + distance fog
-        const n = surfaceNormal(xPath(za) + (ua + ub) / 2 * W, za);
-        const lit = clamp(0.45 + (n.x * LIGHT.x + n.y * LIGHT.y + n.z * LIGHT.z) * 0.7, 0.2, 1);
-        const fog = clamp(1 - (za - z0) / FAR, 0.12, 1);
-        const checker = (j + Math.floor(za / STEP)) % 2 === 0 ? 1 : 0.82;
-        const r = Math.round(120 * lit * checker), gg = Math.round(96 * lit * checker), b = Math.round(210 * lit);
-        ctx.globalAlpha = fog;
-        ctx.fillStyle = `rgb(${r},${gg},${b})`;
-        ctx.beginPath();
-        ctx.moveTo(p1.sx, p1.sy); ctx.lineTo(p2.sx, p2.sy);
-        ctx.lineTo(p3.sx, p3.sy); ctx.lineTo(p4.sx, p4.sy); ctx.closePath(); ctx.fill();
-      }
-      // glowing edge rails + periodic boost chevrons
-      drawRail(za, zb, -1, z0, FAR);
-      drawRail(za, zb, 1, z0, FAR);
+      drawWallBand(z, z + STEP, -1, NX, z0, FAR);   // left wall:  x in [-XO, -XI]
+      drawWallBand(z, z + STEP, 1, NX, z0, FAR);    // right wall: x in [ XI,  XO]
+      // glowing inner rails (the edge of the void — your jump line) + outer rails
+      drawEdge(z, z + STEP, -XI, z0, FAR, "#5ffbf1", true);
+      drawEdge(z, z + STEP, XI, z0, FAR, "#5ffbf1", true);
+      drawEdge(z, z + STEP, -XO, z0, FAR, "#b69bff", false);
+      drawEdge(z, z + STEP, XO, z0, FAR, "#b69bff", false);
     }
     ctx.globalAlpha = 1;
   }
 
-  function drawRail(za, zb, side, z0, FAR) {
-    const xa = xPath(za) + side * W, xb = xPath(zb) + side * W;
-    const pa = project(xa, groundY(xa, za), za);
-    const pb = project(xb, groundY(xb, zb), zb);
+  function wallX(side, u) { return side < 0 ? -XO + u * (XO - XI) : XI + u * (XO - XI); }
+
+  function drawWallBand(za, zb, side, NX, z0, FAR) {
+    const n = surfaceAt(side < 0 ? -XO + 0.5 : XI + 0.5, za);
+    const nn = norm3(n.nx, n.ny, n.nz);
+    const lit = clamp(0.45 + (nn.x * LIGHT.x + nn.y * LIGHT.y + nn.z * LIGHT.z) * 0.7, 0.2, 1);
+    for (let j = 0; j < NX; j++) {
+      const ua = j / NX, ub = (j + 1) / NX;
+      const xa = wallX(side, ua), xb = wallX(side, ub);
+      const p1 = project(xa, surfaceAt(xa, za).y, za);
+      const p2 = project(xb, surfaceAt(xb, za).y, za);
+      const p3 = project(xb, surfaceAt(xb, zb).y, zb);
+      const p4 = project(xa, surfaceAt(xa, zb).y, zb);
+      if (!p1 || !p2 || !p3 || !p4) continue;
+      const fog = clamp(1 - (za - z0) / FAR, 0.12, 1);
+      const checker = (j + Math.floor(za / 4)) % 2 === 0 ? 1 : 0.82;
+      const r = Math.round(120 * lit * checker), gg = Math.round(96 * lit * checker), b = Math.round(210 * lit);
+      ctx.globalAlpha = fog;
+      ctx.fillStyle = `rgb(${r},${gg},${b})`;
+      ctx.beginPath();
+      ctx.moveTo(p1.sx, p1.sy); ctx.lineTo(p2.sx, p2.sy);
+      ctx.lineTo(p3.sx, p3.sy); ctx.lineTo(p4.sx, p4.sy); ctx.closePath(); ctx.fill();
+    }
+  }
+
+  function drawEdge(za, zb, x, z0, FAR, color, bright) {
+    const pa = project(x, surfaceAt(x, za).y, za);
+    const pb = project(x, surfaceAt(x, zb).y, zb);
     if (!pa || !pb) return;
     const fog = clamp(1 - (za - z0) / FAR, 0.12, 1);
     ctx.globalAlpha = fog;
-    ctx.lineWidth = clamp(60 / pa.depth, 1, 6);
-    ctx.strokeStyle = "rgba(95,251,241,0.35)";
-    ctx.beginPath(); ctx.moveTo(pa.sx, pa.sy); ctx.lineTo(pb.sx, pb.sy); ctx.stroke();
-    ctx.lineWidth = clamp(28 / pa.depth, 0.6, 3);
-    ctx.strokeStyle = "#5ffbf1";
+    if (bright) {
+      ctx.lineWidth = clamp(60 / pa.depth, 1, 6);
+      ctx.strokeStyle = "rgba(95,251,241,0.35)";
+      ctx.beginPath(); ctx.moveTo(pa.sx, pa.sy); ctx.lineTo(pb.sx, pb.sy); ctx.stroke();
+    }
+    ctx.lineWidth = clamp((bright ? 28 : 18) / pa.depth, 0.6, bright ? 3 : 2);
+    ctx.strokeStyle = color;
     ctx.beginPath(); ctx.moveTo(pa.sx, pa.sy); ctx.lineTo(pb.sx, pb.sy); ctx.stroke();
   }
 
@@ -321,9 +319,9 @@
   }
 
   function drawPlayer() {
-    // shadow on the ribbon directly beneath
+    // shadow on the wall directly beneath
     if (!offRamp) {
-      const sp = project(pos.x, groundY(pos.x, pos.z) + 0.05, pos.z);
+      const sp = project(pos.x, surfaceAt(pos.x, pos.z).y + 0.05, pos.z);
       if (sp) {
         ctx.globalAlpha = 0.35; ctx.fillStyle = "#000";
         const sr = clamp((PR * 110) / sp.depth, 1, 18);
@@ -337,15 +335,13 @@
     const roll = clamp(-vel.x * 0.5, -0.6, 0.6);   // bank into the strafe
     ctx.save();
     ctx.translate(p.sx, p.sy);
-    // glow
     const gl = ctx.createRadialGradient(0, 0, 0, 0, 0, sc * 2.4);
     gl.addColorStop(0, "rgba(150,210,255,0.85)"); gl.addColorStop(1, "rgba(150,210,255,0)");
     ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(0, 0, sc * 2.4, 0, Math.PI * 2); ctx.fill();
-    // satellite, seen from behind/above: body + two solar panels
     ctx.rotate(roll);
     ctx.fillStyle = "#3a7bff";
-    ctx.fillRect(-sc * 2.0, -sc * 0.32, sc * 1.0, sc * 0.64);   // left panel
-    ctx.fillRect(sc * 1.0, -sc * 0.32, sc * 1.0, sc * 0.64);    // right panel
+    ctx.fillRect(-sc * 2.0, -sc * 0.32, sc * 1.0, sc * 0.64);
+    ctx.fillRect(sc * 1.0, -sc * 0.32, sc * 1.0, sc * 0.64);
     ctx.strokeStyle = "#2a5fd0"; ctx.lineWidth = sc * 0.08;
     ctx.beginPath(); ctx.moveTo(-sc * 1.0, 0); ctx.lineTo(sc * 1.0, 0); ctx.stroke();
     ctx.fillStyle = "#eaf2ff";
@@ -375,12 +371,12 @@
   function updateHud() {
     const pct = clamp(pos.z / LAP * 100, 0, 100);
     const spd = Math.hypot(vel.x, vel.y, vel.z);
-    const height = pos.y - yPath(pos.z);        // height above the ribbon centreline
+    const height = pos.y - yBase(pos.z);        // height above the inner-edge plane
     elPct.textContent = Math.floor(pct);
     elSpeed.textContent = Math.round(spd * SPEED_SCALE);
     elAlt.textContent = Math.max(0, Math.round((height + VOID) * ALT_SCALE));
     elBest.textContent = Math.floor(best);
-    elAltWrap.classList.toggle("warn", offRamp || height < -VOID * 0.55);
+    elAltWrap.classList.toggle("warn", offRamp || height < -VOID * 0.5);
   }
 
   // ---- game states ---------------------------------------------------------
