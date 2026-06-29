@@ -17,23 +17,26 @@
   const ctx = canvas.getContext("2d");
 
   // ---- world constants -----------------------------------------------------
-  // Each "wall" is a downhill chute: a flat floor you ride forward along, with
-  // steep side walls that keep you in. Chutes are offset left/right and broken
-  // by forward gaps you hop across, air-steering onto the next one.
+  // Each "wall" is a concave HALF-PIPE: a curved U you surf inside. Half-pipes
+  // sit on alternating sides and are randomly cut, so you ride up the curve,
+  // launch off it into the air, and fly across to the next one.
   const PR = 0.7;            // player radius (world units)
-  const HW = 9;              // half-width of a chute floor
-  const OFF = 8;             // lateral offset of alternating chute centres (±OFF)
-  const WALL_H = 11;         // visual height of the chute side walls
-  const VOID = 26;           // how far you can fall below the floor before you're lost
+  const PIPE_HW = 8.5;       // half-width of a half-pipe (lip to lip from centre)
+  const OFF = 8;             // lateral offset of alternating pipe centres (±OFF)
+  const CURVE = 0.15;        // how steeply the pipe curves up its walls (U shape)
+  const VOID = 26;           // how far you can fall below the pipe before you're lost
 
   // physics (tuned for 60fps; scaled by frame-time factor f)
   const G = 0.024;           // gravity accel (−y), only acts while airborne
+  const CURVE_GAIN = 1.5;    // strength of the pipe's curve pulling you toward the bottom (the surf)
   const STRAFE = 0.03;       // lateral steer accel — gentle, for fine air control
-  const VX_CAP = 0.7;        // lateral speed cap — keeps left/right drift slow + controllable
-  const HOP_Y = 0.82;        // lofty upward hop — high and floaty so you can steer it
-  const RIDE_DRAG = 0.86;    // on the floor: drift settles quickly when you stop steering
-  const AIR_DRAG = 0.992;    // in the air: keep most momentum so you carry across the gap
-  const HOP_AIR = 2 * HOP_Y / G;   // ≈ airtime of a hop, in frames (used to size the course)
+  const STRAFE_AIR = 0.026;  // a touch gentler in the air
+  const VX_CAP = 0.95;       // lateral speed cap (you need some to ride up the walls)
+  const HOP = 0.82;          // launch impulse — fired ALONG the surface normal, so riding
+                             // up a wall flings you up + sideways off the pipe
+  const RIDE_DRAG = 0.985;   // light: lets you surf up + back down the walls
+  const AIR_DRAG = 0.992;    // in the air: keep most momentum so you carry across the cut
+  const HOP_AIR = 2 * HOP / G;   // ≈ airtime of a launch, in frames (used to size the course)
 
   // forward pace: starts slow, ramps up with distance
   const VZ0 = 0.34, VZK = 0.00052, VZMAX = 1.3;
@@ -78,21 +81,23 @@
   // separated by forward gaps. Gap sizes scale with the local speed so one lofty
   // hop always reaches the next chute. Some gaps hold a central bounce pad.
   const SLOPE = 0.1;                                                  // course descends forward — you're falling
-  function yBase(z) { return -z * SLOPE + 3 * Math.sin(z * 0.012); }  // downhill floor height
+  function yBase(z) { return -z * SLOPE + 3 * Math.sin(z * 0.012); }  // downhill pipe-bottom height
+  function dYBase(z) { const e = 1.0; return (yBase(z + e) - yBase(z - e)) / (2 * e); }
 
   let segs = [], plats = [];
-  let genZ = 0, segIdx = 0, lastSide = 1;
+  let genZ = 0, segIdx = 0, lastSide = 1, grng = 1;
   const GEN_AHEAD = 340;
+  function grand() { grng = (grng * 1103515245 + 12345) & 0x7fffffff; return grng / 0x7fffffff; }
 
   function genSeg() {
-    const side = -lastSide; lastSide = side;             // chute centre at side*OFF
-    const reach = vzCap(genZ) * HOP_AIR;                 // forward distance one hop covers here
-    // long chutes (lots of time to ride), with extra runway on the first few
-    let len = clamp(reach * 0.85, 40, 110);
-    if (segIdx === 0) len += 46; else if (segIdx < 3) len += 20;
+    const side = -lastSide; lastSide = side;             // pipe centre at side*OFF
+    const reach = vzCap(genZ) * HOP_AIR;                 // forward distance one launch covers here
+    // randomly-cut half-pipes: lengths + gaps vary, with extra runway up front
+    let len = clamp(reach * (0.7 + grand() * 0.5), 40, 120);
+    if (segIdx === 0) len += 50; else if (segIdx < 3) len += 22;
     const z0 = genZ, z1 = z0 + len;
     segs.push({ side, xc: side * OFF, z0, z1 });
-    const gap = clamp(reach * 0.5, 14, 70);
+    const gap = clamp(reach * (0.4 + grand() * 0.45), 14, 80);   // the random "cut"
     if (segIdx > 0 && segIdx % 2 === 0) {
       const pz = z1 + gap / 2;
       plats.push({ x: 0, z: pz, topY: yBase(pz) + PLAT_RISE, used: false });
@@ -100,8 +105,8 @@
     genZ = z1 + gap; segIdx++;
   }
   function genReset() {
-    // first chute is on the LEFT and straddles z=0, so the player starts on it
-    segs = []; plats = []; segIdx = 0; lastSide = 1; genZ = -16;
+    // first pipe is on the LEFT and straddles z=0, so the player starts in it
+    segs = []; plats = []; segIdx = 0; lastSide = 1; genZ = -18; grng = 1;
     while (genZ < pos.z + GEN_AHEAD) genSeg();
   }
   function genMore() {
@@ -114,18 +119,25 @@
     return null;
   }
 
-  // Surface query: is there a chute floor at (x,z)? Floor is flat across; the
-  // side walls just contain you (handled by clamping while riding).
+  // Surface query: is there a half-pipe at (x,z)? The pipe is a concave U
+  // (y = bottom + CURVE·dx²); the normal tilts inward up the walls, so a launch
+  // fired along it flings you up and back toward centre.
   function surfaceAt(x, z) {
     const s = segAt(z);
-    if (s && x >= s.xc - HW && x <= s.xc + HW) return { onWall: true, y: yBase(z), seg: s };
+    if (s) {
+      const dx = x - s.xc;
+      if (Math.abs(dx) <= PIPE_HW) {
+        const slope = 2 * CURVE * dx;                 // dy/dx across the pipe
+        return { onWall: true, y: yBase(z) + CURVE * dx * dx, nx: -slope, ny: 1, nz: -dYBase(z), seg: s };
+      }
+    }
     return { onWall: false, y: yBase(z), seg: null };
   }
 
   // ---- state ---------------------------------------------------------------
   let phase = "intro";                 // intro | play | fail
   const pos = { x: 0, y: 0, z: 0 }, vel = { x: 0, y: 0, z: 0 };
-  let riding = false, ridingSide = -1; // glued to a wall, and which side
+  let riding = false, ridingXc = 0;    // surfing a pipe, and its centre x
   let onSurface = false, offRamp = false, boost = 0;
   let best = 0, clock = 0, shake = 0, camYsmooth = 0;
   let jumpQueued = false;
@@ -135,11 +147,11 @@
   try { best = Math.max(0, +localStorage.getItem("orbit.bestDist") || 0); } catch (e) { /* ignore */ }
 
   function reset() {
-    pos.z = 0; pos.x = -OFF;                    // centred on the first (left) chute
+    pos.z = 0; pos.x = -OFF;                    // resting in the bottom of the first (left) pipe
     genReset();
     pos.y = surfaceAt(pos.x, 0).y + PR;
     vel.x = 0; vel.y = 0; vel.z = VZ0;
-    riding = true; ridingSide = -1;
+    riding = true; ridingXc = -OFF;
     onSurface = true; offRamp = false; boost = 0;
     cam.x = pos.x; cam.y = pos.y; camYsmooth = pos.y;
     particles = []; trail = []; shake = 0;
@@ -154,38 +166,40 @@
     if (vel.z < cap) vel.z = Math.min(cap, vel.z + THRUST_Z * (boost > 0 ? 3 : 1) * f);
     else vel.z = Math.max(cap, vel.z - 0.012 * f);
 
-    // strafe (gentle; the only thing driving left/right, so it's easy to control)
     const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-    if (dir) vel.x = clamp(vel.x + dir * STRAFE * f, -VX_CAP, VX_CAP);
 
     if (riding) {
-      // riding the chute floor: lateral drift settles fast when you let go, and
-      // the steep side walls keep you in (we clamp to the floor width).
-      if (!dir) vel.x *= Math.pow(RIDE_DRAG, f);
+      // surfing the half-pipe: the curve pulls you toward the bottom (so you
+      // ride up a wall and swing back), and your strafe pumps you up the walls.
+      vel.x += -CURVE_GAIN * 2 * CURVE * (pos.x - ridingXc) * G * f;   // gravity along the curve
+      if (dir) vel.x = clamp(vel.x + dir * STRAFE * f, -VX_CAP, VX_CAP);
+      else vel.x *= Math.pow(RIDE_DRAG, f);
       pos.x += vel.x * f; pos.z += vel.z * f;
-      let s = surfaceAt(pos.x, pos.z);
+      const s = surfaceAt(pos.x, pos.z);
       if (s.onWall) {
-        const lo = s.seg.xc - HW, hi = s.seg.xc + HW;
-        if (pos.x < lo) { pos.x = lo; if (vel.x < 0) vel.x = 0; }   // side wall stops you
-        if (pos.x > hi) { pos.x = hi; if (vel.x > 0) vel.x = 0; }
         pos.y = s.y + PR; onSurface = true; offRamp = false;
-        if (Math.random() < 0.25) spark(pos.x, s.y, pos.z);
-      } else { riding = false; onSurface = false; offRamp = true; }  // ran off the end → airborne
-      if (jumpQueued && riding) { vel.y = HOP_Y; riding = false; onSurface = false; burst(pos.x, pos.y - PR, pos.z, 8, "#5ffbf1"); jumpQueued = false; }
+        if (Math.random() < 0.22) spark(pos.x, s.y, pos.z);
+        if (jumpQueued) {                       // launch ALONG the normal → off the pipe
+          const n = norm3(s.nx, s.ny, s.nz);
+          vel.x += n.x * HOP; vel.y = n.y * HOP; vel.z += n.z * HOP;
+          riding = false; onSurface = false; burst(pos.x, s.y, pos.z, 9, "#5ffbf1"); jumpQueued = false;
+        }
+      } else { riding = false; onSurface = false; offRamp = true; }   // shot off the lip / into a cut
     } else {
-      // airborne: gravity + air-steer, until we drop onto a chute floor
+      // airborne: gravity + air-steer, until we drop back into a pipe
       vel.y -= G * f;
+      if (dir) vel.x = clamp(vel.x + dir * STRAFE_AIR * f, -VX_CAP, VX_CAP);
       vel.x *= Math.pow(AIR_DRAG, f);
       pos.x += vel.x * f; pos.y += vel.y * f; pos.z += vel.z * f;
       const s = surfaceAt(pos.x, pos.z);
       offRamp = !s.onWall; onSurface = false;
       if (s.onWall && pos.y <= s.y + PR && vel.y <= 0) {
-        pos.y = s.y + PR; vel.y = 0; vel.x *= 0.5;     // land + absorb some sideways speed
-        riding = true; ridingSide = s.seg.side; onSurface = true; offRamp = false;
+        pos.y = s.y + PR; vel.y = 0; vel.x *= 0.7;     // drop in + keep most of your sideways carry
+        riding = true; ridingXc = s.seg.xc; onSurface = true; offRamp = false;
         burst(pos.x, s.y, pos.z, 6, "#9fd0ff");
       }
     }
-    if (!riding) jumpQueued = false;        // no mid-air hops; the request is dropped
+    if (!riding) jumpQueued = false;        // no mid-air launches; the request is dropped
 
     // bounce-pad contact (super-bounce + speed boost). Generous trigger volume:
     // crossing down through the centre column catches it, no pixel-perfect land.
@@ -308,31 +322,31 @@
     ctx.closePath(); ctx.fill();
   }
 
-  // Far → near painter's pass over z bands; draw whichever chute (if any) covers
-  // each band — floor + two steep side walls — plus any bounce pad centred in it.
+  const pipeY = (z, dx) => yBase(z) + CURVE * dx * dx;   // half-pipe surface height
+
+  // Far → near painter's pass over z bands; draw whichever half-pipe (if any)
+  // covers each band — a curved U, shaded so the walls read — plus any pad.
   function drawWorld() {
-    const STEP = 4, FAR = 240, NX = 4;
+    const STEP = 4, FAR = 240, NX = 8;
     const z0 = Math.floor(pos.z / STEP) * STEP - 12;
     ctx.lineJoin = "round";
     for (let z = z0 + FAR; z >= z0; z -= STEP) {
       const s = segAt(z + STEP / 2);
       const fog = clamp(1 - (z - z0) / FAR, 0.12, 1);
       if (s) {
-        const lo = s.xc - HW, hi = s.xc + HW;
-        const ya = yBase(z), yb = yBase(z + STEP);
-        // side walls (steep, darker) — drawn first so the floor reads on top
-        quad(lo, ya, z, lo, ya + WALL_H, z, lo, yb + WALL_H, z + STEP, lo, yb, z + STEP, "rgb(70,58,150)", fog);
-        quad(hi, ya, z, hi, ya + WALL_H, z, hi, yb + WALL_H, z + STEP, hi, yb, z + STEP, "rgb(70,58,150)", fog);
-        // floor (lit, with a moving checker)
         for (let j = 0; j < NX; j++) {
-          const xa = lo + (hi - lo) * j / NX, xb = lo + (hi - lo) * (j + 1) / NX;
-          const checker = (j + Math.floor(z / 4)) % 2 === 0 ? 1 : 0.84;
-          const fill = `rgb(${Math.round(120 * checker)},${Math.round(96 * checker)},210)`;
-          quad(xa, ya, z, xb, ya, z, xb, yb, z + STEP, xa, yb, z + STEP, fill, fog);
+          const dxa = -PIPE_HW + (2 * PIPE_HW) * j / NX, dxb = -PIPE_HW + (2 * PIPE_HW) * (j + 1) / NX;
+          const xa = s.xc + dxa, xb = s.xc + dxb;
+          // shade by how steep the wall is here (bottom bright, walls darker)
+          const steep = Math.abs((dxa + dxb) / 2) / PIPE_HW;        // 0 centre → 1 lip
+          const checker = (j + Math.floor(z / 4)) % 2 === 0 ? 1 : 0.86;
+          const lit = (1 - steep * 0.55) * checker;
+          const fill = `rgb(${Math.round(124 * lit)},${Math.round(100 * lit)},${Math.round(214 * (1 - steep * 0.25))})`;
+          quad(xa, pipeY(z, dxa), z, xb, pipeY(z, dxb), z, xb, pipeY(z + STEP, dxb), z + STEP, xa, pipeY(z + STEP, dxa), z + STEP, fill, fog);
         }
-        // glowing rails along the top of each wall
-        drawEdge(z, z + STEP, lo, yBase(z) + WALL_H, yBase(z + STEP) + WALL_H, fog, "#5ffbf1");
-        drawEdge(z, z + STEP, hi, yBase(z) + WALL_H, yBase(z + STEP) + WALL_H, fog, "#5ffbf1");
+        // glowing rails along the two lips
+        drawEdge(z, z + STEP, s.xc - PIPE_HW, pipeY(z, -PIPE_HW), pipeY(z + STEP, -PIPE_HW), fog, "#5ffbf1");
+        drawEdge(z, z + STEP, s.xc + PIPE_HW, pipeY(z, PIPE_HW), pipeY(z + STEP, PIPE_HW), fog, "#5ffbf1");
       }
       for (const p of plats) if (p.z >= z && p.z < z + STEP) drawPlatform(p);
     }
@@ -533,7 +547,7 @@
     get state() { return { phase, pos: { ...pos }, vel: { ...vel }, dist: pos.z, onSurface, offRamp, boost }; },
     get segs() { return segs.map((s) => ({ ...s })); },
     get plats() { return plats.map((p) => ({ ...p })); },
-    consts: { HW, OFF },
+    consts: { PIPE_HW, OFF },
     setInput(left, right) { input.left = left; input.right = right; },
     queueJump() { jumpQueued = true; },
     start: startPlay,

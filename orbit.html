@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Orbit Surfer — a strange little detour</title>
-  <meta name="description" content="An endless orbital surf runner: ride steep walls, hop across the void to the next one, grab boost pads, and see how far you can get." />
+  <meta name="description" content="An endless orbital surf runner: surf half-pipes, launch across the cuts to the next one, grab boost pads, and see how far you can get." />
   <meta name="robots" content="noindex" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -25,7 +25,7 @@
     <div class="orbit-stat">Best <b id="orbitBest">0</b><span>m</span></div>
   </div>
 
-  <p class="orbit-hint" id="orbitHint">Ride the chute, then hop (Space) across the gap and steer onto the next one. Grab the ✦ pads.</p>
+  <p class="orbit-hint" id="orbitHint">Surf up a wall, launch (Space) off it across the gap, and steer into the next half-pipe. Grab the ✦ pads.</p>
 
   <!-- on-screen controls for touch devices -->
   <div class="orbit-touch" id="orbitTouch" aria-hidden="true">
@@ -39,15 +39,16 @@
   <!-- intro -->
   <div class="orbit-overlay" id="orbitIntro">
     <h2>🛰️ Orbit Surfer</h2>
-    <p>You're a satellite riding <b>downhill chutes</b> suspended in orbit — the camera floats
-      <b>behind and above</b> you, looking forward as the track tilts away beneath you. Steep side
-      walls keep you in each chute, and they appear on <b>alternating sides</b> with empty gaps between.</p>
-    <p class="orbit-sub">Ride a chute, then take a big <b>lofty hop</b> across the gap and <b>steer in the air</b>
-      onto the next one. Catch a glowing <b>✦ pad</b> floating in a gap for a <b>super-bounce and a speed
-      boost</b>. The pace ramps up the further you go — miss a chute and you're lost to the void.</p>
+    <p>You're a satellite surfing <b>half-pipes</b> suspended in orbit — the camera floats
+      <b>behind and above</b> you, looking forward as the track tilts away beneath you. The pipes
+      sit on <b>alternating sides</b> and are <b>cut</b> by empty gaps.</p>
+    <p class="orbit-sub">Surf up a curved wall and <b>launch</b> off it into the air, then <b>steer</b> across
+      the cut and drop into the next half-pipe. Catch a glowing <b>✦ pad</b> floating in a gap for a
+      <b>super-bounce and a speed boost</b>. The pace ramps up the further you go — miss a pipe and you're
+      lost to the void.</p>
     <div class="orbit-keys">
-      <kbd>← / A</kbd><kbd>→ / D</kbd> steer
-      <kbd>Space / ↑</kbd> hop
+      <kbd>← / A</kbd><kbd>→ / D</kbd> surf / steer
+      <kbd>Space / ↑</kbd> launch
     </div>
     <div class="orbit-btn-row">
       <button class="orbit-btn" id="orbitPlayBtn" type="button">▶ Launch</button>
