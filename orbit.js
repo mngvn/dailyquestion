@@ -38,6 +38,9 @@
                              //   make it easy to clear the lip and launch
   const RIDE_DRAG = 0.985;   // light: lets you surf up + back down the walls
   const AIR_DRAG = 0.99;     // in the air: gently bleeds sideways speed
+  const LIP_SLOPE = 2 * CURVE * PIPE_HW;   // wall steepness at the lip (dy/dx) — converts speed → launch
+  const LIP_LAUNCH = 0.26;   // outward speed above which you pop off the lip instead of being caught
+  const LIP_VY_MAX = 0.9;    // cap on a momentum launch so you don't fly to the moon
   const HOP_AIR = 2 * HOP / G;   // ≈ airtime of a launch, in frames (used to size the course)
 
   // forward pace: starts slow and accelerates EXTREMELY gradually over distance
@@ -204,9 +207,7 @@
     if (riding) {
       // surfing the half-pipe: the curve pulls you toward the bottom (so you
       // ride up a wall and swing back), and your strafe pumps you up the walls.
-      // The lips CONTAIN you — you only leave by deliberately launching, so you
-      // can't accidentally zoom off the edge. Windy pipes weave, so re-read the
-      // centre each frame.
+      // Windy pipes weave, so re-read the centre each frame.
       const sc = segAt(pos.z);
       ridingXc = sc ? centerOf(sc, pos.z) : ridingXc;
       vel.x += -CURVE_GAIN * 2 * CURVE * (pos.x - ridingXc) * G * f;   // gravity along the curve
@@ -215,19 +216,29 @@
       pos.x += vel.x * f; pos.z += vel.z * f;
       const sc2 = segAt(pos.z);
       const cx = sc2 ? centerOf(sc2, pos.z) : ridingXc;
-      const lipLo = cx - PIPE_HW, lipHi = cx + PIPE_HW;
-      if (pos.x < lipLo) { pos.x = lipLo; if (vel.x < 0) vel.x = 0; }   // caught at the lip
-      if (pos.x > lipHi) { pos.x = lipHi; if (vel.x > 0) vel.x = 0; }
-      const s = surfaceAt(pos.x, pos.z);
-      if (s.onWall) {
-        pos.y = s.y + PR; onSurface = true; offRamp = false;
-        if (Math.random() < 0.22) spark(pos.x, s.y, pos.z);
-        if (jumpQueued) {                       // launch ALONG the normal → off the pipe
-          const n = norm3(s.nx, s.ny, s.nz);
-          vel.x += n.x * HOP; vel.y = n.y * HOP; vel.z += n.z * HOP;
-          riding = false; onSurface = false; burst(pos.x, s.y, pos.z, 9, "#5ffbf1"); jumpQueued = false;
-        }
-      } else { riding = false; onSurface = false; offRamp = true; }   // ran off the end / into a hole → airborne
+      const dx = pos.x - cx;
+      // At a lip: carry your speed up the curve into a LAUNCH if you're moving
+      // out fast enough; otherwise the lip gently catches you (slow drift stays
+      // contained, so you don't accidentally fly off).
+      if (dx < -PIPE_HW) {
+        if (vel.x < -LIP_LAUNCH) { riding = false; vel.y = Math.min(-vel.x * LIP_SLOPE, LIP_VY_MAX); burst(pos.x, pos.y, pos.z, 9, "#5ffbf1"); }
+        else { pos.x = cx - PIPE_HW; if (vel.x < 0) vel.x = 0; }
+      } else if (dx > PIPE_HW) {
+        if (vel.x > LIP_LAUNCH) { riding = false; vel.y = Math.min(vel.x * LIP_SLOPE, LIP_VY_MAX); burst(pos.x, pos.y, pos.z, 9, "#5ffbf1"); }
+        else { pos.x = cx + PIPE_HW; if (vel.x > 0) vel.x = 0; }
+      }
+      if (riding) {
+        const s = surfaceAt(pos.x, pos.z);
+        if (s.onWall) {
+          pos.y = s.y + PR; onSurface = true; offRamp = false;
+          if (Math.random() < 0.22) spark(pos.x, s.y, pos.z);
+          if (jumpQueued) {                     // deliberate launch ALONG the normal → up + inward
+            const n = norm3(s.nx, s.ny, s.nz);
+            vel.x += n.x * HOP; vel.y = n.y * HOP; vel.z += n.z * HOP;
+            riding = false; onSurface = false; burst(pos.x, s.y, pos.z, 9, "#5ffbf1"); jumpQueued = false;
+          }
+        } else { riding = false; onSurface = false; offRamp = true; }   // ran off the end / into a hole → airborne
+      } else { onSurface = false; offRamp = true; }
     } else {
       // airborne: gravity + air-steer, until we drop back into a pipe
       vel.y -= G * f;
