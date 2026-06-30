@@ -176,7 +176,6 @@
   let riding = false, ridingXc = 0;    // surfing a pipe, and its centre x
   let onSurface = false, offRamp = false, boost = 0;
   let best = 0, clock = 0, shake = 0, camYsmooth = 0;
-  let jumpQueued = false;
   let particles = [], trail = [];
   const input = { left: false, right: false };
 
@@ -191,7 +190,7 @@
     onSurface = true; offRamp = false; boost = 0;
     cam.x = pos.x; cam.y = pos.y; camYsmooth = pos.y;
     particles = []; trail = []; shake = 0;
-    input.left = input.right = false; jumpQueued = false;
+    input.left = input.right = false;
   }
 
   // ---- physics -------------------------------------------------------------
@@ -232,28 +231,23 @@
         if (s.onWall) {
           pos.y = s.y + PR; onSurface = true; offRamp = false;
           if (Math.random() < 0.22) spark(pos.x, s.y, pos.z);
-          if (jumpQueued) {                     // deliberate launch ALONG the normal → up + inward
-            const n = norm3(s.nx, s.ny, s.nz);
-            vel.x += n.x * HOP; vel.y = n.y * HOP; vel.z += n.z * HOP;
-            riding = false; onSurface = false; burst(pos.x, s.y, pos.z, 9, "#5ffbf1"); jumpQueued = false;
-          }
         } else { riding = false; onSurface = false; offRamp = true; }   // ran off the end / into a hole → airborne
       } else { onSurface = false; offRamp = true; }
     } else {
-      // airborne: gravity + air-steer, until we drop back into a pipe
+      // airborne: gravity + air-steer, until we drop back into a pipe. Only catch
+      // when coming DOWN onto the top of a pipe — never snap up from underneath.
       vel.y -= G * f;
       if (dir) vel.x = clamp(vel.x + dir * STRAFE_AIR * f, -VX_CAP, VX_CAP);
       vel.x *= Math.pow(AIR_DRAG, f);
       pos.x += vel.x * f; pos.y += vel.y * f; pos.z += vel.z * f;
       const s = surfaceAt(pos.x, pos.z);
       offRamp = !s.onWall; onSurface = false;
-      if (s.onWall && pos.y <= s.y + PR && vel.y <= 0) {
+      if (s.onWall && vel.y <= 0 && pos.y <= s.y + PR && pos.y > s.y - 2) {
         pos.y = s.y + PR; vel.y = 0; vel.x *= 0.6;     // drop in (lips will catch any leftover skid)
         riding = true; ridingXc = centerOf(s.seg, pos.z); onSurface = true; offRamp = false;
         burst(pos.x, s.y, pos.z, 6, "#9fd0ff");
       }
     }
-    if (!riding) jumpQueued = false;        // no mid-air launches; the request is dropped
 
     // bounce-pad contact (super-bounce + speed boost). Generous trigger volume:
     // crossing down through the centre column catches it, no pixel-perfect land.
@@ -554,11 +548,9 @@
   // ---- input ---------------------------------------------------------------
   const LEFT = new Set(["ArrowLeft", "a", "A"]);
   const RIGHT = new Set(["ArrowRight", "d", "D"]);
-  const HOPK = new Set([" ", "Spacebar", "ArrowUp", "w", "W"]);
   window.addEventListener("keydown", (e) => {
     if (LEFT.has(e.key)) { input.left = true; e.preventDefault(); }
     else if (RIGHT.has(e.key)) { input.right = true; e.preventDefault(); }
-    else if (HOPK.has(e.key)) { if (phase === "play") jumpQueued = true; e.preventDefault(); }
     else if (e.key === "Enter" && phase !== "play") { startPlay(); }
   });
   window.addEventListener("keyup", (e) => {
@@ -578,8 +570,6 @@
   }
   hold("touchBrake", () => input.left = true, () => input.left = false);
   hold("touchThrust", () => input.right = true, () => input.right = false);
-  const tj = $("touchJump");
-  if (tj) tj.addEventListener("pointerdown", (e) => { e.preventDefault(); if (phase === "play") jumpQueued = true; });
 
   $("orbitPlayBtn").addEventListener("click", startPlay);
   $("orbitRetry").addEventListener("click", startPlay);
@@ -605,7 +595,6 @@
     get plats() { return plats.map((p) => ({ ...p })); },
     consts: { PIPE_HW, OFF },
     setInput(left, right) { input.left = left; input.right = right; },
-    queueJump() { jumpQueued = true; },
     start: startPlay,
   };
 })();
