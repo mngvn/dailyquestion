@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Orbit Surfer — a strange little detour</title>
-  <meta name="description" content="Surf the ramps ringing the Earth, keep your momentum, and ride all the way around without crashing back down." />
+  <meta name="description" content="An endless orbital surf runner: surf half-pipes, launch across the cuts to the next one, grab boost pads, and see how far you can get." />
   <meta name="robots" content="noindex" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -19,13 +19,13 @@
   <div class="orbit-chip" id="orbitChip" aria-hidden="true">🛰️ orbit surfer</div>
 
   <div class="orbit-hud" id="orbitHud" hidden>
-    <div class="orbit-stat">Orbit <b id="orbitPct">0</b><span>%</span></div>
+    <div class="orbit-stat">Distance <b id="orbitPct">0</b><span>m</span></div>
     <div class="orbit-stat">Speed <b id="orbitSpeed">0</b><span>m/s</span></div>
-    <div class="orbit-stat" id="orbitAltWrap">Altitude <b id="orbitAlt">0</b><span>km</span></div>
-    <div class="orbit-stat">Best <b id="orbitBest">0</b><span>%</span></div>
+    <div class="orbit-stat" id="orbitAltWrap">Boost <b id="orbitAlt">—</b></div>
+    <div class="orbit-stat">Best <b id="orbitBest">0</b><span>m</span></div>
   </div>
 
-  <p class="orbit-hint" id="orbitHint">Strafe ← → to follow the weave and ride up the banked walls.</p>
+  <p class="orbit-hint" id="orbitHint">Surf up a wall, launch (Space) off it across the gap, and steer into the next half-pipe. Grab the ✦ pads.</p>
 
   <!-- on-screen controls for touch devices -->
   <div class="orbit-touch" id="orbitTouch" aria-hidden="true">
@@ -39,35 +39,28 @@
   <!-- intro -->
   <div class="orbit-overlay" id="orbitIntro">
     <h2>🛰️ Orbit Surfer</h2>
-    <p>You're a satellite riding a glowing surf ribbon through space — the camera floats
-      <b>behind and above</b> you, looking forward down the track. Gravity is always
-      pulling you <b>down</b>, and the ribbon is frictionless.</p>
-    <p class="orbit-sub">The road <b>weaves and banks</b> as it winds around the Earth. <b>Strafe</b>
-      left and right to stay on it and ride up the sloped walls — drop back down a bank to trade
-      height for <b>speed</b>. Over-steer past the edge, or miss the ribbon, and you drift off into the void.</p>
+    <p>You're a satellite surfing <b>half-pipes</b> suspended in orbit — the camera floats
+      <b>behind and above</b> you, looking forward as the track tilts away beneath you. The pipes
+      sit on <b>alternating sides</b> and are <b>cut</b> by empty gaps.</p>
+    <p class="orbit-sub">Surf up a curved wall and <b>launch</b> off it into the air, then <b>steer</b> across
+      the cut and drop into the next half-pipe. Long <b>winding pipes</b> snake side to side with <b>holes
+      in the floor</b> — ride up the wall or hop to dodge them. Catch a glowing <b>✦ pad</b> for a
+      <b>super-bounce and a speed boost</b>. The pace builds up slowly — miss a pipe and you're lost to the void.</p>
     <div class="orbit-keys">
-      <kbd>← / A</kbd><kbd>→ / D</kbd> strafe
-      <kbd>Space / ↑</kbd> hop
+      <kbd>← / A</kbd><kbd>→ / D</kbd> surf / steer
+      <kbd>Space / ↑</kbd> launch
     </div>
     <div class="orbit-btn-row">
       <button class="orbit-btn" id="orbitPlayBtn" type="button">▶ Launch</button>
     </div>
-    <p class="orbit-sub">Goal: hold your line a full <b>360°</b> lap around the Earth. How far can you get?</p>
+    <p class="orbit-sub">It never ends — just see how far you can ride. Your best distance is saved.</p>
   </div>
 
   <div class="orbit-overlay orbit-overlay-soft" id="orbitFail" hidden>
-    <h2 id="orbitFailTitle">Burned up on re-entry.</h2>
-    <p id="orbitFailMsg">You made it <b>0%</b> of the way around.</p>
+    <h2 id="orbitFailTitle">Lost to the void.</h2>
+    <p id="orbitFailMsg">You rode <b>0 m</b>.</p>
     <div class="orbit-btn-row">
       <button class="orbit-btn" id="orbitRetry" type="button">↺ Try again</button>
-    </div>
-  </div>
-
-  <div class="orbit-overlay" id="orbitWin" hidden>
-    <h2>🌍 Full orbit!</h2>
-    <p id="orbitWinMsg">You rode the ramps all the way around the Earth. Escape velocity achieved.</p>
-    <div class="orbit-btn-row">
-      <button class="orbit-btn" id="orbitReplay" type="button">Ride again</button>
     </div>
   </div>
 
