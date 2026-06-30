@@ -28,18 +28,18 @@
 
   // physics (tuned for 60fps; scaled by frame-time factor f)
   const G = 0.0175;          // gravity accel (−y) — low, so you float across the cuts
-  const CURVE_GAIN = 1.5;    // strength of the pipe's curve pulling you toward the bottom (the surf)
-  const STRAFE = 0.03;       // lateral steer accel — gentle, for fine air control
-  const STRAFE_AIR = 0.026;  // a touch gentler in the air
-  const VX_CAP = 0.95;       // lateral speed cap (you need some to ride up the walls)
+  const CURVE_GAIN = 1.3;    // strength of the pipe's curve pulling you toward the bottom (the surf)
+  const STRAFE = 0.028;      // lateral steer accel — gentle, for fine control
+  const STRAFE_AIR = 0.024;  // gentler in the air
+  const VX_CAP = 0.85;       // lateral speed cap — enough to cross, lips contain you so you can't fly off
   const HOP = 0.82;          // launch impulse — fired ALONG the surface normal, so riding
                              // up a wall flings you up + sideways off the pipe
   const RIDE_DRAG = 0.985;   // light: lets you surf up + back down the walls
-  const AIR_DRAG = 0.992;    // in the air: keep most momentum so you carry across the cut
+  const AIR_DRAG = 0.99;     // in the air: gently bleeds sideways speed
   const HOP_AIR = 2 * HOP / G;   // ≈ airtime of a launch, in frames (used to size the course)
 
-  // forward pace: starts slow, ramps up with distance
-  const VZ0 = 0.34, VZK = 0.00052, VZMAX = 1.3;
+  // forward pace: starts slow and ramps up VERY gradually over distance
+  const VZ0 = 0.32, VZK = 0.00011, VZMAX = 1.15;
   const THRUST_Z = 0.011;    // how quickly forward speed climbs toward the cap
   function vzCap(z) { return clamp(VZ0 + z * VZK, VZ0, VZMAX); }
 
@@ -171,10 +171,15 @@
     if (riding) {
       // surfing the half-pipe: the curve pulls you toward the bottom (so you
       // ride up a wall and swing back), and your strafe pumps you up the walls.
+      // The lips CONTAIN you — you only leave by deliberately launching, so you
+      // can't accidentally zoom off the edge.
       vel.x += -CURVE_GAIN * 2 * CURVE * (pos.x - ridingXc) * G * f;   // gravity along the curve
       if (dir) vel.x = clamp(vel.x + dir * STRAFE * f, -VX_CAP, VX_CAP);
       else vel.x *= Math.pow(RIDE_DRAG, f);
       pos.x += vel.x * f; pos.z += vel.z * f;
+      const lipLo = ridingXc - PIPE_HW, lipHi = ridingXc + PIPE_HW;
+      if (pos.x < lipLo) { pos.x = lipLo; if (vel.x < 0) vel.x = 0; }   // caught at the lip
+      if (pos.x > lipHi) { pos.x = lipHi; if (vel.x > 0) vel.x = 0; }
       const s = surfaceAt(pos.x, pos.z);
       if (s.onWall) {
         pos.y = s.y + PR; onSurface = true; offRamp = false;
@@ -184,7 +189,7 @@
           vel.x += n.x * HOP; vel.y = n.y * HOP; vel.z += n.z * HOP;
           riding = false; onSurface = false; burst(pos.x, s.y, pos.z, 9, "#5ffbf1"); jumpQueued = false;
         }
-      } else { riding = false; onSurface = false; offRamp = true; }   // shot off the lip / into a cut
+      } else { riding = false; onSurface = false; offRamp = true; }   // ran off the forward end → airborne
     } else {
       // airborne: gravity + air-steer, until we drop back into a pipe
       vel.y -= G * f;
@@ -194,7 +199,7 @@
       const s = surfaceAt(pos.x, pos.z);
       offRamp = !s.onWall; onSurface = false;
       if (s.onWall && pos.y <= s.y + PR && vel.y <= 0) {
-        pos.y = s.y + PR; vel.y = 0; vel.x *= 0.7;     // drop in + keep most of your sideways carry
+        pos.y = s.y + PR; vel.y = 0; vel.x *= 0.6;     // drop in (lips will catch any leftover skid)
         riding = true; ridingXc = s.seg.xc; onSurface = true; offRamp = false;
         burst(pos.x, s.y, pos.z, 6, "#9fd0ff");
       }
