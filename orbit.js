@@ -23,7 +23,9 @@
   const PR = 0.95;           // player radius (world units) — a bit chunkier
   const PIPE_HW = 8.5;       // half-width of a half-pipe (lip to lip from centre)
   const OFF = 13;            // lateral offset of alternating pipe centres (±OFF) — set wide apart
-  const CURVE = 0.15;        // how steeply the pipe curves up its walls (U shape)
+  const CURVE = 0.09;        // how steeply the pipe curves up its walls (lower = shallower walls)
+  const HOLE_HW = 4;         // half-width of a floor hole (windy pipes)
+  const HOLE_HL = 5;         // half-length (along z) of a floor hole
   const VOID = 26;           // how far you can fall below the pipe before you're lost
 
   // physics (tuned for 60fps; scaled by frame-time factor f)
@@ -32,21 +34,21 @@
   const STRAFE = 0.028;      // lateral steer accel — gentle, for fine control
   const STRAFE_AIR = 0.024;  // gentler in the air
   const VX_CAP = 0.85;       // lateral speed cap — enough to cross, lips contain you so you can't fly off
-  const HOP = 0.82;          // launch impulse — fired ALONG the surface normal, so riding
-                             // up a wall flings you up + sideways off the pipe
+  const HOP = 0.82;          // launch impulse — fired ALONG the surface normal; the shallow walls
+                             //   make it easy to clear the lip and launch
   const RIDE_DRAG = 0.985;   // light: lets you surf up + back down the walls
   const AIR_DRAG = 0.99;     // in the air: gently bleeds sideways speed
   const HOP_AIR = 2 * HOP / G;   // ≈ airtime of a launch, in frames (used to size the course)
 
-  // forward pace: starts slow and ramps up VERY gradually over distance
-  const VZ0 = 0.32, VZK = 0.00011, VZMAX = 1.15;
-  const THRUST_Z = 0.011;    // how quickly forward speed climbs toward the cap
+  // forward pace: starts slow and accelerates EXTREMELY gradually over distance
+  const VZ0 = 0.32, VZK = 0.00006, VZMAX = 1.1;
+  const THRUST_Z = 0.007;    // how gently forward speed climbs toward the cap
   function vzCap(z) { return clamp(VZ0 + z * VZK, VZ0, VZMAX); }
 
   // mid-air bounce pads: super-bounce + temporary speed boost. They float over
   // the void's centre; cross down through one and it flings you up and forward.
   const PLAT_HX = 9, PLAT_HZ = 10, PLAT_RISE = 11;
-  const SUPER_BOUNCE = 1.25, BOOST_TIME = 150, BOOST_VZ = 1.7;
+  const SUPER_BOUNCE = 1.0, BOOST_TIME = 150, BOOST_VZ = 1.7;
 
   // flavour scales for the HUD
   const SPEED_SCALE = 120;   // world u/frame -> "m/s"
@@ -89,16 +91,40 @@
   const GEN_AHEAD = 340;
   function grand() { grng = (grng * 1103515245 + 12345) & 0x7fffffff; return grng / 0x7fffffff; }
 
+  // weaving centre of a pipe at depth z (windy pipes snake left/right)
+  function centerOf(s, z) { return s.windy ? s.baseXc + s.amp * Math.sin(s.freq * (z - s.z0) + s.phase) : s.xc; }
+
   function genSeg() {
     const side = -lastSide; lastSide = side;             // pipe centre at side*OFF
     const reach = vzCap(genZ) * HOP_AIR;                 // forward distance one launch covers here
-    // randomly-cut half-pipes: lengths + gaps vary, with extra runway up front
+    const z0 = genZ;
+
+    // every so often, a long WINDY connected pipe that snakes side to side with
+    // holes punched in its floor — ride up the walls or hop to dodge them.
+    if (segIdx > 2 && segIdx % 3 === 0) {
+      const len = clamp(reach * (1.5 + grand() * 1.0), 110, 280);
+      const z1 = z0 + len;
+      const seg = { windy: true, side: 0, xc: 0, baseXc: 0,
+        amp: 4 + grand() * 4, freq: (2 * Math.PI) / (130 + grand() * 80), phase: 0,   // gentle wind, enters centred
+        z0, z1, holes: [] };
+      // a few holes, kept clear of the entrance so you have time to read them
+      const usable = len - 50;
+      const nholes = 1 + Math.floor(usable / 110);
+      for (let k = 0; k < nholes; k++) seg.holes.push(z0 + 40 + usable * ((k + 0.5) / nholes));
+      segs.push(seg);
+      const gap = clamp(reach * (0.32 + grand() * 0.3), 14, 60);
+      genZ = z1 + gap; segIdx++;
+      return;
+    }
+
+    // randomly-cut straight half-pipes: lengths + gaps vary, runway up front
     let len = clamp(reach * (0.7 + grand() * 0.5), 40, 120);
     if (segIdx === 0) len += 50; else if (segIdx < 3) len += 22;
-    const z0 = genZ, z1 = z0 + len;
-    segs.push({ side, xc: side * OFF, z0, z1 });
-    const gap = clamp(reach * (0.4 + grand() * 0.45), 14, 80);   // the random "cut"
-    if (segIdx > 0 && segIdx % 2 === 0) {
+    const z1 = z0 + len;
+    segs.push({ windy: false, side, xc: side * OFF, z0, z1, holes: null });
+    const gap = clamp(reach * (0.32 + grand() * 0.33), 14, 60);   // the random "cut"
+    const nextWindy = (segIdx + 1) > 2 && (segIdx + 1) % 3 === 0;
+    if (segIdx > 0 && segIdx % 2 === 0 && !nextWindy) {           // no pad right before a windy pipe
       const pz = z1 + gap / 2;
       plats.push({ x: 0, z: pz, topY: yBase(pz) + PLAT_RISE, used: false });
     }
@@ -119,14 +145,21 @@
     return null;
   }
 
+  function inHole(s, z, dx) {
+    if (!s.holes || Math.abs(dx) >= HOLE_HW) return false;
+    for (const h of s.holes) if (z >= h - HOLE_HL && z <= h + HOLE_HL) return true;
+    return false;
+  }
+
   // Surface query: is there a half-pipe at (x,z)? The pipe is a concave U
-  // (y = bottom + CURVE·dx²); the normal tilts inward up the walls, so a launch
-  // fired along it flings you up and back toward centre.
+  // (y = bottom + CURVE·dx²) around its (possibly weaving) centre; the normal
+  // tilts inward up the walls, so a launch fired along it flings you up + in.
+  // Windy pipes can have holes in the floor (no surface near the centre).
   function surfaceAt(x, z) {
     const s = segAt(z);
     if (s) {
-      const dx = x - s.xc;
-      if (Math.abs(dx) <= PIPE_HW) {
+      const dx = x - centerOf(s, z);
+      if (Math.abs(dx) <= PIPE_HW && !inHole(s, z, dx)) {
         const slope = 2 * CURVE * dx;                 // dy/dx across the pipe
         return { onWall: true, y: yBase(z) + CURVE * dx * dx, nx: -slope, ny: 1, nz: -dYBase(z), seg: s };
       }
@@ -172,12 +205,17 @@
       // surfing the half-pipe: the curve pulls you toward the bottom (so you
       // ride up a wall and swing back), and your strafe pumps you up the walls.
       // The lips CONTAIN you — you only leave by deliberately launching, so you
-      // can't accidentally zoom off the edge.
+      // can't accidentally zoom off the edge. Windy pipes weave, so re-read the
+      // centre each frame.
+      const sc = segAt(pos.z);
+      ridingXc = sc ? centerOf(sc, pos.z) : ridingXc;
       vel.x += -CURVE_GAIN * 2 * CURVE * (pos.x - ridingXc) * G * f;   // gravity along the curve
       if (dir) vel.x = clamp(vel.x + dir * STRAFE * f, -VX_CAP, VX_CAP);
       else vel.x *= Math.pow(RIDE_DRAG, f);
       pos.x += vel.x * f; pos.z += vel.z * f;
-      const lipLo = ridingXc - PIPE_HW, lipHi = ridingXc + PIPE_HW;
+      const sc2 = segAt(pos.z);
+      const cx = sc2 ? centerOf(sc2, pos.z) : ridingXc;
+      const lipLo = cx - PIPE_HW, lipHi = cx + PIPE_HW;
       if (pos.x < lipLo) { pos.x = lipLo; if (vel.x < 0) vel.x = 0; }   // caught at the lip
       if (pos.x > lipHi) { pos.x = lipHi; if (vel.x > 0) vel.x = 0; }
       const s = surfaceAt(pos.x, pos.z);
@@ -189,7 +227,7 @@
           vel.x += n.x * HOP; vel.y = n.y * HOP; vel.z += n.z * HOP;
           riding = false; onSurface = false; burst(pos.x, s.y, pos.z, 9, "#5ffbf1"); jumpQueued = false;
         }
-      } else { riding = false; onSurface = false; offRamp = true; }   // ran off the forward end → airborne
+      } else { riding = false; onSurface = false; offRamp = true; }   // ran off the end / into a hole → airborne
     } else {
       // airborne: gravity + air-steer, until we drop back into a pipe
       vel.y -= G * f;
@@ -200,7 +238,7 @@
       offRamp = !s.onWall; onSurface = false;
       if (s.onWall && pos.y <= s.y + PR && vel.y <= 0) {
         pos.y = s.y + PR; vel.y = 0; vel.x *= 0.6;     // drop in (lips will catch any leftover skid)
-        riding = true; ridingXc = s.seg.xc; onSurface = true; offRamp = false;
+        riding = true; ridingXc = centerOf(s.seg, pos.z); onSurface = true; offRamp = false;
         burst(pos.x, s.y, pos.z, 6, "#9fd0ff");
       }
     }
@@ -339,27 +377,29 @@
       const s = segAt(z + STEP / 2);
       const fog = clamp(1 - (z - z0) / FAR, 0.12, 1);
       if (s) {
+        const ca = centerOf(s, z), cb = centerOf(s, z + STEP);   // weaving centres
         for (let j = 0; j < NX; j++) {
           const dxa = -PIPE_HW + (2 * PIPE_HW) * j / NX, dxb = -PIPE_HW + (2 * PIPE_HW) * (j + 1) / NX;
-          const xa = s.xc + dxa, xb = s.xc + dxb;
-          // shade by how steep the wall is here (bottom bright, walls darker)
-          const steep = Math.abs((dxa + dxb) / 2) / PIPE_HW;        // 0 centre → 1 lip
+          const dmid = (dxa + dxb) / 2;
+          // skip the floor cells where a hole is punched (windy pipes)
+          if (inHole(s, z + STEP / 2, dmid)) continue;
+          const steep = Math.abs(dmid) / PIPE_HW;                  // 0 centre → 1 lip
           const checker = (j + Math.floor(z / 4)) % 2 === 0 ? 1 : 0.86;
           const lit = (1 - steep * 0.55) * checker;
           const fill = `rgb(${Math.round(124 * lit)},${Math.round(100 * lit)},${Math.round(214 * (1 - steep * 0.25))})`;
-          quad(xa, pipeY(z, dxa), z, xb, pipeY(z, dxb), z, xb, pipeY(z + STEP, dxb), z + STEP, xa, pipeY(z + STEP, dxa), z + STEP, fill, fog);
+          quad(ca + dxa, pipeY(z, dxa), z, ca + dxb, pipeY(z, dxb), z, cb + dxb, pipeY(z + STEP, dxb), z + STEP, cb + dxa, pipeY(z + STEP, dxa), z + STEP, fill, fog);
         }
         // glowing rails along the two lips
-        drawEdge(z, z + STEP, s.xc - PIPE_HW, pipeY(z, -PIPE_HW), pipeY(z + STEP, -PIPE_HW), fog, "#5ffbf1");
-        drawEdge(z, z + STEP, s.xc + PIPE_HW, pipeY(z, PIPE_HW), pipeY(z + STEP, PIPE_HW), fog, "#5ffbf1");
+        drawEdge(ca - PIPE_HW, z, cb - PIPE_HW, z + STEP, pipeY(z, -PIPE_HW), pipeY(z + STEP, -PIPE_HW), fog, "#5ffbf1");
+        drawEdge(ca + PIPE_HW, z, cb + PIPE_HW, z + STEP, pipeY(z, PIPE_HW), pipeY(z + STEP, PIPE_HW), fog, "#5ffbf1");
       }
       for (const p of plats) if (p.z >= z && p.z < z + STEP) drawPlatform(p);
     }
     ctx.globalAlpha = 1;
   }
 
-  function drawEdge(za, zb, x, ya, yb, fog, color) {
-    const pa = project(x, ya, za), pb = project(x, yb, zb);
+  function drawEdge(xa, za, xb, zb, ya, yb, fog, color) {
+    const pa = project(xa, ya, za), pb = project(xb, yb, zb);
     if (!pa || !pb) return;
     ctx.globalAlpha = fog;
     ctx.lineWidth = clamp(40 / pa.depth, 1, 5);
