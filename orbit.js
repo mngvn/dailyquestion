@@ -20,14 +20,14 @@
   // Each "wall" is a concave HALF-PIPE: a curved U you surf inside. Half-pipes
   // sit on alternating sides and are randomly cut, so you ride up the curve,
   // launch off it into the air, and fly across to the next one.
-  const PR = 0.7;            // player radius (world units)
+  const PR = 0.95;           // player radius (world units) — a bit chunkier
   const PIPE_HW = 8.5;       // half-width of a half-pipe (lip to lip from centre)
-  const OFF = 8;             // lateral offset of alternating pipe centres (±OFF)
+  const OFF = 13;            // lateral offset of alternating pipe centres (±OFF) — set wide apart
   const CURVE = 0.15;        // how steeply the pipe curves up its walls (U shape)
   const VOID = 26;           // how far you can fall below the pipe before you're lost
 
   // physics (tuned for 60fps; scaled by frame-time factor f)
-  const G = 0.024;           // gravity accel (−y), only acts while airborne
+  const G = 0.0175;          // gravity accel (−y) — low, so you float across the cuts
   const CURVE_GAIN = 1.5;    // strength of the pipe's curve pulling you toward the bottom (the surf)
   const STRAFE = 0.03;       // lateral steer accel — gentle, for fine air control
   const STRAFE_AIR = 0.026;  // a touch gentler in the air
