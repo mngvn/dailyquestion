@@ -31,12 +31,14 @@
 
   // physics (tuned for 60fps; scaled by frame-time factor f)
   const G = 0.04;            // gravity accel (−y) — the ball is heavy, so hops are short + snappy
-  const CURVE_GAIN = 1.3;    // strength of the pipe's curve pulling the ball toward the bottom
-  const STRAFE = 0.022;      // lateral steer accel — the ball is heavy, so this is small
+  const CURVE_GAIN = 0.6;    // curve pull toward the bottom — gentle, so you can roll up the walls
+  const STRAFE = 0.026;      // lateral steer accel — small (heavy ball, slow to change direction)
   const STRAFE_AIR = 0.024;  // a touch more nimble in the air
   const VX_CAP = 0.8;        // lateral speed cap
-  const LAT_FRICTION = 0.95; // rolling friction across the pipe — the ball resists sliding sideways
-  const AIR_DRAG = 0.992;    // in the air: keep most momentum so you carry across the cut
+  const LAT_FRICTION = 0.99; // light rolling friction — momentum persists so you can pump up the walls
+  const AIR_DRAG = 0.992;    // in the air: sideways speed bleed
+  const AIR_VZ_DRAG = 0.988; // in the air you LOSE forward momentum — keep working the ramps
+  const LAND_GAIN = 0.7;     // landing DOWN onto a ramp turns your fall into forward momentum
   const ROLL_ACC = 0.0038;   // rolling down the course builds forward momentum
   const LIP_SLOPE = 2 * CURVE * PIPE_HW;   // wall steepness at the lip (dy/dx) — converts speed → launch
   const LIP_LAUNCH = 0.24;   // outward speed above which you pop off the lip instead of being caught
@@ -197,13 +199,10 @@
   }
 
   // ---- physics -------------------------------------------------------------
-  // Every ramp edge gives the ball a little pop (up + forward) so it can always
-  // reach the next ramp; the real point is to build a lot of rolling momentum.
-  function edgePop() {
-    riding = false; onSurface = false; offRamp = true;
-    vel.y = Math.max(vel.y, EDGE_VY); vel.z += EDGE_VZ;
-    burst(pos.x, pos.y - PR, pos.z, 8, "#ffd86b");
-  }
+  // Only the SIDE walls give a launch boost. Rolling off the front just drops
+  // you — and while airborne you bleed momentum, so you want to keep working
+  // the ramps. Landing DOWN onto the next ramp converts your fall into momentum.
+  function rollOffFront() { riding = false; onSurface = false; offRamp = true; }   // no boost off the front
 
   function step(f) {
     if (boost > 0) boost = Math.max(0, boost - f);
@@ -211,7 +210,7 @@
 
     if (riding) {
       const sc = segAt(pos.z);
-      if (!sc) { edgePop(); }                         // rolled off the forward end → pop to next ramp
+      if (!sc) { rollOffFront(); }
       else {
         ridingXc = centerOf(sc, pos.z);
         // ROLL: build forward momentum as you roll down the course (boost speeds it up)
@@ -226,11 +225,11 @@
         pos.x += vel.x * f; pos.z += vel.z * f;
 
         const sc2 = segAt(pos.z);
-        if (!sc2) { edgePop(); }
+        if (!sc2) { rollOffFront(); }
         else {
           const cx = centerOf(sc2, pos.z), dx = pos.x - cx;
-          // At a lip: fast outward speed launches you off (carrying momentum);
-          // slow drift is gently caught so you don't accidentally slide off.
+          // At a SIDE lip: fast outward speed launches you off with a boost
+          // (up + forward); slow drift is gently caught so you don't slide off.
           if (dx < -PIPE_HW) {
             if (vel.x < -LIP_LAUNCH) { vel.y = Math.max(Math.min(-vel.x * LIP_SLOPE, LIP_VY_MAX), EDGE_VY); vel.z += EDGE_VZ; riding = false; burst(pos.x, pos.y, pos.z, 9, "#5ffbf1"); }
             else { pos.x = cx - PIPE_HW; if (vel.x < 0) vel.x = 0; }
@@ -241,23 +240,25 @@
           if (riding) {
             const s = surfaceAt(pos.x, pos.z);
             if (s.onWall) { pos.y = s.y + PR; onSurface = true; offRamp = false; if (Math.random() < 0.22) spark(pos.x, s.y, pos.z); }
-            else { riding = false; onSurface = false; offRamp = true; }   // fell through a floor hole → no pop
+            else { riding = false; onSurface = false; offRamp = true; }   // fell through a floor hole
           } else { onSurface = false; offRamp = true; }
         }
       }
     } else {
-      // airborne: gravity + air-steer, until we drop back into a pipe. Only catch
-      // when coming DOWN onto the top of a pipe — never snap up from underneath.
+      // airborne: gravity + air-steer. You LOSE momentum while off the ramps, so
+      // long flights bleed your speed — keep landing back on the ramps.
       vel.y -= G * f;
+      vel.z *= Math.pow(AIR_VZ_DRAG, f);
       if (dir) vel.x = clamp(vel.x + dir * STRAFE_AIR * f, -VX_CAP, VX_CAP);
       vel.x *= Math.pow(AIR_DRAG, f);
       pos.x += vel.x * f; pos.y += vel.y * f; pos.z += vel.z * f;
       const s = surfaceAt(pos.x, pos.z);
       offRamp = !s.onWall; onSurface = false;
       if (s.onWall && vel.y <= 0 && pos.y <= s.y + PR && pos.y > s.y - 2) {
-        pos.y = s.y + PR; vel.y = 0; vel.x *= 0.55;    // roll back in
+        // land DOWN onto the ramp → convert your fall into forward momentum
+        pos.y = s.y + PR; vel.z += Math.min(-vel.y, 1.5) * LAND_GAIN; vel.y = 0; vel.x *= 0.55;
         riding = true; ridingXc = centerOf(s.seg, pos.z); onSurface = true; offRamp = false;
-        burst(pos.x, s.y, pos.z, 6, "#9fd0ff");
+        burst(pos.x, s.y, pos.z, 8, "#9fe8ff");
       }
     }
 
