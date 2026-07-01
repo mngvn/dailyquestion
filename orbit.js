@@ -39,11 +39,11 @@
   const AIR_DRAG = 0.992;    // in the air: sideways speed bleed
   const AIR_VZ_DRAG = 0.988; // in the air you LOSE forward momentum — keep working the ramps
   const LAND_GAIN = 0.7;     // landing DOWN onto a ramp turns your fall into forward momentum
-  const ROLL_ACC = 0.0038;   // rolling down the course builds forward momentum
+  const ROLL_ACC = 0.0022;   // rolling down the course builds forward momentum — slow ramp-up, so speed earns
   const LIP_SLOPE = 2 * CURVE * PIPE_HW;   // wall steepness at the lip (dy/dx) — converts speed → launch
   const LIP_LAUNCH = 0.24;   // outward speed above which you pop off the lip instead of being caught
-  const LIP_VY_MAX = 0.95;   // cap on a momentum launch so you don't fly to the moon
-  const EDGE_VY = 0.52;      // every ramp edge gives a little pop UP, so you can reach the next ramp
+  const LIP_VY_MAX = 1.25;   // cap on a momentum launch so you don't fly to the moon
+  const EDGE_VY = 0.78;      // every ramp edge gives a strong pop UP, so you can loft to the next ramp
   const EDGE_VZ = 0.12;      //   ...and a small forward nudge
 
   // momentum: forward speed builds up as you roll and can reach a high top speed.
@@ -231,10 +231,10 @@
           // At a SIDE lip: fast outward speed launches you off with a boost
           // (up + forward); slow drift is gently caught so you don't slide off.
           if (dx < -PIPE_HW) {
-            if (vel.x < -LIP_LAUNCH) { vel.y = Math.max(Math.min(-vel.x * LIP_SLOPE, LIP_VY_MAX), EDGE_VY); vel.z += EDGE_VZ; riding = false; burst(pos.x, pos.y, pos.z, 9, "#5ffbf1"); }
+            if (vel.x < -LIP_LAUNCH) { vel.y = Math.max(Math.min(-vel.x * LIP_SLOPE, LIP_VY_MAX), EDGE_VY); vel.z += EDGE_VZ; riding = false; burst(pos.x, pos.y, pos.z, 12, "#ffe27a"); }
             else { pos.x = cx - PIPE_HW; if (vel.x < 0) vel.x = 0; }
           } else if (dx > PIPE_HW) {
-            if (vel.x > LIP_LAUNCH) { vel.y = Math.max(Math.min(vel.x * LIP_SLOPE, LIP_VY_MAX), EDGE_VY); vel.z += EDGE_VZ; riding = false; burst(pos.x, pos.y, pos.z, 9, "#5ffbf1"); }
+            if (vel.x > LIP_LAUNCH) { vel.y = Math.max(Math.min(vel.x * LIP_SLOPE, LIP_VY_MAX), EDGE_VY); vel.z += EDGE_VZ; riding = false; burst(pos.x, pos.y, pos.z, 12, "#ffe27a"); }
             else { pos.x = cx + PIPE_HW; if (vel.x > 0) vel.x = 0; }
           }
           if (riding) {
@@ -407,25 +407,42 @@
           const fill = `rgb(${Math.round(124 * lit)},${Math.round(100 * lit)},${Math.round(214 * (1 - steep * 0.25))})`;
           quad(ca + dxa, pipeY(z, dxa), z, ca + dxb, pipeY(z, dxb), z, cb + dxb, pipeY(z + STEP, dxb), z + STEP, cb + dxa, pipeY(z + STEP, dxa), z + STEP, fill, fog);
         }
-        // glowing rails along the two lips
-        drawEdge(ca - PIPE_HW, z, cb - PIPE_HW, z + STEP, pipeY(z, -PIPE_HW), pipeY(z + STEP, -PIPE_HW), fog, "#5ffbf1");
-        drawEdge(ca + PIPE_HW, z, cb + PIPE_HW, z + STEP, pipeY(z, PIPE_HW), pipeY(z + STEP, PIPE_HW), fog, "#5ffbf1");
+        // glowing rails along the two lips — these are the BOOST edges: hit them
+        // with outward speed and you pop UP. Highlighted with a warm pulse + up-arrows.
+        drawEdge(ca - PIPE_HW, z, cb - PIPE_HW, z + STEP, pipeY(z, -PIPE_HW), pipeY(z + STEP, -PIPE_HW), fog);
+        drawEdge(ca + PIPE_HW, z, cb + PIPE_HW, z + STEP, pipeY(z, PIPE_HW), pipeY(z + STEP, PIPE_HW), fog);
       }
       for (const p of plats) if (p.z >= z && p.z < z + STEP) drawPlatform(p);
     }
     ctx.globalAlpha = 1;
   }
 
-  function drawEdge(xa, za, xb, zb, ya, yb, fog, color) {
+  function drawEdge(xa, za, xb, zb, ya, yb, fog) {
     const pa = project(xa, ya, za), pb = project(xb, yb, zb);
     if (!pa || !pb) return;
+    // pulse travels forward along the lip so the boost edge reads as "live energy"
+    const pulse = 0.55 + 0.45 * Math.sin(clock * 5 - za * 0.12);
+    // wide soft halo
+    ctx.globalAlpha = fog * (0.35 + pulse * 0.3);
+    ctx.lineWidth = clamp(60 / pa.depth, 1.5, 8);
+    ctx.strokeStyle = "rgba(120,255,190,0.35)";
+    ctx.beginPath(); ctx.moveTo(pa.sx, pa.sy); ctx.lineTo(pb.sx, pb.sy); ctx.stroke();
+    // bright core, hue shifting cyan → gold with the pulse to shout "launch here"
     ctx.globalAlpha = fog;
-    ctx.lineWidth = clamp(40 / pa.depth, 1, 5);
-    ctx.strokeStyle = "rgba(95,251,241,0.3)";
+    ctx.lineWidth = clamp(22 / pa.depth, 0.7, 3);
+    ctx.strokeStyle = pulse > 0.72 ? "#ffe27a" : "#5ffbf1";
     ctx.beginPath(); ctx.moveTo(pa.sx, pa.sy); ctx.lineTo(pb.sx, pb.sy); ctx.stroke();
-    ctx.lineWidth = clamp(20 / pa.depth, 0.6, 2.5);
-    ctx.strokeStyle = color;
-    ctx.beginPath(); ctx.moveTo(pa.sx, pa.sy); ctx.lineTo(pb.sx, pb.sy); ctx.stroke();
+    // periodic up-arrows sitting on the lip — the boost direction is UP
+    if (Math.floor(za / 8) !== Math.floor(zb / 8)) {
+      const w = clamp(80 / pa.depth, 2, 12), h = clamp(120 / pa.depth, 3, 16);
+      ctx.globalAlpha = fog * (0.4 + pulse * 0.6);
+      ctx.strokeStyle = "#ffe27a"; ctx.lineWidth = clamp(26 / pa.depth, 0.8, 3.2); ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(pa.sx - w, pa.sy); ctx.lineTo(pa.sx, pa.sy - h); ctx.lineTo(pa.sx + w, pa.sy);
+      ctx.stroke();
+      ctx.lineCap = "butt";
+    }
+    ctx.globalAlpha = 1;
   }
 
   function drawPlatform(p) {
