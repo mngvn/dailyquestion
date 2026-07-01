@@ -20,33 +20,36 @@
   // Each "wall" is a concave HALF-PIPE: a curved U you surf inside. Half-pipes
   // sit on alternating sides and are randomly cut, so you ride up the curve,
   // launch off it into the air, and fly across to the next one.
-  const PR = 0.95;           // player radius (world units) — a bit chunkier
+  const PR = 1.05;           // ball radius (world units)
   const PIPE_HW = 8.5;       // half-width of a half-pipe (lip to lip from centre)
-  const OFF = 13;            // lateral offset of alternating pipe centres (±OFF) — set wide apart
+  const OFF = 4;             // lateral offset of alternating pipe centres (±OFF) — small, so the ramps
+                             //   overlap and rolling forward carries the heavy ball onto the next one
   const CURVE = 0.09;        // how steeply the pipe curves up its walls (lower = shallower walls)
   const HOLE_HW = 4;         // half-width of a floor hole (windy pipes)
   const HOLE_HL = 5;         // half-length (along z) of a floor hole
   const VOID = 26;           // how far you can fall below the pipe before you're lost
 
   // physics (tuned for 60fps; scaled by frame-time factor f)
-  const G = 0.0175;          // gravity accel (−y) — low, so you float across the cuts
-  const CURVE_GAIN = 1.3;    // strength of the pipe's curve pulling you toward the bottom (the surf)
-  const STRAFE = 0.028;      // lateral steer accel — gentle, for fine control
-  const STRAFE_AIR = 0.024;  // gentler in the air
-  const VX_CAP = 0.85;       // lateral speed cap — enough to cross, lips contain you so you can't fly off
-  const HOP = 0.82;          // launch impulse — fired ALONG the surface normal; the shallow walls
-                             //   make it easy to clear the lip and launch
-  const RIDE_DRAG = 0.985;   // light: lets you surf up + back down the walls
-  const AIR_DRAG = 0.99;     // in the air: gently bleeds sideways speed
+  const G = 0.04;            // gravity accel (−y) — the ball is heavy, so hops are short + snappy
+  const CURVE_GAIN = 1.3;    // strength of the pipe's curve pulling the ball toward the bottom
+  const STRAFE = 0.022;      // lateral steer accel — the ball is heavy, so this is small
+  const STRAFE_AIR = 0.024;  // a touch more nimble in the air
+  const VX_CAP = 0.8;        // lateral speed cap
+  const LAT_FRICTION = 0.95; // rolling friction across the pipe — the ball resists sliding sideways
+  const AIR_DRAG = 0.992;    // in the air: keep most momentum so you carry across the cut
+  const ROLL_ACC = 0.0038;   // rolling down the course builds forward momentum
   const LIP_SLOPE = 2 * CURVE * PIPE_HW;   // wall steepness at the lip (dy/dx) — converts speed → launch
-  const LIP_LAUNCH = 0.26;   // outward speed above which you pop off the lip instead of being caught
-  const LIP_VY_MAX = 0.9;    // cap on a momentum launch so you don't fly to the moon
-  const HOP_AIR = 2 * HOP / G;   // ≈ airtime of a launch, in frames (used to size the course)
+  const LIP_LAUNCH = 0.24;   // outward speed above which you pop off the lip instead of being caught
+  const LIP_VY_MAX = 0.95;   // cap on a momentum launch so you don't fly to the moon
+  const EDGE_VY = 0.52;      // every ramp edge gives a little pop UP, so you can reach the next ramp
+  const EDGE_VZ = 0.12;      //   ...and a small forward nudge
 
-  // forward pace: starts slow and accelerates EXTREMELY gradually over distance
-  const VZ0 = 0.32, VZK = 0.00006, VZMAX = 1.1;
-  const THRUST_Z = 0.007;    // how gently forward speed climbs toward the cap
-  function vzCap(z) { return clamp(VZ0 + z * VZK, VZ0, VZMAX); }
+  // momentum: forward speed builds up as you roll and can reach a high top speed.
+  const VZ0 = 0.3, VZMAX = 2.0;
+  const HOP_AIR = 2 * EDGE_VY / G;   // ≈ airtime of an edge pop, in frames (used to size the course)
+  // course-sizing speed estimate (kept modest so a plain edge-pop always clears the cut;
+  // real momentum lets you fly much further)
+  function vzCap(z) { return clamp(0.42 + z * 0.00012, 0.42, 1.0); }
 
   // mid-air bounce pads: super-bounce + temporary speed boost. They float over
   // the void's centre; cross down through one and it flings you up and forward.
@@ -194,45 +197,54 @@
   }
 
   // ---- physics -------------------------------------------------------------
-  function step(f) {
-    // forward pace: ramp toward the (possibly boosted) cap, decay back after a boost
-    if (boost > 0) boost = Math.max(0, boost - f);
-    const cap = vzCap(pos.z) * (boost > 0 ? BOOST_VZ : 1);
-    if (vel.z < cap) vel.z = Math.min(cap, vel.z + THRUST_Z * (boost > 0 ? 3 : 1) * f);
-    else vel.z = Math.max(cap, vel.z - 0.012 * f);
+  // Every ramp edge gives the ball a little pop (up + forward) so it can always
+  // reach the next ramp; the real point is to build a lot of rolling momentum.
+  function edgePop() {
+    riding = false; onSurface = false; offRamp = true;
+    vel.y = Math.max(vel.y, EDGE_VY); vel.z += EDGE_VZ;
+    burst(pos.x, pos.y - PR, pos.z, 8, "#ffd86b");
+  }
 
+  function step(f) {
+    if (boost > 0) boost = Math.max(0, boost - f);
     const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
 
     if (riding) {
-      // surfing the half-pipe: the curve pulls you toward the bottom (so you
-      // ride up a wall and swing back), and your strafe pumps you up the walls.
-      // Windy pipes weave, so re-read the centre each frame.
       const sc = segAt(pos.z);
-      ridingXc = sc ? centerOf(sc, pos.z) : ridingXc;
-      vel.x += -CURVE_GAIN * 2 * CURVE * (pos.x - ridingXc) * G * f;   // gravity along the curve
-      if (dir) vel.x = clamp(vel.x + dir * STRAFE * f, -VX_CAP, VX_CAP);
-      else vel.x *= Math.pow(RIDE_DRAG, f);
-      pos.x += vel.x * f; pos.z += vel.z * f;
-      const sc2 = segAt(pos.z);
-      const cx = sc2 ? centerOf(sc2, pos.z) : ridingXc;
-      const dx = pos.x - cx;
-      // At a lip: carry your speed up the curve into a LAUNCH if you're moving
-      // out fast enough; otherwise the lip gently catches you (slow drift stays
-      // contained, so you don't accidentally fly off).
-      if (dx < -PIPE_HW) {
-        if (vel.x < -LIP_LAUNCH) { riding = false; vel.y = Math.min(-vel.x * LIP_SLOPE, LIP_VY_MAX); burst(pos.x, pos.y, pos.z, 9, "#5ffbf1"); }
-        else { pos.x = cx - PIPE_HW; if (vel.x < 0) vel.x = 0; }
-      } else if (dx > PIPE_HW) {
-        if (vel.x > LIP_LAUNCH) { riding = false; vel.y = Math.min(vel.x * LIP_SLOPE, LIP_VY_MAX); burst(pos.x, pos.y, pos.z, 9, "#5ffbf1"); }
-        else { pos.x = cx + PIPE_HW; if (vel.x > 0) vel.x = 0; }
+      if (!sc) { edgePop(); }                         // rolled off the forward end → pop to next ramp
+      else {
+        ridingXc = centerOf(sc, pos.z);
+        // ROLL: build forward momentum as you roll down the course (boost speeds it up)
+        const vmax = VZMAX * (boost > 0 ? BOOST_VZ : 1);
+        if (vel.z < vmax) vel.z = Math.min(vmax, vel.z + ROLL_ACC * (boost > 0 ? 2.5 : 1) * f);
+        else vel.z = Math.max(vmax, vel.z - 0.01 * f);
+        // lateral: the curve pulls you to the bottom + your (weak) steer, and rolling
+        // friction resists sliding sideways so the ball feels weighty.
+        vel.x += -CURVE_GAIN * 2 * CURVE * (pos.x - ridingXc) * G * f;
+        if (dir) vel.x = clamp(vel.x + dir * STRAFE * f, -VX_CAP, VX_CAP);
+        vel.x *= Math.pow(LAT_FRICTION, f);
+        pos.x += vel.x * f; pos.z += vel.z * f;
+
+        const sc2 = segAt(pos.z);
+        if (!sc2) { edgePop(); }
+        else {
+          const cx = centerOf(sc2, pos.z), dx = pos.x - cx;
+          // At a lip: fast outward speed launches you off (carrying momentum);
+          // slow drift is gently caught so you don't accidentally slide off.
+          if (dx < -PIPE_HW) {
+            if (vel.x < -LIP_LAUNCH) { vel.y = Math.max(Math.min(-vel.x * LIP_SLOPE, LIP_VY_MAX), EDGE_VY); vel.z += EDGE_VZ; riding = false; burst(pos.x, pos.y, pos.z, 9, "#5ffbf1"); }
+            else { pos.x = cx - PIPE_HW; if (vel.x < 0) vel.x = 0; }
+          } else if (dx > PIPE_HW) {
+            if (vel.x > LIP_LAUNCH) { vel.y = Math.max(Math.min(vel.x * LIP_SLOPE, LIP_VY_MAX), EDGE_VY); vel.z += EDGE_VZ; riding = false; burst(pos.x, pos.y, pos.z, 9, "#5ffbf1"); }
+            else { pos.x = cx + PIPE_HW; if (vel.x > 0) vel.x = 0; }
+          }
+          if (riding) {
+            const s = surfaceAt(pos.x, pos.z);
+            if (s.onWall) { pos.y = s.y + PR; onSurface = true; offRamp = false; if (Math.random() < 0.22) spark(pos.x, s.y, pos.z); }
+            else { riding = false; onSurface = false; offRamp = true; }   // fell through a floor hole → no pop
+          } else { onSurface = false; offRamp = true; }
+        }
       }
-      if (riding) {
-        const s = surfaceAt(pos.x, pos.z);
-        if (s.onWall) {
-          pos.y = s.y + PR; onSurface = true; offRamp = false;
-          if (Math.random() < 0.22) spark(pos.x, s.y, pos.z);
-        } else { riding = false; onSurface = false; offRamp = true; }   // ran off the end / into a hole → airborne
-      } else { onSurface = false; offRamp = true; }
     } else {
       // airborne: gravity + air-steer, until we drop back into a pipe. Only catch
       // when coming DOWN onto the top of a pipe — never snap up from underneath.
@@ -243,7 +255,7 @@
       const s = surfaceAt(pos.x, pos.z);
       offRamp = !s.onWall; onSurface = false;
       if (s.onWall && vel.y <= 0 && pos.y <= s.y + PR && pos.y > s.y - 2) {
-        pos.y = s.y + PR; vel.y = 0; vel.x *= 0.6;     // drop in (lips will catch any leftover skid)
+        pos.y = s.y + PR; vel.y = 0; vel.x *= 0.55;    // roll back in
         riding = true; ridingXc = centerOf(s.seg, pos.z); onSurface = true; offRamp = false;
         burst(pos.x, s.y, pos.z, 6, "#9fd0ff");
       }
@@ -474,24 +486,32 @@
     const p = project(pos.x, pos.y, pos.z);
     if (!p) return;
     const sc = clamp((PR * 150) / p.depth, 6, 60);
-    const roll = clamp(-vel.x * 0.5, -0.6, 0.6);
     const hot = boost > 0;
+    const spin = pos.z * (1.0 / PR);        // rolling angle from distance travelled
     ctx.save();
     ctx.translate(p.sx, p.sy);
-    const gl = ctx.createRadialGradient(0, 0, 0, 0, 0, sc * (hot ? 3.1 : 2.4));
-    gl.addColorStop(0, hot ? "rgba(255,210,120,0.95)" : "rgba(150,210,255,0.85)");
+    // glow
+    const gl = ctx.createRadialGradient(0, 0, 0, 0, 0, sc * (hot ? 3.0 : 2.3));
+    gl.addColorStop(0, hot ? "rgba(255,210,120,0.95)" : "rgba(150,210,255,0.8)");
     gl.addColorStop(1, hot ? "rgba(255,210,120,0)" : "rgba(150,210,255,0)");
-    ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(0, 0, sc * (hot ? 3.1 : 2.4), 0, Math.PI * 2); ctx.fill();
-    ctx.rotate(roll);
-    ctx.fillStyle = "#3a7bff";
-    ctx.fillRect(-sc * 2.0, -sc * 0.32, sc * 1.0, sc * 0.64);
-    ctx.fillRect(sc * 1.0, -sc * 0.32, sc * 1.0, sc * 0.64);
-    ctx.strokeStyle = "#2a5fd0"; ctx.lineWidth = sc * 0.08;
-    ctx.beginPath(); ctx.moveTo(-sc * 1.0, 0); ctx.lineTo(sc * 1.0, 0); ctx.stroke();
-    ctx.fillStyle = hot ? "#fff0cf" : "#eaf2ff";
-    ctx.beginPath(); ctx.arc(0, 0, sc * 0.62, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#9ec6ff";
-    ctx.beginPath(); ctx.arc(0, -sc * 0.12, sc * 0.28, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(0, 0, sc * (hot ? 3.0 : 2.3), 0, Math.PI * 2); ctx.fill();
+    // ball body (shaded sphere)
+    const bg = ctx.createRadialGradient(-sc * 0.35, -sc * 0.4, sc * 0.1, 0, 0, sc);
+    if (hot) { bg.addColorStop(0, "#fff2c8"); bg.addColorStop(0.5, "#ffcf5a"); bg.addColorStop(1, "#d9761a"); }
+    else { bg.addColorStop(0, "#eaf4ff"); bg.addColorStop(0.5, "#5aa0ff"); bg.addColorStop(1, "#1e46b0"); }
+    ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(0, 0, sc, 0, Math.PI * 2); ctx.fill();
+    // rolling patches (clipped inside the ball, sweep as it rolls)
+    ctx.save();
+    ctx.beginPath(); ctx.arc(0, 0, sc, 0, Math.PI * 2); ctx.clip();
+    ctx.rotate(spin);
+    ctx.fillStyle = hot ? "rgba(170,80,10,0.45)" : "rgba(18,44,120,0.45)";
+    for (const o of [-0.55, 0.55]) { ctx.beginPath(); ctx.ellipse(0, o * sc * 1.15, sc * 0.75, sc * 0.34, 0, 0, Math.PI * 2); ctx.fill(); }
+    ctx.restore();
+    // rim + specular highlight
+    ctx.strokeStyle = "rgba(255,255,255,0.22)"; ctx.lineWidth = sc * 0.06;
+    ctx.beginPath(); ctx.arc(0, 0, sc * 0.95, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,0.75)";
+    ctx.beginPath(); ctx.arc(-sc * 0.34, -sc * 0.4, sc * 0.2, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
   }
 
