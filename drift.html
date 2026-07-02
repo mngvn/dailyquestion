@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Drift King — a strange little detour</title>
+  <meta name="description" content="A top-down drift racer: kick the tail out, chain slides for combo points, thread the cones, and chase the checkered flag." />
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="drift.css" />
+</head>
+<body class="drift-body">
+  <canvas id="driftCanvas"></canvas>
+
+  <a class="drift-back" href="index.html" aria-label="Back to Daily">← Back</a>
+  <div class="drift-chip" id="driftChip" aria-hidden="true">🏎️ drift king</div>
+
+  <div class="drift-hud" id="driftHud" hidden>
+    <div class="drift-stat">Lap <b id="hudLap">1</b><span>/3</span></div>
+    <div class="drift-stat">Time <b id="hudTime">0:00.0</b></div>
+    <div class="drift-stat">Drift <b id="hudScore">0</b><span id="hudPending"></span></div>
+    <div class="drift-stat" id="hudComboWrap">Combo <b id="hudCombo">×1</b></div>
+    <div class="drift-stat">Speed <b id="hudSpeed">0</b><span>km/h</span></div>
+    <div class="drift-stat">Best <b id="hudBest">—</b></div>
+  </div>
+
+  <canvas id="driftMap" class="drift-map" width="200" height="150" aria-hidden="true" hidden></canvas>
+
+  <div class="drift-count" id="driftCount" hidden>3</div>
+
+  <p class="drift-hint" id="driftHint">Space kicks the tail out — hold the slide through the corner, bank the points before you clip a cone.</p>
+
+  <!-- on-screen controls for touch devices -->
+  <div class="drift-touch" id="driftTouch" aria-hidden="true">
+    <div class="drift-touch-left">
+      <button id="touchLeft" type="button" aria-label="Steer left">◀</button>
+      <button id="touchRight" type="button" aria-label="Steer right">▶</button>
+      <button id="touchRescue" type="button" class="drift-touch-small" aria-label="Rescue back onto the track">↺</button>
+    </div>
+    <div class="drift-touch-right">
+      <button id="touchDrift" type="button" class="drift-touch-wide" aria-label="Handbrake">DRIFT</button>
+      <button id="touchGas" type="button" class="drift-touch-wide" aria-label="Throttle">GAS</button>
+    </div>
+  </div>
+
+  <!-- intro -->
+  <div class="drift-overlay" id="driftIntro">
+    <h2>🏎️ Drift King</h2>
+    <p>Three laps, one rule: <b>style over speed</b>. Points only flow while the car is
+      <b>sideways</b> — pin the throttle, flick the <b>handbrake</b>, and steer into the slide
+      to hold it through the corner.</p>
+    <p class="drift-sub">Sliding fills a <b>pending score</b> that banks a beat after you straighten out —
+      clip a <b>cone</b>, smack a <b>tire wall</b>, or drop a wheel in the grass and the pending points burn.
+      Keep the slide alive to grow the <b>combo ×1 → ×5</b>. Grass is treacle. Cones remember.</p>
+    <div class="drift-keys">
+      <kbd>↑ / W</kbd> gas
+      <kbd>↓ / S</kbd> brake
+      <kbd>← →</kbd> steer
+      <kbd>Space</kbd> handbrake
+      <kbd>R</kbd> rescue
+      <kbd>M</kbd> track map
+    </div>
+    <div class="drift-goals" id="introGoals">
+      <span>🏁 finish 3 laps</span>
+      <span>💨 bank 12,000 drift pts</span>
+      <span>⏱️ under 1:45</span>
+    </div>
+    <div class="drift-btn-row">
+      <button class="drift-btn" id="driftPlayBtn" type="button">▶ Lights out</button>
+    </div>
+    <p class="drift-sub" id="introBest">Your best score and time are saved.</p>
+  </div>
+
+  <!-- results -->
+  <div class="drift-overlay drift-overlay-soft" id="driftDone" hidden>
+    <h2 id="doneTitle">🏁 Checkered flag!</h2>
+    <p class="drift-results" id="doneStats"></p>
+    <div class="drift-goals" id="doneGoals"></div>
+    <div class="drift-btn-row">
+      <button class="drift-btn" id="driftRetry" type="button">↺ Run it back</button>
+      <a class="drift-btn ghost" href="index.html">← Back to Daily</a>
+    </div>
+  </div>
+
+  <script src="drift.js"></script>
+</body>
+</html>
