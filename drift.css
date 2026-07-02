@@ -1,0 +1,241 @@
+/* drift.css — "Drift King": full-screen canvas game. Mirrors orbit.css's
+   floating-chrome layout with a dusk-circuit palette: deep pine infield,
+   warm sodium-orange accents, red-and-white kerbs. */
+
+.drift-body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #0d1710;
+  height: 100vh;
+  font-family: "Inter", system-ui, sans-serif;
+  color: var(--text);
+}
+
+#driftCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #0d1710;
+  touch-action: none;
+  z-index: 0;
+}
+
+/* ---------- Floating chrome ---------- */
+.drift-back, .drift-chip {
+  position: fixed;
+  top: 16px;
+  z-index: 10;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--text);
+  background: rgba(14, 22, 16, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 9px 16px;
+  border-radius: 999px;
+  text-decoration: none;
+  backdrop-filter: blur(8px);
+}
+.drift-back { left: 16px; transition: background 0.2s ease, transform 0.2s ease; }
+.drift-back:hover { background: rgba(255, 139, 61, 0.3); transform: translateX(-2px); }
+.drift-chip { right: 16px; color: var(--muted); pointer-events: none; }
+
+.drift-hud {
+  position: fixed;
+  top: 14px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 2vw, 22px);
+  padding: 10px 18px;
+  background: rgba(14, 22, 16, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  backdrop-filter: blur(8px);
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--muted);
+  max-width: calc(100vw - 190px);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.drift-hud[hidden] { display: none; }
+.drift-stat { display: flex; align-items: baseline; gap: 5px; }
+.drift-stat b {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.2rem; font-weight: 700; color: var(--text); letter-spacing: 0;
+}
+.drift-stat span { font-size: 0.62rem; }
+.drift-stat #hudPending { color: #ffb35c; font-weight: 600; }
+#hudComboWrap.hot b { color: #ff8b3d; text-shadow: 0 0 12px rgba(255, 139, 61, 0.6); }
+
+/* little live track map */
+.drift-map {
+  position: fixed;
+  right: 14px;
+  top: 64px;
+  z-index: 9;
+  width: 200px;
+  height: 150px;
+  background: rgba(14, 22, 16, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+}
+.drift-map[hidden] { display: none; }
+@media (max-width: 720px) { .drift-map { width: 140px; height: 105px; } }
+
+/* 3…2…1…GO */
+.drift-count {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(5rem, 18vw, 11rem);
+  font-weight: 700;
+  color: #ffd9b3;
+  text-shadow: 0 0 40px rgba(255, 139, 61, 0.65);
+}
+.drift-count[hidden] { display: none; }
+.drift-count.go { color: #9dffb0; text-shadow: 0 0 40px rgba(80, 255, 130, 0.6); }
+
+.drift-hint {
+  position: fixed;
+  bottom: 16px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: rgba(14, 22, 16, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 7px 16px;
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+  text-align: center;
+  max-width: calc(100vw - 32px);
+}
+body.touch .drift-hint { display: none; }
+
+/* touch controls (only shown on coarse pointers) */
+.drift-touch {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 12;
+  display: none;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 0 18px 24px;
+  pointer-events: none;
+}
+.drift-touch button {
+  pointer-events: auto;
+  width: 76px; height: 76px;
+  border-radius: 50%;
+  font-size: 1.6rem;
+  color: var(--text);
+  background: rgba(255, 139, 61, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(6px);
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.drift-touch button.drift-touch-wide {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  font-family: "Space Grotesk", sans-serif;
+}
+.drift-touch button.drift-touch-small {
+  width: 52px; height: 52px;
+  font-size: 1.1rem;
+  align-self: center;
+  opacity: 0.8;
+}
+.drift-touch button:active { background: rgba(255, 139, 61, 0.42); }
+.drift-touch .drift-touch-left, .drift-touch .drift-touch-right { display: flex; gap: 14px; }
+body.touch .drift-touch { display: flex; }
+
+/* ---------- Overlays ---------- */
+.drift-overlay {
+  position: fixed; inset: 0; z-index: 20;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center; gap: 18px;
+  padding: clamp(22px, 5vw, 52px);
+  background: radial-gradient(circle at 50% 38%, rgba(26, 32, 20, 0.88), rgba(8, 12, 8, 0.95));
+  backdrop-filter: blur(5px);
+  overflow-y: auto;
+}
+.drift-overlay[hidden] { display: none; }
+.drift-overlay-soft { background: rgba(8, 12, 8, 0.84); }
+.drift-overlay h2 {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(1.7rem, 5vw, 2.8rem); font-weight: 700; margin: 0;
+  background: linear-gradient(120deg, #ffe3c2, #ff9d52 50%, #ff5a3c);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.drift-overlay p { font-size: 1rem; line-height: 1.6; color: #f0ead9; max-width: 560px; margin: 0; }
+.drift-sub { font-size: 0.88rem !important; color: var(--muted) !important; }
+.drift-keys { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; align-items: center; margin: 2px 0; font-size: 0.82rem; color: #f0ead9; }
+.drift-keys kbd {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.82rem; color: #f0ead9;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-bottom-width: 3px;
+  border-radius: 8px; padding: 6px 11px;
+}
+.drift-goals {
+  display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+}
+.drift-goals span {
+  font-size: 0.82rem;
+  color: #f0ead9;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 7px 14px;
+}
+.drift-goals span.earned {
+  background: rgba(255, 139, 61, 0.18);
+  border-color: rgba(255, 139, 61, 0.55);
+  box-shadow: 0 0 18px -6px rgba(255, 139, 61, 0.8);
+}
+.drift-results b { color: #ffb35c; font-family: "Space Grotesk", sans-serif; }
+.drift-results .newbest {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #9dffb0;
+}
+.drift-btn-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.drift-btn {
+  font-family: "Inter", sans-serif;
+  font-size: 1rem; font-weight: 600; color: #2b1204;
+  background: linear-gradient(120deg, #ffcf8f, #ff8b3d);
+  border: none; border-radius: 14px;
+  padding: 14px 28px; cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.drift-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -8px rgba(255, 139, 61, 0.6); }
+.drift-btn:active { transform: translateY(0) scale(0.98); }
+.drift-btn.ghost {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.drift-btn.ghost:hover { background: rgba(255, 255, 255, 0.14); box-shadow: none; }
