@@ -283,6 +283,12 @@
   const CAR_L = 42, CAR_HW = 10;  // body length / half width
   const KMH = 0.45;          // px/s -> pretend km/h for the HUD
 
+  // nitro: banking a drift pays out a speed boost scaled by how long the
+  // slide was held. Spilling the points spills the nitro with them.
+  const BOOST_ACCEL = 560;   // extra push while the nitro burns (px/s²)
+  const BOOST_MAX = 2.4;     // seconds of stored boost, cap
+  const BOOST_MIN_PTS = 25;  // tiny scrubs don't earn nitro
+
   // scoring
   const SCORE_RATE = 1.0;    // pts/s = speed(px/s) × |slip|(rad) × combo
   const COMBO_STEP = 1.6;    // seconds of sustained slide per extra ×
@@ -305,9 +311,84 @@
     state: "intro",          // intro | count | race | done
     t: 0, count: 0,
     lap: 1, lapAcc: 0, lastS: 0, lapStamp: 0, lapTimes: [],
-    score: 0, pending: 0, combo: 1, chain: 0, grace: 0,
+    score: 0, pending: 0, combo: 1, chain: 0, grace: 0, boost: 0,
     conesHit: 0, wallsHit: 0,
   };
+
+  // ---- ghost riders ---------------------------------------------------------
+  // A ghost is a point-mass pace car that follows the centerline with proper
+  // braking physics: it reads the curvature ahead, works out the fastest speed
+  // it can carry into each corner (v = √(latg/κ)), and brakes just in time.
+  // Difficulty scales its top speed, cornering grip, and acceleration — every
+  // tier is tuned to a beatable total time (checked against real runs).
+  const GHOST_DIFFS = {
+    easy:   { label: "easy",   vmax: 168, latg: 26,  acc: 138, brk: 420, tint: "141, 255, 176" },
+    medium: { label: "medium", vmax: 220, latg: 53,  acc: 212, brk: 600, tint: "127, 183, 255" },
+    hard:   { label: "hard",   vmax: 280, latg: 83,  acc: 320, brk: 800, tint: "201, 143, 255" },
+  };
+  let ghostDiff = "easy";
+  try { ghostDiff = localStorage.getItem("drift.ghost") || "easy"; } catch (e) { /* ignore */ }
+  if (ghostDiff !== "none" && !GHOST_DIFFS[ghostDiff]) ghostDiff = "easy";
+  let ghost = null;
+
+  function initGhost() {
+    const p = GHOST_DIFFS[ghostDiff];
+    if (!p) { ghost = null; return; }
+    const s0 = track.pts[SPAWN_IDX];
+    ghost = {
+      p, dist: 0, v: 0, i: SPAWN_IDX,
+      x: s0.x, y: s0.y, h: Math.atan2(s0.ty, s0.tx),
+      done: false, finishT: 0,
+    };
+  }
+
+  function stepGhost(dt, now) {
+    if (!ghost || ghost.done) return;
+    const p = ghost.p, pts = track.pts, m = track.n;
+    // how fast may it go RIGHT NOW, given the corners within braking range?
+    let lim = p.vmax;
+    let idx = ghost.i, dAcc = 0;
+    const horizon = (ghost.v * ghost.v) / (2 * p.brk) + 140;
+    let guard = 0;
+    while (dAcc < horizon && guard++ < m) {
+      const nidx = (idx + 1) % m;
+      let seg = pts[nidx].d - pts[idx].d;
+      if (seg <= 0) seg += track.total;
+      dAcc += seg;
+      const vCorner = Math.sqrt(p.latg / (Math.abs(pts[nidx].k) + 1e-6));
+      const vAllowed = Math.sqrt(vCorner * vCorner + 2 * p.brk * dAcc);
+      if (vAllowed < lim) lim = vAllowed;
+      idx = nidx;
+    }
+    if (ghost.v < lim) ghost.v = Math.min(lim, ghost.v + p.acc * dt);
+    else ghost.v = Math.max(lim, ghost.v - p.brk * dt);
+    ghost.dist += ghost.v * dt;
+    if (ghost.dist >= LAPS_TOTAL * track.total) {
+      ghost.dist = LAPS_TOTAL * track.total;
+      ghost.done = true;
+      ghost.finishT = now;
+    }
+    // resolve world position along the centerline
+    const s = (pts[SPAWN_IDX].d + ghost.dist) % track.total;
+    guard = 0;
+    for (;;) {
+      const a = pts[ghost.i], b = pts[(ghost.i + 1) % m];
+      let seg = b.d - a.d;
+      if (seg <= 0) seg += track.total;
+      let off = s - a.d;
+      if (off < 0) off += track.total;
+      if (off < seg || guard++ > m) {
+        const t = clamp(off / seg, 0, 1);
+        ghost.x = a.x + (b.x - a.x) * t;
+        ghost.y = a.y + (b.y - a.y) * t;
+        // cosmetic drift angle: nose leans into the corner with lateral load
+        const lean = clamp(a.k * ghost.v * 0.28, -0.55, 0.55);
+        ghost.h = Math.atan2(a.ty, a.tx) + lean;
+        break;
+      }
+      ghost.i = (ghost.i + 1) % m;
+    }
+  }
   let best = { score: 0, time: 0 };
   try {
     best.score = Math.max(0, +localStorage.getItem("drift.bestScore") || 0);
@@ -331,7 +412,9 @@
     race.t = 0; race.lap = 1; race.lapAcc = 0; race.lapStamp = 0;
     race.lapTimes = [];
     race.score = 0; race.pending = 0; race.combo = 1; race.chain = 0; race.grace = 0;
+    race.boost = 0;
     race.conesHit = 0; race.wallsHit = 0;
+    initGhost();
     for (const c of cones) { c.hit = false; c.vx = c.vy = c.spin = 0; }
     smoke.length = 0; popups.length = 0;
     skidCtx.clearRect(0, 0, WORLD_W, WORLD_H);
@@ -394,11 +477,18 @@
       popups.push({ x: car.x, y: car.y - 30, t: 0, txt: "✗ " + Math.floor(race.pending), color: "#ff6b5e" });
     }
     race.pending = 0; race.chain = 0; race.combo = 1; race.grace = 0;
+    race.boost = 0; // fumbling the slide dumps the nitro too
   }
   function bank() {
     if (race.pending >= 1) {
       race.score += Math.floor(race.pending);
-      popups.push({ x: car.x, y: car.y - 30, t: 0, txt: "+" + Math.floor(race.pending), color: "#ffb35c" });
+      let txt = "+" + Math.floor(race.pending);
+      if (race.pending >= BOOST_MIN_PTS) {
+        // nitro payout: the longer the slide was held, the bigger the boost
+        race.boost = Math.min(BOOST_MAX, race.boost + 0.35 + race.chain * 0.5);
+        txt += " 🔥";
+      }
+      popups.push({ x: car.x, y: car.y - 30, t: 0, txt, color: "#ffb35c" });
     }
     race.pending = 0; race.chain = 0; race.combo = 1; race.grace = 0;
   }
@@ -422,6 +512,11 @@
       else vf = Math.max(vf - REV_ACCEL * dt, -REV_MAX);
     }
     if (hand) vf -= Math.sign(vf) * Math.min(Math.abs(vf), HAND_DECEL * dt);
+    // nitro burn: extra push along the nose, well past the normal top speed
+    if (drive && race.boost > 0) {
+      vf += BOOST_ACCEL * dt;
+      race.boost = Math.max(0, race.boost - dt);
+    }
     vf -= (DRAG1 * vf + DRAG2 * vf * Math.abs(vf)) * dt;
 
     // grass is treacle: big drag on everything and no fun allowed
@@ -519,6 +614,17 @@
         r: 4 + Math.random() * 4, t: 0, life: 0.5, grass: true,
       });
     }
+    // nitro flames licking out of the back while the boost burns
+    if (drive && race.boost > 0 && smoke.length < 260) {
+      const bx = car.x - Math.cos(car.h) * CAR_L * 0.55;
+      const by = car.y - Math.sin(car.h) * CAR_L * 0.55;
+      smoke.push({
+        x: bx + (Math.random() - 0.5) * 6, y: by + (Math.random() - 0.5) * 6,
+        vx: -Math.cos(car.h) * 90 + (Math.random() - 0.5) * 30,
+        vy: -Math.sin(car.h) * 90 + (Math.random() - 0.5) * 30,
+        r: 5 + Math.random() * 4, t: 0, life: 0.28, flame: true,
+      });
+    }
 
     // ---- obstacles ----
     if (drive) {
@@ -585,6 +691,7 @@
         }
       }
       race.t += dt;
+      stepGhost(dt, race.t);
     }
   }
 
@@ -624,13 +731,25 @@
       localStorage.setItem("drift.bestTime", String(best.time));
     } catch (e) { /* ignore */ }
 
+    // settle the ghost race: let the ghost finish its run for an exact margin
+    let ghostLine = "";
+    if (ghost) {
+      let t = race.t, guard = 0;
+      while (!ghost.done && guard++ < 20000) { t += 0.05; stepGhost(0.05, t); }
+      const margin = ghost.finishT - race.t;
+      ghostLine = margin >= 0
+        ? "<br>👻 You beat the <b>" + ghost.p.label + "</b> ghost by <b>" + margin.toFixed(1) + "s</b>!"
+        : "<br>👻 The <b>" + ghost.p.label + "</b> ghost got you by <b>" + (-margin).toFixed(1) +
+          "s</b> — it finished at " + fmtTime(ghost.finishT) + ".";
+    }
+
     const bestLap = Math.min.apply(null, race.lapTimes);
     $("doneTitle").textContent = goals.every((g) => g.ok) ? "👑 Drift King!" : "🏁 Checkered flag!";
     $("doneStats").innerHTML =
       "Time <b>" + fmtTime(total) + "</b>" + (newTime ? "<span class='newbest'>NEW BEST</span>" : "") +
       " · Drift score <b>" + race.score.toLocaleString() + "</b>" + (newScore ? "<span class='newbest'>NEW BEST</span>" : "") +
       "<br>Best lap <b>" + fmtTime(bestLap) + "</b> · Cones <b>" + race.conesHit +
-      "</b> · Tire walls <b>" + race.wallsHit + "</b>";
+      "</b> · Tire walls <b>" + race.wallsHit + "</b>" + ghostLine;
     const dg = $("doneGoals");
     dg.innerHTML = "";
     for (const g of goals) {
@@ -644,6 +763,18 @@
 
   $("driftPlayBtn").addEventListener("click", startRace);
   $("driftRetry").addEventListener("click", startRace);
+
+  // ghost difficulty picker (choice is remembered)
+  const ghostBtns = document.querySelectorAll("#ghostRow button");
+  function paintGhostRow() {
+    ghostBtns.forEach((b) => b.classList.toggle("sel", b.dataset.ghost === ghostDiff));
+  }
+  ghostBtns.forEach((b) => b.addEventListener("click", () => {
+    ghostDiff = b.dataset.ghost;
+    try { localStorage.setItem("drift.ghost", ghostDiff); } catch (e) { /* ignore */ }
+    paintGhostRow();
+  }));
+  paintGhostRow();
 
   // ---- view ------------------------------------------------------------------
   const view = { dpr: 1, cw: 0, ch: 0 };
@@ -703,6 +834,35 @@
     g.beginPath(); g.arc(b.x, b.y, b.r - 6, 0, TAU); g.stroke();
     g.fillStyle = "#3a3d43";
     g.beginPath(); g.arc(b.x, b.y, b.r - 17, 0, TAU); g.fill();
+  }
+
+  function drawGhost(g) {
+    if (!ghost) return;
+    g.save();
+    g.translate(ghost.x, ghost.y);
+    g.rotate(ghost.h);
+    g.globalAlpha = 0.42;
+    g.fillStyle = "rgb(" + ghost.p.tint + ")";
+    g.beginPath();
+    g.moveTo(CAR_L / 2, 0);
+    g.lineTo(CAR_L * 0.30, -CAR_HW);
+    g.lineTo(-CAR_L * 0.42, -CAR_HW * 0.9);
+    g.lineTo(-CAR_L / 2, -CAR_HW * 0.55);
+    g.lineTo(-CAR_L / 2, CAR_HW * 0.55);
+    g.lineTo(-CAR_L * 0.42, CAR_HW * 0.9);
+    g.lineTo(CAR_L * 0.30, CAR_HW);
+    g.closePath();
+    g.fill();
+    g.fillStyle = "rgba(10, 14, 12, 0.7)";
+    g.fillRect(-CAR_L * 0.18, -CAR_HW * 0.62, CAR_L * 0.34, CAR_HW * 1.24);
+    g.restore();
+    // a little 👻 bobbing over the roof so it reads as the ghost at a glance
+    g.save();
+    g.globalAlpha = 0.6;
+    g.font = "16px sans-serif";
+    g.textAlign = "center";
+    g.fillText("👻", ghost.x, ghost.y - 24 + Math.sin(performance.now() / 260) * 3);
+    g.restore();
   }
 
   function drawCar(g) {
@@ -774,6 +934,7 @@
 
     for (const b of barriers) drawBarrier(g, b);
     for (const c of cones) drawCone(g, c);
+    drawGhost(g);
     drawCar(g);
 
     // smoke over the car
@@ -783,11 +944,13 @@
       if (p.t >= p.life) { smoke.splice(i, 1); continue; }
       const a = 1 - p.t / p.life;
       p.x += p.vx * dt; p.y += p.vy * dt;
-      g.fillStyle = p.grass
+      g.fillStyle = p.flame
+        ? "rgba(255, " + Math.round(120 + 100 * a) + ", 50," + (0.55 * a).toFixed(3) + ")"
+        : p.grass
         ? "rgba(112, 96, 58," + (0.35 * a).toFixed(3) + ")"
         : "rgba(206, 208, 214," + (0.26 * a).toFixed(3) + ")";
       g.beginPath();
-      g.arc(p.x, p.y, p.r + p.t * 26, 0, TAU);
+      g.arc(p.x, p.y, p.flame ? p.r * a + 1.5 : p.r + p.t * 26, 0, TAU);
       g.fill();
     }
 
@@ -817,6 +980,12 @@
     g.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
     g.drawImage(mapBase, 0, 0);
     const sc = mapBase.sc, ox = mapBase.ox, oy = mapBase.oy;
+    if (ghost) {
+      g.fillStyle = "rgba(" + ghost.p.tint + ", 0.8)";
+      g.beginPath();
+      g.arc(ox + ghost.x * sc, oy + ghost.y * sc, 3.5, 0, TAU);
+      g.fill();
+    }
     g.fillStyle = car.drifting ? "#ffb35c" : "#ff5a3c";
     g.beginPath();
     g.arc(ox + car.x * sc, oy + car.y * sc, 4, 0, TAU);
@@ -828,6 +997,7 @@
     lap: $("hudLap"), time: $("hudTime"), score: $("hudScore"),
     pending: $("hudPending"), combo: $("hudCombo"), comboWrap: $("hudComboWrap"),
     speed: $("hudSpeed"), best: $("hudBest"),
+    ghost: $("hudGhost"), ghostWrap: $("hudGhostWrap"),
   };
   function renderHud() {
     hud.lap.textContent = String(Math.min(race.lap, LAPS_TOTAL));
@@ -837,7 +1007,17 @@
     hud.combo.textContent = "×" + race.combo;
     hud.comboWrap.classList.toggle("hot", race.combo >= 3);
     hud.speed.textContent = String(Math.round(Math.hypot(car.vx, car.vy) * KMH));
+    hud.speed.classList.toggle("boosting", race.boost > 0);
     hud.best.textContent = best.score > 0 ? best.score.toLocaleString() : "—";
+    hud.ghostWrap.hidden = !ghost;
+    if (ghost) {
+      // signed gap in flavour-metres: + means you're ahead of the ghost
+      const playerDist = (race.lap - 1 + race.lapAcc) * track.total;
+      const gap = (playerDist - ghost.dist) * KMH / 3.6;
+      hud.ghost.textContent = (gap >= 0 ? "+" : "−") + Math.abs(Math.round(gap)) + "m";
+      hud.ghost.classList.toggle("ahead", gap >= 0);
+      hud.ghost.classList.toggle("behind", gap < 0);
+    }
   }
 
   (function introBest() {
@@ -885,5 +1065,5 @@
   requestAnimationFrame(frame);
 
   // tiny handle for tuning the physics from the console
-  window.__drift = { car, race, input, track };
+  window.__drift = { car, race, input, track, stepGhost, get ghost() { return ghost; } };
 })();

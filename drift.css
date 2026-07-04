@@ -73,6 +73,10 @@
 .drift-stat span { font-size: 0.62rem; }
 .drift-stat #hudPending { color: #ffb35c; font-weight: 600; }
 #hudComboWrap.hot b { color: #ff8b3d; text-shadow: 0 0 12px rgba(255, 139, 61, 0.6); }
+#hudSpeed.boosting { color: #ff8b3d; text-shadow: 0 0 12px rgba(255, 139, 61, 0.7); }
+#hudGhostWrap b { text-transform: none; } /* "+38m" not "+38M" */
+#hudGhostWrap b.ahead { color: #9dffb0; }
+#hudGhostWrap b.behind { color: #ff7a7a; }
 
 /* little live track map */
 .drift-map {
@@ -196,6 +200,35 @@ body.touch .drift-touch { display: flex; }
   border-bottom-width: 3px;
   border-radius: 8px; padding: 6px 11px;
 }
+/* ghost difficulty picker on the intro */
+.drift-ghosts {
+  display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: center;
+}
+.drift-ghosts-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+  margin-right: 2px;
+}
+.drift-ghosts button {
+  font-family: "Inter", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #f0ead9;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.drift-ghosts button:hover { transform: translateY(-1px); background: rgba(255, 255, 255, 0.12); }
+.drift-ghosts button.sel {
+  background: rgba(160, 130, 255, 0.2);
+  border-color: rgba(180, 150, 255, 0.6);
+  box-shadow: 0 0 16px -6px rgba(180, 150, 255, 0.8);
+}
+
 .drift-goals {
   display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
 }
