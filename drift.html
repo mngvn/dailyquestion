@@ -24,6 +24,7 @@
     <div class="drift-stat">Drift <b id="hudScore">0</b><span id="hudPending"></span></div>
     <div class="drift-stat" id="hudComboWrap">Combo <b id="hudCombo">×1</b></div>
     <div class="drift-stat">Speed <b id="hudSpeed">0</b><span>km/h</span></div>
+    <div class="drift-stat" id="hudGhostWrap" hidden>Ghost <b id="hudGhost">—</b></div>
     <div class="drift-stat">Best <b id="hudBest">—</b></div>
   </div>
 
@@ -53,8 +54,16 @@
       <b>sideways</b> — pin the throttle, flick the <b>handbrake</b>, and steer into the slide
       to hold it through the corner.</p>
     <p class="drift-sub">Sliding fills a <b>pending score</b> that banks a beat after you straighten out —
-      clip a <b>cone</b>, smack a <b>tire wall</b>, or drop a wheel in the grass and the pending points burn.
+      and every banked drift pays out as <b>nitro 🔥</b>: the longer the slide, the bigger the boost.
+      Clip a <b>cone</b>, smack a <b>tire wall</b>, or drop a wheel in the grass and the pending points burn.
       Keep the slide alive to grow the <b>combo ×1 → ×5</b>. Grass is treacle. Cones remember.</p>
+    <div class="drift-ghosts" id="ghostRow" role="radiogroup" aria-label="Race a ghost">
+      <span class="drift-ghosts-label">Race a ghost:</span>
+      <button type="button" data-ghost="none">none</button>
+      <button type="button" data-ghost="easy">👻 easy</button>
+      <button type="button" data-ghost="medium">👻 medium</button>
+      <button type="button" data-ghost="hard">👻 hard</button>
+    </div>
     <div class="drift-keys">
       <kbd>↑ / W</kbd> gas
       <kbd>↓ / S</kbd> brake
