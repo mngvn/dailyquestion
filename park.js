@@ -72,6 +72,9 @@
   // ---- scoring / settle ------------------------------------------------------
   const SETTLE_SPEED = 26;    // px/s: below this the car counts as "stopped"
   const SETTLE_HOLD = 0.55;   // seconds seated + stopped before the spot locks
+  // You can't just roll straight in — the spot only locks if you DRIFT in.
+  const DRIFT_IN_SLIP = 0.30; // rad of slip near the bay that counts as sideways
+  const DRIFT_IN_GRACE = 2.2; // a qualifying slide arms the lock for this long
 
   // ---- levels ----------------------------------------------------------------
   // Each level places the car at a start and a bay somewhere across the lot.
@@ -115,6 +118,7 @@
     bay: null,               // { x, y, a, halfL, halfW }
     obstacles: [],           // oriented rects (neighbour cars + walls + arena)
     settle: 0,               // seconds seated + stopped
+    driftIn: 0,              // countdown armed by a slide near the bay
     peakSlip: 0, maxSpeed: 0, entrySpeed: 0, bumps: 0,
     t: 0,
   };
@@ -163,7 +167,7 @@
     game.obstacles = obs;
 
     placeCar(L.car.x, L.car.y, rad(L.car.a));
-    game.settle = 0;
+    game.settle = 0; game.driftIn = 0;
     game.peakSlip = 0; game.maxSpeed = 0; game.entrySpeed = 0; game.bumps = 0;
     game.t = 0;
     smoke.length = 0; popups.length = 0;
@@ -313,22 +317,32 @@
     // ---- collisions: lot walls + neighbour cars + back wall ----
     collide(drive);
 
-    // ---- style tracking (for the ★★★ drift bonus) ----
+    // ---- style tracking + "drift-in" arming ----
     if (drive) {
       game.maxSpeed = Math.max(game.maxSpeed, speed);
       if (speed > DRIFT_SPEED_MIN) game.peakSlip = Math.max(game.peakSlip, Math.abs(car.slip));
+      // A real slide close to the bay arms the lock. Straight-lining in never
+      // arms it, so you can't just drive the car into the spot.
+      const b = game.bay;
+      const nearBay = Math.hypot(car.x - b.x, car.y - b.y) < b.halfL + 150;
+      if (nearBay && car.drifting && Math.abs(car.slip) > DRIFT_IN_SLIP && speed > DRIFT_SPEED_MIN) {
+        game.driftIn = DRIFT_IN_GRACE;
+      } else {
+        game.driftIn = Math.max(0, game.driftIn - dt);
+      }
     }
 
     // ---- seated + settle check ----
     if (drive) {
       const seated = seatInfo();
-      if (seated.in && speed < SETTLE_SPEED) {
+      const armed = game.driftIn > 0;   // must have drifted in to lock the spot
+      if (seated.in && speed < SETTLE_SPEED && armed) {
         game.settle += dt;
         if (game.settle >= SETTLE_HOLD) completeLevel();
       } else {
         game.settle = Math.max(0, game.settle - dt * 2);
       }
-      updateStatusPrompt(seated, speed);
+      updateStatusPrompt(seated, speed, armed);
       game.t += dt;
     }
 
@@ -450,12 +464,17 @@
     return inside / total;
   }
 
-  function updateStatusPrompt(seated, speed) {
+  function updateStatusPrompt(seated, speed, armed) {
     const el = $("parkStatus");
-    if (seated.in && speed < SETTLE_SPEED) {
+    if (seated.in && speed < SETTLE_SPEED && armed) {
       el.hidden = false;
       el.classList.remove("warn");
       el.textContent = "hold it…";
+    } else if (seated.in && speed < SETTLE_SPEED) {
+      // stopped in the bay but you rolled straight in — no lock
+      el.hidden = false;
+      el.classList.add("warn");
+      el.textContent = "drift it in!";
     } else if (seated.in) {
       el.hidden = false;
       el.classList.add("warn");
