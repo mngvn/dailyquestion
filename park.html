@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Drift Park — a strange little detour</title>
+  <meta name="description" content="Level-based precision drifting: build up speed, kick the tail out, and slide the car dead-center into the parking spot." />
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="drift.css" />
+  <link rel="stylesheet" href="park.css" />
+</head>
+<body class="drift-body">
+  <canvas id="parkCanvas"></canvas>
+
+  <a class="drift-back" href="index.html" aria-label="Back to Daily">← Back</a>
+  <div class="drift-chip" id="parkChip" aria-hidden="true">🅿️ drift park</div>
+
+  <div class="drift-hud" id="parkHud" hidden>
+    <div class="drift-stat">Level <b id="hudLevel">1</b><span id="hudLevelName"></span></div>
+    <div class="drift-stat">Speed <b id="hudSpeed">0</b><span>km/h</span></div>
+    <div class="drift-stat" id="hudStyleWrap">Style <b id="hudStyle">—</b></div>
+    <div class="drift-stat">Best <b id="hudStars">☆☆☆</b></div>
+  </div>
+
+  <!-- seated / settle progress ring lives near the car, drawn on canvas -->
+  <div class="park-status" id="parkStatus" hidden></div>
+
+  <p class="drift-hint" id="parkHint">Floor it to build speed, then tap the handbrake and steer to slide into the bay.</p>
+
+  <!-- on-screen controls for touch devices -->
+  <div class="drift-touch" id="parkTouch" aria-hidden="true">
+    <div class="drift-touch-left">
+      <button id="touchLeft" type="button" aria-label="Steer left">◀</button>
+      <button id="touchRight" type="button" aria-label="Steer right">▶</button>
+      <button id="touchReset" type="button" class="drift-touch-small" aria-label="Restart the level">↺</button>
+    </div>
+    <div class="drift-touch-right">
+      <button id="touchDrift" type="button" class="drift-touch-wide" aria-label="Handbrake">DRIFT</button>
+      <button id="touchGas" type="button" class="drift-touch-wide" aria-label="Throttle">GAS</button>
+    </div>
+  </div>
+
+  <!-- intro -->
+  <div class="drift-overlay" id="parkIntro">
+    <h2>🅿️ Drift Park</h2>
+    <p>Every parking attendant's nightmare, every drifter's dream. <b>Build up speed</b>,
+      flick the <b>handbrake</b>, and let the slide carry the tail around so the car
+      lands <b>dead-center in the bay</b> — pointed the right way, wheels stopped.</p>
+    <p class="drift-sub">Any parked car earns a spot, but the full <b>★★★</b> only comes when you
+      <b>drift it in</b>: enter fast, hold a real slide, and settle it clean between the lines.
+      Nudge the neighbours or clip a wall and you'll be re-parking. Restart a spot any time.</p>
+    <div class="park-levels" id="levelRow" role="radiogroup" aria-label="Pick a level"></div>
+    <div class="drift-keys">
+      <kbd>↑ / W</kbd> gas
+      <kbd>↓ / S</kbd> brake
+      <kbd>← →</kbd> steer
+      <kbd>Space</kbd> handbrake
+      <kbd>R</kbd> restart spot
+    </div>
+    <div class="drift-btn-row">
+      <button class="drift-btn" id="parkPlayBtn" type="button">▶ Start the shift</button>
+    </div>
+    <p class="drift-sub" id="introStars">Your stars are saved.</p>
+  </div>
+
+  <!-- level cleared -->
+  <div class="drift-overlay drift-overlay-soft" id="parkDone" hidden>
+    <h2 id="doneTitle">🅿️ Parked!</h2>
+    <div class="park-stars-big" id="doneStars">☆☆☆</div>
+    <p class="drift-results" id="doneStats"></p>
+    <div class="drift-btn-row">
+      <button class="drift-btn" id="parkNext" type="button">Next spot →</button>
+      <button class="drift-btn ghost" id="parkReplay" type="button">↺ Replay</button>
+    </div>
+  </div>
+
+  <script src="park.js"></script>
+</body>
+</html>
