@@ -48,16 +48,18 @@
   const BRAKE = 900;
   const REV_ACCEL = 340, REV_MAX = 165;
   const DRAG1 = 0.9, DRAG2 = 0.0016;
-  const GRIP_ROAD = 9.5;
-  const GRIP_DRIFT = 3.1;
-  const GRIP_HAND = 1.7;
+  // Slightly slippery lot: less lateral tire grip, so once the tail steps out
+  // it stays out — slides carry further before the tires re-hook.
+  const GRIP_ROAD = 8.0;
+  const GRIP_DRIFT = 2.3;
+  const GRIP_HAND = 1.35;
   const TURN_RATE = 2.3;
   const TURN_DRIFT = 1.4;
   const HAND_DECEL = 150;
   const SLIP_MIN = 0.26;
   const SLIP_MAX = 1.15;
   const ALIGN_HAND = 1.1;
-  const ALIGN_ROAD = 3.2;
+  const ALIGN_ROAD = 2.8;     // nose re-centers a touch lazier, holding the slide
   const DRIFT_SPEED_MIN = 100;
   const STEER_RESP = 7;       // how fast the wheels turn (lower = heavier)
   const YAW_RESP = 8.5;       // how fast the body follows the wheels
