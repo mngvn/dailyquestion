@@ -1,0 +1,86 @@
+/* park.css — "Drift Park". Small overlay on top of drift.css: it reuses the
+   dusk-lot palette and floating chrome, and only adds the bits unique to the
+   parking game — the level picker, the star ratings, and the settle prompt. */
+
+#parkCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #0d1710;
+  touch-action: none;
+  z-index: 0;
+}
+
+#hudLevelName { text-transform: none; letter-spacing: 0; color: #f0ead9; }
+#hudStyleWrap b { text-transform: none; }
+#hudStyleWrap.hot b { color: #ff8b3d; text-shadow: 0 0 12px rgba(255, 139, 61, 0.6); }
+#hudStars { letter-spacing: 2px; color: #ffd27a; }
+
+/* the floating "hold it…" / "PARKED!" prompt over the settling car */
+.park-status {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -140px);
+  z-index: 14;
+  pointer-events: none;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(1.3rem, 4vw, 2rem);
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #9dffb0;
+  text-shadow: 0 0 26px rgba(80, 255, 130, 0.5);
+  white-space: nowrap;
+}
+.park-status[hidden] { display: none; }
+.park-status.warn { color: #ffb35c; text-shadow: 0 0 22px rgba(255, 139, 61, 0.5); }
+
+/* level picker on the intro */
+.park-levels {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  max-width: 560px;
+}
+.park-levels button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-family: "Inter", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #f0ead9;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 8px 12px;
+  min-width: 74px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.park-levels button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.12);
+}
+.park-levels button.sel {
+  background: rgba(255, 139, 61, 0.18);
+  border-color: rgba(255, 139, 61, 0.6);
+  box-shadow: 0 0 16px -6px rgba(255, 139, 61, 0.8);
+}
+.park-levels button:disabled { opacity: 0.4; cursor: not-allowed; }
+.park-levels .lv-name { letter-spacing: 0.3px; }
+.park-levels .lv-stars { font-size: 0.7rem; letter-spacing: 1.5px; color: #ffd27a; }
+.park-levels button:disabled .lv-stars { color: var(--muted); }
+
+/* big star row on the results overlay */
+.park-stars-big {
+  font-size: clamp(2.4rem, 9vw, 3.6rem);
+  letter-spacing: 8px;
+  line-height: 1;
+  color: #ffd27a;
+  text-shadow: 0 0 30px rgba(255, 190, 90, 0.45);
+}
