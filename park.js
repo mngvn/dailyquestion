@@ -42,30 +42,34 @@
   const WORLD_W = 1500, WORLD_H = 1080;
 
   // ---- car physics constants (shared feel with Drift King) -------------------
-  const ACCEL = 620;
-  const BRAKE = 1000;
-  const REV_ACCEL = 360, REV_MAX = 170;
+  // A bigger, heavier car: less snatchy accel/brake, slower steering and weight
+  // transfer, so momentum carries and a slide has to be set up deliberately.
+  const ACCEL = 560;
+  const BRAKE = 900;
+  const REV_ACCEL = 340, REV_MAX = 165;
   const DRAG1 = 0.9, DRAG2 = 0.0016;
   const GRIP_ROAD = 9.5;
   const GRIP_DRIFT = 3.1;
   const GRIP_HAND = 1.7;
-  const TURN_RATE = 2.6;
-  const TURN_DRIFT = 1.45;
+  const TURN_RATE = 2.3;
+  const TURN_DRIFT = 1.4;
   const HAND_DECEL = 150;
   const SLIP_MIN = 0.26;
   const SLIP_MAX = 1.15;
   const ALIGN_HAND = 1.1;
   const ALIGN_ROAD = 3.2;
   const DRIFT_SPEED_MIN = 100;
-  const CAR_L = 42, CAR_HW = 10;
-  const CAR_R = 15;            // collision circle radius
+  const STEER_RESP = 7;       // how fast the wheels turn (lower = heavier)
+  const YAW_RESP = 8.5;       // how fast the body follows the wheels
+  const CAR_L = 58, CAR_HW = 13;  // bigger body — reads chunkier up close
+  const CAR_R = 14;               // per-node collision radius…
+  const NODE_D = CAR_L * 0.30;    // …two nodes (a capsule) so the long body
+                                  //   can't clip neighbours nose-first
   const KMH = 0.45;
 
   // ---- scoring / settle ------------------------------------------------------
   const SETTLE_SPEED = 26;    // px/s: below this the car counts as "stopped"
   const SETTLE_HOLD = 0.55;   // seconds seated + stopped before the spot locks
-  const STYLE_SLIP = 0.5;     // slip (rad) that counts as a real drift for ★★★
-  const STYLE_ENTRY = 240;    // px/s peak speed needed for the drift to "count"
 
   // ---- levels ----------------------------------------------------------------
   // Each level places the car at a start and a bay somewhere across the lot.
@@ -76,22 +80,22 @@
   const LEVELS = [
     { name: "Pull-In", hint: "Floor it, then tap the handbrake to slide to a stop in the bay.",
       car: { x: 760, y: 930, a: -90 }, bay: { x: 760, y: 380, a: -90 },
-      halfL: 58, halfW: 34, sides: false, back: false },
+      halfL: 50, halfW: 30, sides: false, back: false },
     { name: "Ninety Left", hint: "Build speed, then flick left — let the slide swing you square into the slot.",
       car: { x: 860, y: 900, a: -90 }, bay: { x: 470, y: 470, a: 180 },
-      halfL: 54, halfW: 30, sides: true, back: false },
+      halfL: 48, halfW: 26, sides: true, back: false },
     { name: "Ninety Right", hint: "Same idea, other way — carry pace and drift right between the cars.",
       car: { x: 640, y: 900, a: -90 }, bay: { x: 1030, y: 470, a: 0 },
-      halfL: 54, halfW: 29, sides: true, back: true },
+      halfL: 48, halfW: 25, sides: true, back: true },
     { name: "Reverse Flick", hint: "Come in hot and over-rotate — swing the tail around to back it in.",
       car: { x: 760, y: 910, a: -90 }, bay: { x: 760, y: 360, a: 90 },
-      halfL: 56, halfW: 30, sides: true, back: true },
+      halfL: 50, halfW: 26, sides: true, back: true },
     { name: "Tight Squeeze", hint: "Narrow slot. Judge the entry, hold one clean slide, settle it centered.",
       car: { x: 930, y: 930, a: -90 }, bay: { x: 430, y: 440, a: 180 },
-      halfL: 52, halfW: 25, sides: true, back: true },
+      halfL: 46, halfW: 22, sides: true, back: true },
     { name: "The Pro Spot", hint: "Long run-up, tiny bay, no room for error. Drift it home.",
       car: { x: 760, y: 990, a: -90 }, bay: { x: 760, y: 300, a: 90 },
-      halfL: 52, halfW: 24, sides: true, back: true },
+      halfL: 46, halfW: 21, sides: true, back: true },
   ];
 
   // ---- state -----------------------------------------------------------------
@@ -277,18 +281,18 @@
     vf -= (DRAG1 * vf + DRAG2 * vf * Math.abs(vf)) * dt;
 
     const gripTarget = hand ? GRIP_HAND : car.drifting ? GRIP_DRIFT : GRIP_ROAD;
-    car.grip += (gripTarget - car.grip) * Math.min(1, 6 * dt);
+    car.grip += (gripTarget - car.grip) * Math.min(1, 5 * dt);
     vl *= Math.exp(-car.grip * dt);
 
     car.vx = cs * vf - sn * vl;
     car.vy = sn * vf + cs * vl;
 
-    car.steer += (steerIn - car.steer) * Math.min(1, 9 * dt);
+    car.steer += (steerIn - car.steer) * Math.min(1, STEER_RESP * dt);
     const auth = clamp(Math.abs(vf) / 250, 0, 1) * (vf < 0 ? -1 : 1);
     let wT = car.steer * TURN_RATE * auth;
     if (car.drifting || hand) wT += car.steer * TURN_DRIFT * auth;
     if (vf > 40) wT += car.slip * (hand ? ALIGN_HAND : car.drifting ? ALIGN_HAND * 1.6 : ALIGN_ROAD);
-    car.w += (wT - car.w) * Math.min(1, 10 * dt);
+    car.w += (wT - car.w) * Math.min(1, YAW_RESP * dt);
     car.h += car.w * dt;
     if (vf > 40) {
       const velA = Math.atan2(car.vy, car.vx);
@@ -304,13 +308,8 @@
     car.slip = speed > 40 ? angDiff(Math.atan2(car.vy, car.vx), car.h) : 0;
     car.drifting = drive && Math.abs(car.slip) > SLIP_MIN && speed > DRIFT_SPEED_MIN && vf > 0;
 
-    // ---- collisions: walls of the lot + neighbour cars + back wall ----
-    // arena bounds first
-    if (car.x < 24 + CAR_R) { car.x = 24 + CAR_R; killInto(1, 0); }
-    if (car.x > WORLD_W - 24 - CAR_R) { car.x = WORLD_W - 24 - CAR_R; killInto(-1, 0); }
-    if (car.y < 24 + CAR_R) { car.y = 24 + CAR_R; killInto(0, 1); }
-    if (car.y > WORLD_H - 24 - CAR_R) { car.y = WORLD_H - 24 - CAR_R; killInto(0, -1); }
-    if (drive) for (const o of game.obstacles) resolveRect(o);
+    // ---- collisions: lot walls + neighbour cars + back wall ----
+    collide(drive);
 
     // ---- style tracking (for the ★★★ drift bonus) ----
     if (drive) {
@@ -323,7 +322,7 @@
       const seated = seatInfo();
       if (seated.in && speed < SETTLE_SPEED) {
         game.settle += dt;
-        if (game.settle >= SETTLE_HOLD) completeLevel(seated);
+        if (game.settle >= SETTLE_HOLD) completeLevel();
       } else {
         game.settle = Math.max(0, game.settle - dt * 2);
       }
@@ -346,32 +345,49 @@
     }
   }
 
-  // circle(car) vs oriented rect: push the car out along the shortest axis and
-  // kill the inward velocity component.
-  function resolveRect(o) {
+  // The car is a capsule: two collision nodes (front + rear) so a long body
+  // resolves against neighbours and walls without its nose/tail tunnelling
+  // through. Each node is a circle of radius CAR_R.
+  function collide(drive) {
+    const fx = Math.cos(car.h), fy = Math.sin(car.h);
+    const nodes = [[car.x + fx * NODE_D, car.y + fy * NODE_D],
+                   [car.x - fx * NODE_D, car.y - fy * NODE_D]];
+    for (const nd of nodes) {
+      // lot bounds
+      if (nd[0] < 24 + CAR_R) { const p = 24 + CAR_R - nd[0]; car.x += p; nd[0] += p; killInto(1, 0); }
+      if (nd[0] > WORLD_W - 24 - CAR_R) { const p = nd[0] - (WORLD_W - 24 - CAR_R); car.x -= p; nd[0] -= p; killInto(-1, 0); }
+      if (nd[1] < 24 + CAR_R) { const p = 24 + CAR_R - nd[1]; car.y += p; nd[1] += p; killInto(0, 1); }
+      if (nd[1] > WORLD_H - 24 - CAR_R) { const p = nd[1] - (WORLD_H - 24 - CAR_R); car.y -= p; nd[1] -= p; killInto(0, -1); }
+      if (drive) for (const o of game.obstacles) resolveRectNode(o, nd);
+    }
+  }
+
+  // circle (one capsule node) vs oriented rect: push the whole car out along
+  // the shortest axis and kill the inward velocity component.
+  function resolveRectNode(o, nd) {
     const ux = Math.cos(o.a), uy = Math.sin(o.a);
     const vx = -Math.sin(o.a), vy = Math.cos(o.a);
-    const dx = car.x - o.x, dy = car.y - o.y;
+    const dx = nd[0] - o.x, dy = nd[1] - o.y;
     const lx = dx * ux + dy * uy;      // along facing
     const ly = dx * vx + dy * vy;      // across
     const cxl = clamp(lx, -o.hx, o.hx);
     const cyl = clamp(ly, -o.hy, o.hy);
     let nx, ny, pen;
     if (Math.abs(lx) <= o.hx && Math.abs(ly) <= o.hy) {
-      // center inside the rect: eject along the least-penetrating face
+      // node inside the rect: eject along the least-penetrating face
       const px = o.hx - Math.abs(lx), py = o.hy - Math.abs(ly);
       if (px < py) { const s = Math.sign(lx) || 1; nx = ux * s; ny = uy * s; pen = px + CAR_R; }
       else { const s = Math.sign(ly) || 1; nx = vx * s; ny = vy * s; pen = py + CAR_R; }
     } else {
       const closeX = o.x + ux * cxl + vx * cyl;
       const closeY = o.y + uy * cxl + vy * cyl;
-      let ex = car.x - closeX, ey = car.y - closeY;
+      let ex = nd[0] - closeX, ey = nd[1] - closeY;
       let d = Math.hypot(ex, ey);
       if (d >= CAR_R) return;
       if (d < 1e-4) { ex = ux; ey = uy; d = 1; }
       nx = ex / d; ny = ey / d; pen = CAR_R - d;
     }
-    car.x += nx * pen; car.y += ny * pen;
+    car.x += nx * pen; car.y += ny * pen; nd[0] += nx * pen; nd[1] += ny * pen;
     const vn = car.vx * nx + car.vy * ny;
     if (vn < 0) {
       const e = o.kind === "wall" ? 0.9 : 0.5;
@@ -392,8 +408,9 @@
   }
 
   // ---- seated geometry -------------------------------------------------------
-  // Where is the car relative to the bay? Returns local offsets normalised by
-  // the bay half-extents, the alignment error, and whether it's "in" the bay.
+  // Where is the car relative to the bay? "in" just means the car's CENTER sits
+  // inside the painted lines (no angle requirement) — that alone is a park worth
+  // a star; the star count comes from how much of the body is inside (below).
   function seatInfo() {
     const b = game.bay;
     const ux = Math.cos(b.a), uy = Math.sin(b.a);
@@ -402,10 +419,33 @@
     const along = dx * ux + dy * uy;     // along the bay (length)
     const across = dx * vx + dy * vy;    // across (width)
     const aErr = alignErr(car.h, b.a);
-    // normalised errors: 0 = perfect center/aligned, 1 = at the tolerance edge
-    const posN = Math.max(Math.abs(along) / (b.halfL - 4), Math.abs(across) / (b.halfW - 3));
-    const inBay = Math.abs(along) < b.halfL - 4 && Math.abs(across) < b.halfW - 3 && aErr < 0.42;
-    return { in: inBay, along, across, aErr, posN };
+    const inBay = Math.abs(along) < b.halfL && Math.abs(across) < b.halfW;
+    return { in: inBay, along, across, aErr };
+  }
+
+  // Fraction of the car's footprint that lies between the painted lines. A
+  // grid of points across the body is transformed into the bay's frame and
+  // counted — so a crooked or half-hanging-out car naturally scores lower.
+  function coverageFraction() {
+    const b = game.bay;
+    const ux = Math.cos(b.a), uy = Math.sin(b.a);
+    const vx = -Math.sin(b.a), vy = Math.cos(b.a);
+    const fx = Math.cos(car.h), fy = Math.sin(car.h);   // car forward
+    const gx = -Math.sin(car.h), gy = Math.cos(car.h);  // car right
+    const NL = 5, NW = 3;
+    let inside = 0, total = 0;
+    for (let i = 0; i < NL; i++) {
+      const l = (-0.5 + i / (NL - 1)) * CAR_L;
+      for (let j = 0; j < NW; j++) {
+        const w = (-0.5 + j / (NW - 1)) * (CAR_HW * 2);
+        const px = car.x + fx * l + gx * w;
+        const py = car.y + fy * l + gy * w;
+        const dx = px - b.x, dy = py - b.y;
+        if (Math.abs(dx * ux + dy * uy) <= b.halfL && Math.abs(dx * vx + dy * vy) <= b.halfW) inside++;
+        total++;
+      }
+    }
+    return inside / total;
   }
 
   function updateStatusPrompt(seated, speed) {
@@ -424,15 +464,18 @@
   }
 
   // ---- level completion ------------------------------------------------------
-  function completeLevel(seated) {
+  // Stars are purely about the park itself:
+  //   ★    the car is in the spot (center between the lines)
+  //   ★★   most of the body is inside (≥ 60% coverage)
+  //   ★★★  a flawless park — nearly all of it in AND straight
+  function completeLevel() {
     game.state = "done";
     $("parkStatus").hidden = true;
-    // precision from the final seated offsets + alignment
-    const well = seated.posN < 0.55 && seated.aErr < 0.2;
-    const drifted = game.peakSlip > STYLE_SLIP && game.maxSpeed > STYLE_ENTRY && game.bumps === 0;
-    let earned = 1 + (well ? 1 : 0) + (well && drifted ? 1 : 0);
-    // a clean drift that landed a touch off still deserves the second star
-    if (!well && drifted && game.bumps === 0 && seated.posN < 0.8) earned = 2;
+    const cov = coverageFraction();
+    const aErr = seatInfo().aErr;
+    let earned = 1;
+    if (cov >= 0.6) earned = 2;
+    if (cov >= 0.9 && aErr < 0.16) earned = 3;
 
     const isBest = earned > stars[game.level];
     if (isBest) {
@@ -440,12 +483,12 @@
       try { localStorage.setItem("park.stars", JSON.stringify(stars)); } catch (e) { /* ignore */ }
     }
 
-    const accuracy = Math.round((1 - clamp(seated.posN, 0, 1)) * 100);
-    const angleDeg = Math.round((seated.aErr * 180) / Math.PI);
+    const covPct = Math.round(cov * 100);
+    const angleDeg = Math.round((aErr * 180) / Math.PI);
     $("doneTitle").textContent = earned === 3 ? "👑 Flawless park!" : "🅿️ Parked!";
     $("doneStars").textContent = starStr(earned);
     $("doneStats").innerHTML =
-      "Centering <b>" + accuracy + "%</b> · Off-angle <b>" + angleDeg + "°</b>" +
+      "In the bay <b>" + covPct + "%</b> · Off-angle <b>" + angleDeg + "°</b>" +
       "<br>Peak drift <b>" + Math.round((game.peakSlip * 180) / Math.PI) + "°</b>" +
       " · Top speed <b>" + Math.round(game.maxSpeed * KMH) + "</b> km/h" +
       (game.bumps > 0 ? " · Bumps <b>" + game.bumps + "</b>" : "") +
@@ -453,9 +496,9 @@
       (earned < 3 ? "<br><span class='park-tip'></span>" : "");
     // a nudge toward the missing stars
     if (earned < 3) {
-      let tip;
-      if (!well) tip = "Land it more centered & straight for ★★.";
-      else tip = "Now drift it in — enter fast and hold a real slide for ★★★.";
+      const tip = cov < 0.6
+        ? "Get more of the car between the lines for ★★."
+        : "Straighten up and center it for ★★★.";
       const span = $("doneStats").querySelector(".park-tip");
       if (span) { span.textContent = tip; span.style.color = "var(--muted)"; }
     }
@@ -542,16 +585,18 @@
   window.addEventListener("resize", resize);
 
   function updateCamera(dt) {
-    // keep both the car and the bay comfortably in frame, biased to the car
-    const bx = game.bay ? (car.x * 0.65 + game.bay.x * 0.35) : car.x;
-    const by = game.bay ? (car.y * 0.65 + game.bay.y * 0.35) : car.y;
-    const tx = bx + car.vx * 0.16;
-    const ty = by + car.vy * 0.16;
-    const k = Math.min(1, 3.2 * dt);
+    // Close, GTA-ish chase cam: sit tight on the car and look ahead in the
+    // direction of travel (plus a little nose lead) so you can still read the
+    // bay coming up. Eases back a touch at speed.
+    const speed = Math.hypot(car.vx, car.vy);
+    const tx = car.x + car.vx * 0.30 + Math.cos(car.h) * 48;
+    const ty = car.y + car.vy * 0.30 + Math.sin(car.h) * 48;
+    const k = Math.min(1, 4 * dt);
     cam.x += (tx - cam.x) * k;
     cam.y += (ty - cam.y) * k;
-    const base = clamp(Math.min(view.cw / 1150, view.ch / 820), 0.5, 1.5);
-    cam.z += (base - cam.z) * Math.min(1, 2.5 * dt);
+    const base = clamp(Math.min(view.cw / 760, view.ch / 560), 0.85, 2.1);
+    const zt = base * (1.06 - 0.18 * Math.min(speed / 520, 1));
+    cam.z += (zt - cam.z) * Math.min(1, 2.6 * dt);
     cam.shake = Math.max(0, cam.shake - 26 * dt);
   }
 
@@ -755,7 +800,7 @@
   // ---- main loop -------------------------------------------------------------
   buildLevel(0);
   cam.x = car.x; cam.y = car.y;
-  cam.z = clamp(Math.min(view.cw / 1150, view.ch / 820), 0.5, 1.5);
+  cam.z = clamp(Math.min(view.cw / 760, view.ch / 560), 0.85, 2.1);
 
   let lastT = performance.now();
   function frame(now) {
