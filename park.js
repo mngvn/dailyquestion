@@ -45,6 +45,7 @@
   // A bigger, heavier car: less snatchy accel/brake, slower steering and weight
   // transfer, so momentum carries and a slide has to be set up deliberately.
   const ACCEL = 560;
+  const BOOST_ACCEL = 250;    // extra nose push while power-sliding on the gas
   const BRAKE = 900;
   const REV_ACCEL = 340, REV_MAX = 165;
   const DRAG1 = 0.9, DRAG2 = 0.0016;
@@ -108,7 +109,7 @@
     x: 0, y: 0, h: 0,
     vx: 0, vy: 0, w: 0,
     steer: 0, grip: GRIP_ROAD,
-    slip: 0, drifting: false,
+    slip: 0, drifting: false, boosting: false,
     skidL: null, skidR: null,
   };
   const cam = { x: 0, y: 0, z: 1, shake: 0 };
@@ -182,7 +183,7 @@
   function placeCar(x, y, h) {
     car.x = x; car.y = y; car.h = h;
     car.vx = car.vy = car.w = car.steer = 0;
-    car.grip = GRIP_ROAD; car.slip = 0; car.drifting = false;
+    car.grip = GRIP_ROAD; car.slip = 0; car.drifting = false; car.boosting = false;
     car.skidL = car.skidR = null;
   }
 
@@ -279,6 +280,11 @@
     let vl = -car.vx * sn + car.vy * cs;
 
     if (gas) vf += ACCEL * (hand ? 0.6 : 1) * dt;
+    // power slide: sliding on the throttle earns a little extra shove forward,
+    // so a drift carries speed (and throws flames). Uses last frame's drift
+    // state — a frame of lag here is imperceptible.
+    car.boosting = drive && gas && car.drifting && vf > 0;
+    if (car.boosting) vf += BOOST_ACCEL * dt;
     if (brake) {
       if (vf > 8) vf -= BRAKE * dt;
       else vf = Math.max(vf - REV_ACCEL * dt, -REV_MAX);
@@ -552,11 +558,22 @@
           x: rearX + (Math.random() - 0.5) * 10, y: rearY + (Math.random() - 0.5) * 10,
           vx: car.vx * 0.12 + (Math.random() - 0.5) * 26,
           vy: car.vy * 0.12 + (Math.random() - 0.5) * 26,
-          r: 6 + Math.random() * 6, t: 0, life: 0.55 + Math.random() * 0.3,
+          r: 6 + Math.random() * 6, t: 0, life: 0.55 + Math.random() * 0.3, flame: false,
         });
       }
     } else {
       car.skidL = car.skidR = null;
+    }
+    // power-slide flames licking out of the tailpipe while boosting
+    if (car.boosting && smoke.length < 260) {
+      const bx = car.x - Math.cos(car.h) * CAR_L * 0.52;
+      const by = car.y - Math.sin(car.h) * CAR_L * 0.52;
+      smoke.push({
+        x: bx + (Math.random() - 0.5) * 7, y: by + (Math.random() - 0.5) * 7,
+        vx: -Math.cos(car.h) * 95 + (Math.random() - 0.5) * 34,
+        vy: -Math.sin(car.h) * 95 + (Math.random() - 0.5) * 34,
+        r: 5 + Math.random() * 4, t: 0, life: 0.26, flame: true,
+      });
     }
   }
 
@@ -772,10 +789,18 @@
       if (p.t >= p.life) { smoke.splice(i, 1); continue; }
       const a = 1 - p.t / p.life;
       p.x += p.vx * dt; p.y += p.vy * dt;
-      g.fillStyle = "rgba(206, 208, 214," + (0.24 * a).toFixed(3) + ")";
-      g.beginPath();
-      g.arc(p.x, p.y, p.r + p.t * 26, 0, TAU);
-      g.fill();
+      if (p.flame) {
+        // hot core fading to orange as it trails off
+        g.fillStyle = "rgba(255, " + Math.round(120 + 110 * a) + ", 50," + (0.6 * a).toFixed(3) + ")";
+        g.beginPath();
+        g.arc(p.x, p.y, p.r * a + 1.5, 0, TAU);
+        g.fill();
+      } else {
+        g.fillStyle = "rgba(206, 208, 214," + (0.24 * a).toFixed(3) + ")";
+        g.beginPath();
+        g.arc(p.x, p.y, p.r + p.t * 26, 0, TAU);
+        g.fill();
+      }
     }
 
     g.textAlign = "center";
@@ -807,8 +832,9 @@
     $("hudSpeed").textContent = String(Math.round(speed * KMH));
     const slipDeg = Math.round((Math.abs(car.slip) * 180) / Math.PI);
     const styleEl = $("hudStyle");
-    styleEl.textContent = car.drifting ? slipDeg + "°" : "—";
-    $("hudStyleWrap").classList.toggle("hot", car.drifting && slipDeg > 28);
+    styleEl.textContent = car.drifting ? (car.boosting ? slipDeg + "° 🔥" : slipDeg + "°") : "—";
+    $("hudStyleWrap").classList.toggle("hot", car.boosting || (car.drifting && slipDeg > 28));
+    $("hudSpeed").classList.toggle("boosting", car.boosting);
   }
 
   (function introStars() {
