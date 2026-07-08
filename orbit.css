@@ -72,6 +72,7 @@
 }
 .orbit-stat span { font-size: 0.62rem; }
 .orbit-stat.warn b { color: #ff7a7a; }
+.orbit-stat.good b { color: #ffd86b; }
 
 .orbit-hint {
   position: fixed;
