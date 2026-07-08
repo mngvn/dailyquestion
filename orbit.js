@@ -22,8 +22,8 @@
   // launch off it into the air, and fly across to the next one.
   const PR = 1.05;           // ball radius (world units)
   const PIPE_HW = 8.5;       // half-width of a half-pipe (lip to lip from centre)
-  const OFF = 4;             // lateral offset of alternating pipe centres (±OFF) — small, so the ramps
-                             //   overlap and rolling forward carries the heavy ball onto the next one
+  const OFF = 11;            // lateral offset of alternating pipe centres (±OFF) — wider than the pipes,
+                             //   so ramps DON'T overlap: you have to launch off a side lip to cross
   const CURVE = 0.09;        // how steeply the pipe curves up its walls (lower = shallower walls)
   const HOLE_HW = 4;         // half-width of a floor hole (windy pipes)
   const HOLE_HL = 5;         // half-length (along z) of a floor hole
@@ -32,19 +32,24 @@
   // physics (tuned for 60fps; scaled by frame-time factor f)
   const G = 0.04;            // gravity accel (−y) — the ball is heavy, so hops are short + snappy
   const CURVE_GAIN = 0.6;    // curve pull toward the bottom — gentle, so you can roll up the walls
-  const STRAFE = 0.026;      // lateral steer accel — small (heavy ball, slow to change direction)
-  const STRAFE_AIR = 0.024;  // a touch more nimble in the air
+  const STRAFE = 0.04;       // lateral steer accel — stronger than the curve's pull at the lip
+                             //   (≈0.037), so holding toward an edge always carries you over it
+  const STRAFE_AIR = 0.028;  // a touch more nimble in the air, to line up the landing
   const VX_CAP = 0.8;        // lateral speed cap
   const LAT_FRICTION = 0.99; // light rolling friction — momentum persists so you can pump up the walls
   const AIR_DRAG = 0.992;    // in the air: sideways speed bleed
-  const AIR_VZ_DRAG = 0.988; // in the air you LOSE forward momentum — keep working the ramps
+  const AIR_VZ_KEEP = 0.9985;  // airborne off a LIP LAUNCH: you keep nearly all your momentum
+  const AIR_VZ_BLEED = 0.984;  // airborne off a FRONT DROP (or a hole): momentum bleeds away fast
   const LAND_GAIN = 0.7;     // landing DOWN onto a ramp turns your fall into forward momentum
   const ROLL_ACC = 0.0022;   // rolling down the course builds forward momentum — slow ramp-up, so speed earns
   const LIP_SLOPE = 2 * CURVE * PIPE_HW;   // wall steepness at the lip (dy/dx) — converts speed → launch
   const LIP_LAUNCH = 0.24;   // outward speed above which you pop off the lip instead of being caught
   const LIP_VY_MAX = 1.25;   // cap on a momentum launch so you don't fly to the moon
   const EDGE_VY = 0.78;      // every ramp edge gives a strong pop UP, so you can loft to the next ramp
-  const EDGE_VZ = 0.12;      //   ...and a small forward nudge
+  const EDGE_VZ = 0.26;      //   ...and a solid forward kick — launching is how you go fast
+  const LAUNCH_CARRY = 0.25; // extra forward kick per unit of outward speed at the lip: hit it hard, fly far
+  const COMBO_GAIN = 0.05;   // bonus forward speed per landed launch in a chain...
+  const COMBO_CAP = 6;       //   ...up to this chain length
 
   // momentum: forward speed builds up as you roll and can reach a high top speed.
   const VZ0 = 0.3, VZMAX = 2.0;
@@ -120,7 +125,7 @@
       const nholes = 1 + Math.floor(usable / 110);
       for (let k = 0; k < nholes; k++) seg.holes.push(z0 + 40 + usable * ((k + 0.5) / nholes));
       segs.push(seg);
-      const gap = clamp(reach * (0.32 + grand() * 0.3), 14, 60);
+      const gap = clamp(reach * (0.45 + grand() * 0.4), 16, 64);
       genZ = z1 + gap; segIdx++;
       return;
     }
@@ -130,7 +135,7 @@
     if (segIdx === 0) len += 50; else if (segIdx < 3) len += 22;
     const z1 = z0 + len;
     segs.push({ windy: false, side, xc: side * OFF, z0, z1, holes: null });
-    const gap = clamp(reach * (0.32 + grand() * 0.33), 14, 60);   // the random "cut"
+    const gap = clamp(reach * (0.5 + grand() * 0.45), 16, 68);    // the random "cut" — a real jump
     const nextWindy = (segIdx + 1) > 2 && (segIdx + 1) % 3 === 0;
     if (segIdx > 0 && segIdx % 2 === 0 && !nextWindy) {           // no pad right before a windy pipe
       const pz = z1 + gap / 2;
@@ -180,6 +185,7 @@
   const pos = { x: 0, y: 0, z: 0 }, vel = { x: 0, y: 0, z: 0 };
   let riding = false, ridingXc = 0;    // surfing a pipe, and its centre x
   let onSurface = false, offRamp = false, boost = 0;
+  let lipLaunched = false, combo = 0;  // airborne via a lip launch; chained-launch counter
   let best = 0, clock = 0, shake = 0, camYsmooth = 0;
   let particles = [], trail = [];
   const input = { left: false, right: false };
@@ -193,16 +199,29 @@
     vel.x = 0; vel.y = 0; vel.z = VZ0;
     riding = true; ridingXc = -OFF;
     onSurface = true; offRamp = false; boost = 0;
+    lipLaunched = false; combo = 0;
     cam.x = pos.x; cam.y = pos.y; camYsmooth = pos.y;
     particles = []; trail = []; shake = 0;
     input.left = input.right = false;
   }
 
   // ---- physics -------------------------------------------------------------
-  // Only the SIDE walls give a launch boost. Rolling off the front just drops
-  // you — and while airborne you bleed momentum, so you want to keep working
-  // the ramps. Landing DOWN onto the next ramp converts your fall into momentum.
-  function rollOffFront() { riding = false; onSurface = false; offRamp = true; }   // no boost off the front
+  // The ramps are far apart now, so LAUNCHING is the whole game: pop off a side
+  // lip and you keep your momentum in the air, get a forward kick that scales
+  // with how hard you hit the lip, and every landed launch extends a combo that
+  // pays out bonus speed. Roll off the front (or fall through a hole) and you
+  // drop with none of that — momentum bleeds fast and the combo resets.
+  function rollOffFront() {                       // a drop, not a launch: no kick, hard bleed, combo lost
+    riding = false; onSurface = false; offRamp = true;
+    lipLaunched = false; combo = 0;
+  }
+  function popOffLip() {                          // launch off a side lip with your outward speed
+    const out = Math.abs(vel.x);
+    vel.y = Math.max(Math.min(out * LIP_SLOPE, LIP_VY_MAX), EDGE_VY);
+    vel.z += EDGE_VZ + out * LAUNCH_CARRY;
+    riding = false; onSurface = false; offRamp = true; lipLaunched = true;
+    burst(pos.x, pos.y, pos.z, 12, "#ffe27a");
+  }
 
   function step(f) {
     if (boost > 0) boost = Math.max(0, boost - f);
@@ -228,27 +247,28 @@
         if (!sc2) { rollOffFront(); }
         else {
           const cx = centerOf(sc2, pos.z), dx = pos.x - cx;
-          // At a SIDE lip: fast outward speed launches you off with a boost
-          // (up + forward); slow drift is gently caught so you don't slide off.
+          // At a SIDE lip: STEERING INTO the lip always launches (a deliberate
+          // jump), and so does fast outward momentum. Only an idle slow drift
+          // is gently caught, so you can't slide off by accident.
           if (dx < -PIPE_HW) {
-            if (vel.x < -LIP_LAUNCH) { vel.y = Math.max(Math.min(-vel.x * LIP_SLOPE, LIP_VY_MAX), EDGE_VY); vel.z += EDGE_VZ; riding = false; burst(pos.x, pos.y, pos.z, 12, "#ffe27a"); }
+            if (dir < 0 || vel.x < -LIP_LAUNCH) popOffLip();
             else { pos.x = cx - PIPE_HW; if (vel.x < 0) vel.x = 0; }
           } else if (dx > PIPE_HW) {
-            if (vel.x > LIP_LAUNCH) { vel.y = Math.max(Math.min(vel.x * LIP_SLOPE, LIP_VY_MAX), EDGE_VY); vel.z += EDGE_VZ; riding = false; burst(pos.x, pos.y, pos.z, 12, "#ffe27a"); }
+            if (dir > 0 || vel.x > LIP_LAUNCH) popOffLip();
             else { pos.x = cx + PIPE_HW; if (vel.x > 0) vel.x = 0; }
           }
           if (riding) {
             const s = surfaceAt(pos.x, pos.z);
             if (s.onWall) { pos.y = s.y + PR; onSurface = true; offRamp = false; if (Math.random() < 0.22) spark(pos.x, s.y, pos.z); }
-            else { riding = false; onSurface = false; offRamp = true; }   // fell through a floor hole
-          } else { onSurface = false; offRamp = true; }
+            else rollOffFront();                                          // fell through a floor hole
+          }
         }
       }
     } else {
-      // airborne: gravity + air-steer. You LOSE momentum while off the ramps, so
-      // long flights bleed your speed — keep landing back on the ramps.
+      // airborne: gravity + air-steer. A LIP LAUNCH carries its momentum through
+      // the air almost untouched; a front drop bleeds it fast — launch, don't fall.
       vel.y -= G * f;
-      vel.z *= Math.pow(AIR_VZ_DRAG, f);
+      vel.z *= Math.pow(lipLaunched ? AIR_VZ_KEEP : AIR_VZ_BLEED, f);
       if (dir) vel.x = clamp(vel.x + dir * STRAFE_AIR * f, -VX_CAP, VX_CAP);
       vel.x *= Math.pow(AIR_DRAG, f);
       pos.x += vel.x * f; pos.y += vel.y * f; pos.z += vel.z * f;
@@ -257,8 +277,18 @@
       if (s.onWall && vel.y <= 0 && pos.y <= s.y + PR && pos.y > s.y - 2) {
         // land DOWN onto the ramp → convert your fall into forward momentum
         pos.y = s.y + PR; vel.z += Math.min(-vel.y, 1.5) * LAND_GAIN; vel.y = 0; vel.x *= 0.55;
+        if (lipLaunched) {
+          // a landed launch extends the combo and pays out bonus speed
+          combo++;
+          vel.z += COMBO_GAIN * Math.min(combo, COMBO_CAP);
+          shake = Math.min(12, shake + Math.min(combo, COMBO_CAP));
+          burst(pos.x, s.y, pos.z, 8 + 2 * Math.min(combo, COMBO_CAP), "#ffe27a");
+        } else {
+          combo = 0;
+          burst(pos.x, s.y, pos.z, 8, "#9fe8ff");
+        }
+        lipLaunched = false;
         riding = true; ridingXc = centerOf(s.seg, pos.z); onSurface = true; offRamp = false;
-        burst(pos.x, s.y, pos.z, 8, "#9fe8ff");
       }
     }
 
@@ -269,7 +299,7 @@
       if (Math.abs(pos.x - p.x) < PLAT_HX && Math.abs(pos.z - p.z) < PLAT_HZ &&
           vel.y <= 0 && pos.y <= p.topY + PR && pos.y > p.topY - 13) {
         vel.y = SUPER_BOUNCE; boost = BOOST_TIME; p.used = true;
-        riding = false; onSurface = false;
+        riding = false; onSurface = false; lipLaunched = true;   // pad flights keep momentum too
         shake = Math.min(12, shake + 6);
         burst(pos.x, p.topY, pos.z, 20, "#ffd86b");
       }
@@ -549,7 +579,7 @@
   const $ = (id) => document.getElementById(id);
   const elPct = $("orbitPct"), elSpeed = $("orbitSpeed"), elAlt = $("orbitAlt"),
     elBest = $("orbitBest"), elAltWrap = $("orbitAltWrap"), hud = $("orbitHud"),
-    hint = $("orbitHint");
+    hint = $("orbitHint"), elCombo = $("orbitCombo"), elComboWrap = $("orbitComboWrap");
   function updateHud() {
     const dist = Math.floor(pos.z);
     const spd = Math.hypot(vel.x, vel.y, vel.z);
@@ -558,6 +588,8 @@
     elAlt.textContent = boost > 0 ? Math.ceil(boost / 60) + "s" : "—";
     elBest.textContent = Math.floor(best);
     elAltWrap.classList.toggle("warn", boost > 0);
+    elCombo.textContent = combo > 0 ? "×" + combo : "—";
+    elComboWrap.classList.toggle("good", combo > 1);
   }
 
   // ---- game states ---------------------------------------------------------
@@ -628,7 +660,7 @@
 
   // expose a little for tuning/automated checks
   window.OrbitGame = {
-    get state() { return { phase, pos: { ...pos }, vel: { ...vel }, dist: pos.z, onSurface, offRamp, boost }; },
+    get state() { return { phase, pos: { ...pos }, vel: { ...vel }, dist: pos.z, onSurface, offRamp, boost, combo, lipLaunched, riding }; },
     get segs() { return segs.map((s) => ({ ...s })); },
     get plats() { return plats.map((p) => ({ ...p })); },
     consts: { PIPE_HW, OFF },
