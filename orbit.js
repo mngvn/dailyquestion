@@ -40,7 +40,8 @@
   const AIR_DRAG = 0.992;    // in the air: sideways speed bleed
   const AIR_VZ_KEEP = 0.9985;  // airborne off a LIP LAUNCH: you keep nearly all your momentum
   const AIR_VZ_BLEED = 0.984;  // airborne off a FRONT DROP (or a hole): momentum bleeds away fast
-  const LAND_GAIN = 0.7;     // landing DOWN onto a ramp turns your fall into forward momentum
+  const LAND_GAIN = 0.4;     // landing DOWN onto a ramp turns your fall into forward momentum — gentle,
+                             //   so a landing nudges you faster instead of slingshotting you
   const ROLL_ACC = 0.0022;   // rolling down the course builds forward momentum — slow ramp-up, so speed earns
   const LIP_SLOPE = 2 * CURVE * PIPE_HW;   // wall steepness at the lip (dy/dx) — converts speed → launch
   const LIP_LAUNCH = 0.24;   // outward speed above which you pop off the lip instead of being caught
@@ -48,7 +49,7 @@
   const EDGE_VY = 0.78;      // every ramp edge gives a strong pop UP, so you can loft to the next ramp
   const EDGE_VZ = 0.26;      //   ...and a solid forward kick — launching is how you go fast
   const LAUNCH_CARRY = 0.25; // extra forward kick per unit of outward speed at the lip: hit it hard, fly far
-  const COMBO_GAIN = 0.05;   // bonus forward speed per landed launch in a chain...
+  const COMBO_GAIN = 0.03;   // bonus forward speed per landed launch in a chain...
   const COMBO_CAP = 6;       //   ...up to this chain length
 
   // momentum: forward speed builds up as you roll and can reach a high top speed.
