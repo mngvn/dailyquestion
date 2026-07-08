@@ -455,9 +455,9 @@
   // Difficulty scales its top speed, cornering grip, and acceleration — and
   // the track's surface scales the ghost the same way it scales you.
   const GHOST_DIFFS = {
-    easy:   { label: "easy",   vmax: 168, latg: 26,  acc: 138, brk: 420, tint: "141, 255, 176" },
-    medium: { label: "medium", vmax: 220, latg: 53,  acc: 212, brk: 600, tint: "127, 183, 255" },
-    hard:   { label: "hard",   vmax: 280, latg: 83,  acc: 320, brk: 800, tint: "201, 143, 255" },
+    easy:   { label: "easy",   vmax: 192, latg: 36,  acc: 168, brk: 480, tint: "141, 255, 176" },
+    medium: { label: "medium", vmax: 248, latg: 68,  acc: 265, brk: 690, tint: "127, 183, 255" },
+    hard:   { label: "hard",   vmax: 315, latg: 108, acc: 415, brk: 920, tint: "201, 143, 255" },
   };
   let ghostDiff = store.get("drift.ghost") || "easy";
   if (ghostDiff !== "none" && !GHOST_DIFFS[ghostDiff]) ghostDiff = "easy";
