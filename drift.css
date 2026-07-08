@@ -167,6 +167,12 @@ body.touch .drift-hint { display: none; }
 }
 .drift-touch button:active { background: rgba(255, 139, 61, 0.42); }
 .drift-touch .drift-touch-left, .drift-touch .drift-touch-right { display: flex; gap: 14px; }
+/* three buttons on the right now: DRIFT + BRAKE up top, GAS alone under the thumb */
+.drift-touch .drift-touch-right {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 176px;
+}
 body.touch .drift-touch { display: flex; }
 
 /* ---------- Overlays ---------- */
@@ -200,6 +206,34 @@ body.touch .drift-touch { display: flex; }
   border-bottom-width: 3px;
   border-radius: 8px; padding: 6px 11px;
 }
+/* track picker on the intro */
+.drift-tracks {
+  display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: center;
+}
+.drift-tracks button {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #f0ead9;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.drift-tracks button:hover:not(:disabled) { transform: translateY(-1px); background: rgba(255, 255, 255, 0.12); }
+.drift-tracks button.sel {
+  background: rgba(255, 139, 61, 0.2);
+  border-color: rgba(255, 139, 61, 0.6);
+  box-shadow: 0 0 16px -6px rgba(255, 139, 61, 0.8);
+}
+.drift-tracks button.locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+#trackBlurb { min-height: 1.2em; margin-top: -8px !important; }
+
 /* ghost difficulty picker on the intro */
 .drift-ghosts {
   display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: center;
