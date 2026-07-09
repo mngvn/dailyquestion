@@ -26,11 +26,12 @@
     <div class="orbit-stat">Best <b id="orbitBest">0</b><span>m</span></div>
   </div>
 
-  <p class="orbit-hint" id="orbitHint">Dodge the red walls: steer through gates, jump hurdles off the golden kickers. Launches keep your speed and chain combos. Fly high and you float. Grab ✦ pads. <kbd>R</kbd> restarts.</p>
+  <p class="orbit-hint" id="orbitHint">Dodge the red walls: steer through gates, jump hurdles off the golden kickers. Hold <kbd>↓</kbd> to dive out of a launch — or to stay glued past a kicker. Grab ✦ pads. <kbd>R</kbd> restarts.</p>
 
   <!-- on-screen controls for touch devices -->
   <div class="orbit-touch" id="orbitTouch" aria-hidden="true">
     <button id="touchBrake" type="button" aria-label="Surf left">◀</button>
+    <button id="touchDive" type="button" aria-label="Dive down">▼</button>
     <div class="orbit-touch-right">
       <button id="touchThrust" type="button" aria-label="Surf right">▶</button>
     </div>
@@ -46,10 +47,12 @@
       and pumping up a <b>side wall</b> and launching off its glowing lip gives an even bigger <b>forward kick</b>.
       A launch <b>keeps your momentum</b> in the air; land it and you extend a <b>combo</b> that pays out
       <b>bonus speed</b>. Fly <b>high</b> enough and gravity fades — you <b>float</b> at the edge of orbit, with
-      time to line up. A glowing <b>✦ pad</b> gives a <b>super-bounce + speed boost</b>. The walls come faster
-      the further you ride — and drift off the pipe and you're lost to the void.</p>
+      time to line up. And YOU decide when to come down: hold <b>↓</b> to <b>dive</b> out of a launch (a hard
+      dive slams into extra landing speed), or hold it on the ground to stay <b>glued</b> past a kicker. A glowing
+      <b>✦ pad</b> gives a <b>super-bounce + speed boost</b>. The walls come faster the further you ride — and
+      drift off the pipe and you're lost to the void.</p>
     <div class="orbit-keys">
-      <kbd>← / A</kbd><kbd>→ / D</kbd> steer &nbsp; <kbd>R</kbd> restart
+      <kbd>← / A</kbd><kbd>→ / D</kbd> steer &nbsp; <kbd>↓ / S</kbd> dive &nbsp; <kbd>R</kbd> restart
     </div>
     <div class="orbit-btn-row">
       <button class="orbit-btn" id="orbitPlayBtn" type="button">▶ Launch</button>

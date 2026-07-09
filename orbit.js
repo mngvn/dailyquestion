@@ -5,8 +5,9 @@
 // is always ground to land on. RED WALLS bar the way: steer through the gaps
 // in the gates or jump the low hurdles — golden kicker strips (and the pipe's
 // glowing side lips) launch you, launches keep your momentum in the air, and
-// every landed launch chains a combo that pays out bonus speed. Touch a red
-// wall and the run ends. The further you go, the closer together the walls
+// every landed launch chains a combo that pays out bonus speed. Hold ↓ to DIVE
+// out of a launch (or to stay glued past a kicker) — you choose when to come
+// down. Touch a red wall and the run ends. The further you go, the closer together the walls
 // come. There's no finish line: just see how far you can ride. Best distance
 // is saved.
 
@@ -69,6 +70,13 @@
   const FLOAT_H0 = 6;      // altitude above the pipe bottom where the float starts
   const FLOAT_SPAN = 14;   // over this much extra height, gravity eases down...
   const FLOAT_G = 0.4;     //   ...to this fraction of full strength
+
+  // DIVE: you control when the ball comes DOWN. Hold ↓ in the air to slam out
+  // of a launch and land exactly where you want (a hard dive also pays out more
+  // landing speed); hold ↓ on the ground to stay glued over a kicker strip
+  // instead of being launched by it.
+  const DIVE = 0.14;       // extra downward accel while diving — much stronger than gravity
+  const DIVE_VY_MAX = 2.2; // terminal dive speed
 
   // momentum: forward speed builds up as you roll and can reach a high top speed.
   const VZ0 = 0.3, VZMAX = 2.0;
@@ -173,7 +181,7 @@
   let lipLaunched = false, combo = 0;  // airborne via a lip launch; chained-launch counter
   let best = 0, clock = 0, shake = 0, camYsmooth = 0;
   let particles = [], trail = [];
-  const input = { left: false, right: false };
+  const input = { left: false, right: false, down: false };
 
   try { best = Math.max(0, +localStorage.getItem("orbit.bestDist") || 0); } catch (e) { /* ignore */ }
 
@@ -187,7 +195,7 @@
     lipLaunched = false; combo = 0;
     cam.x = pos.x; cam.y = pos.y; camYsmooth = pos.y;
     particles = []; trail = []; shake = 0;
-    input.left = input.right = false;
+    input.left = input.right = input.down = false;
   }
 
   // ---- physics -------------------------------------------------------------
@@ -237,8 +245,8 @@
         if (dir > 0 || vel.x > LIP_LAUNCH) popOffLip();
         else { pos.x = cx + PIPE_HW; if (vel.x > 0) vel.x = 0; }
       }
-      // rolled over a golden kicker strip → launch
-      if (riding) {
+      // rolled over a golden kicker strip → launch (hold ↓ to stay glued instead)
+      if (riding && !input.down) {
         for (const k of kicks) if (zPrev <= k.z && pos.z > k.z) { launchOffKicker(); break; }
       }
       if (riding) {
@@ -253,6 +261,10 @@
       const alt = pos.y - yBase(pos.z);
       const gf = 1 - (1 - FLOAT_G) * clamp((alt - FLOAT_H0) / FLOAT_SPAN, 0, 1);
       vel.y -= G * gf * f;
+      if (input.down) {                       // DIVE: slam down out of the launch
+        vel.y -= DIVE * f;
+        if (vel.y < -DIVE_VY_MAX) vel.y = -DIVE_VY_MAX;
+      }
       vel.z *= Math.pow(AIR_VZ_KEEP, f);
       if (dir) vel.x = clamp(vel.x + dir * STRAFE_AIR * f, -VX_CAP, VX_CAP);
       vel.x *= Math.pow(AIR_DRAG, f);
@@ -678,15 +690,18 @@
   // ---- input ---------------------------------------------------------------
   const LEFT = new Set(["ArrowLeft", "a", "A"]);
   const RIGHT = new Set(["ArrowRight", "d", "D"]);
+  const DOWN = new Set(["ArrowDown", "s", "S"]);
   window.addEventListener("keydown", (e) => {
     if (LEFT.has(e.key)) { input.left = true; e.preventDefault(); }
     else if (RIGHT.has(e.key)) { input.right = true; e.preventDefault(); }
+    else if (DOWN.has(e.key)) { input.down = true; e.preventDefault(); }
     else if (e.key === "Enter" && phase !== "play") { startPlay(); }
     else if (e.key === "r" || e.key === "R") { startPlay(); e.preventDefault(); }   // restart anytime
   });
   window.addEventListener("keyup", (e) => {
     if (LEFT.has(e.key)) input.left = false;
     else if (RIGHT.has(e.key)) input.right = false;
+    else if (DOWN.has(e.key)) input.down = false;
   });
 
   if (window.matchMedia("(pointer: coarse)").matches) document.body.classList.add("touch");
@@ -701,6 +716,7 @@
   }
   hold("touchBrake", () => input.left = true, () => input.left = false);
   hold("touchThrust", () => input.right = true, () => input.right = false);
+  hold("touchDive", () => input.down = true, () => input.down = false);
 
   $("orbitPlayBtn").addEventListener("click", startPlay);
   $("orbitRetry").addEventListener("click", startPlay);
@@ -727,7 +743,7 @@
     get plats() { return plats.map((p) => ({ ...p })); },
     consts: { PIPE_HW },
     centerX,
-    setInput(left, right) { input.left = left; input.right = right; },
+    setInput(left, right, down) { input.left = left; input.right = right; input.down = !!down; },
     start: startPlay,
   };
 })();
