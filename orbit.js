@@ -1,12 +1,13 @@
 // orbit.js — "Orbit Surfer". A third-person, endless surf runner in orbit.
 // The camera floats BEHIND and ABOVE your satellite, looking forward.
 //
-// Steep surf walls appear on alternating sides, separated by empty space.
-// Ride a wall down — it's frictionless and pulls you inward, so you build
-// momentum — then take a big LOFTY hop across the void and land on the next
-// wall. Catch a glowing pad floating in the middle for a super-bounce and a
-// temporary speed boost. The pace starts slow and ramps up the further you
-// go. There's no finish line: just see how far you can ride. Best distance
+// The course is ONE continuous half-pipe that weaves as it descends, so there
+// is always ground to land on. RED WALLS bar the way: steer through the gaps
+// in the gates or jump the low hurdles — golden kicker strips (and the pipe's
+// glowing side lips) launch you, launches keep your momentum in the air, and
+// every landed launch chains a combo that pays out bonus speed. Touch a red
+// wall and the run ends. The further you go, the closer together the walls
+// come. There's no finish line: just see how far you can ride. Best distance
 // is saved.
 
 (function () {
@@ -17,16 +18,12 @@
   const ctx = canvas.getContext("2d");
 
   // ---- world constants -----------------------------------------------------
-  // Each "wall" is a concave HALF-PIPE: a curved U you surf inside. Half-pipes
-  // sit on alternating sides and are randomly cut, so you ride up the curve,
-  // launch off it into the air, and fly across to the next one.
+  // The course is a single concave HALF-PIPE: a curved U you surf inside. It
+  // never ends — it just weaves left and right as it descends, and red walls
+  // bar the way.
   const PR = 1.05;           // ball radius (world units)
-  const PIPE_HW = 8.5;       // half-width of a half-pipe (lip to lip from centre)
-  const OFF = 11;            // lateral offset of alternating pipe centres (±OFF) — wider than the pipes,
-                             //   so ramps DON'T overlap: you have to launch off a side lip to cross
+  const PIPE_HW = 8.5;       // half-width of the pipe (lip to lip from centre)
   const CURVE = 0.09;        // how steeply the pipe curves up its walls (lower = shallower walls)
-  const HOLE_HW = 4;         // half-width of a floor hole (windy pipes)
-  const HOLE_HL = 5;         // half-length (along z) of a floor hole
   const VOID = 26;           // how far you can fall below the pipe before you're lost
 
   // physics (tuned for 60fps; scaled by frame-time factor f)
@@ -38,8 +35,7 @@
   const VX_CAP = 0.8;        // lateral speed cap
   const LAT_FRICTION = 0.99; // light rolling friction — momentum persists so you can pump up the walls
   const AIR_DRAG = 0.992;    // in the air: sideways speed bleed
-  const AIR_VZ_KEEP = 0.9985;  // airborne off a LIP LAUNCH: you keep nearly all your momentum
-  const AIR_VZ_BLEED = 0.984;  // airborne off a DROP (falling through a hole): momentum bleeds fast
+  const AIR_VZ_KEEP = 0.9985;  // airborne: a launch keeps nearly all your forward momentum
   const LAND_GAIN = 0.4;     // landing DOWN onto a ramp turns your fall into forward momentum — gentle,
                              //   so a landing nudges you faster instead of slingshotting you
   const ROLL_ACC = 0.0022;   // rolling down the course builds forward momentum — slow ramp-up, so speed earns
@@ -52,14 +48,20 @@
   const COMBO_GAIN = 0.03;   // bonus forward speed per landed launch in a chain...
   const COMBO_CAP = 6;       //   ...up to this chain length
 
-  // every ramp's FRONT end curls up into a little kicker lip: ride straight off
-  // it and you LAUNCH (momentum kept, combo alive) instead of dropping. The pop
-  // scales with your forward speed, so the faster you hit it the higher you fly.
-  const FRONT_LIP = 6;                                // length of the kicker curl along z
-  const FRONT_KICK = 1.6;                             // how high the lip curls at the very edge
-  const FRONT_SLOPE = 2 * FRONT_KICK / FRONT_LIP;     // lip steepness at the edge (dy/dz) — converts speed → pop
-  const FRONT_VY_MIN = 0.55;                          // even a slow roll off the front pops you up
-  const FRONT_VY_MAX = 1.1;
+  // golden KICKER strips lie across the pipe: roll over one and it launches you
+  // (momentum kept, combo alive). The pop scales with your forward speed, so
+  // the faster you hit it the higher you fly.
+  const KICK_SLOPE = 0.55;   // converts forward speed → upward pop
+  const KICK_VY_MIN = 0.6;   // even a slow roll over a kicker pops you up
+  const KICK_VY_MAX = 1.15;
+  const KICK_LEN = 2.2;      // drawn length of a kicker strip along z
+
+  // RED WALLS bar the pipe — touch one and the run ends. Gates leave a lateral
+  // gap to steer through; low hurdles span the whole pipe and must be jumped
+  // (a kicker strip is laid just before each one, so straight-ahead clears it).
+  const WALL_H = 5.5;        // gate wall height — too tall to jump off a kicker
+  const HURDLE_H = 2.4;      // low hurdle height — any kicker pop clears it
+  const WALL_GAP = 5.5;      // lateral gap a gate leaves open
 
   // ORBIT FLOAT: the higher you fly above the course, the weaker gravity gets —
   // like brushing the edge of orbit. Big launches hang in the air, giving you
@@ -70,13 +72,9 @@
 
   // momentum: forward speed builds up as you roll and can reach a high top speed.
   const VZ0 = 0.3, VZMAX = 2.0;
-  const HOP_AIR = 2 * EDGE_VY / G;   // ≈ airtime of an edge pop, in frames (used to size the course)
-  // course-sizing speed estimate (kept modest so a plain edge-pop always clears the cut;
-  // real momentum lets you fly much further)
-  function vzCap(z) { return clamp(0.42 + z * 0.00012, 0.42, 1.0); }
 
-  // mid-air bounce pads: super-bounce + temporary speed boost. They float over
-  // the void's centre; cross down through one and it flings you up and forward.
+  // mid-air bounce pads: super-bounce + temporary speed boost. They float above
+  // the pipe; launch up and cross down through one and it flings you up and forward.
   const PLAT_HX = 9, PLAT_HZ = 10, PLAT_RISE = 11;
   const SUPER_BOUNCE = 1.0, BOOST_TIME = 150, BOOST_VZ = 1.7;
 
@@ -109,100 +107,62 @@
   function norm3(x, y, z) { const d = Math.hypot(x, y, z) || 1; return { x: x / d, y: y / d, z: z / d }; }
 
   // ---- the course ----------------------------------------------------------
-  // A procedurally generated chain of downhill chutes that alternate left/right,
-  // separated by forward gaps. Gap sizes scale with the local speed so one lofty
-  // hop always reaches the next chute. Some gaps hold a central bounce pad.
+  // ONE continuous half-pipe, weaving left/right as it descends — there is
+  // always ground to land on. The hazards live ON the pipe instead: red walls
+  // (gates with a gap, low hurdles to jump), golden kicker strips that launch
+  // you, and bounce pads floating overhead.
   const SLOPE = 0.1;                                                  // course descends forward — you're falling
   function yBase(z) { return -z * SLOPE + 3 * Math.sin(z * 0.012); }  // downhill pipe-bottom height
-  function dYBase(z) { const e = 1.0; return (yBase(z + e) - yBase(z - e)) / (2 * e); }
 
-  let segs = [], plats = [];
-  let genZ = 0, segIdx = 0, lastSide = 1, grng = 1;
+  // weaving centre of the pipe — the weave grows gently with distance
+  function centerX(z) {
+    const g = Math.min(1, 0.3 + z * 0.0012);
+    return g * (5.5 * Math.sin(z * 0.013) + 3.5 * Math.sin(z * 0.0053 + 1.7));
+  }
+
+  let walls = [], kicks = [], plats = [];
+  let genZ = 0, grng = 1;
   const GEN_AHEAD = 340;
   function grand() { grng = (grng * 1103515245 + 12345) & 0x7fffffff; return grng / 0x7fffffff; }
 
-  // weaving centre of a pipe at depth z (windy pipes snake left/right)
-  function centerOf(s, z) { return s.windy ? s.baseXc + s.amp * Math.sin(s.freq * (z - s.z0) + s.phase) : s.xc; }
-
-  function genSeg() {
-    const side = -lastSide; lastSide = side;             // pipe centre at side*OFF
-    const reach = vzCap(genZ) * HOP_AIR;                 // forward distance one launch covers here
-    const z0 = genZ;
-
-    // every so often, a long WINDY connected pipe that snakes side to side with
-    // holes punched in its floor — ride up the walls or hop to dodge them.
-    if (segIdx > 2 && segIdx % 3 === 0) {
-      const len = clamp(reach * (1.5 + grand() * 1.0), 110, 280);
-      const z1 = z0 + len;
-      const seg = { windy: true, side: 0, xc: 0, baseXc: 0,
-        amp: 4 + grand() * 4, freq: (2 * Math.PI) / (130 + grand() * 80), phase: 0,   // gentle wind, enters centred
-        z0, z1, holes: [] };
-      // a few holes, kept clear of the entrance so you have time to read them
-      const usable = len - 50;
-      const nholes = 1 + Math.floor(usable / 110);
-      for (let k = 0; k < nholes; k++) seg.holes.push(z0 + 40 + usable * ((k + 0.5) / nholes));
-      segs.push(seg);
-      const gap = clamp(reach * (0.45 + grand() * 0.4), 16, 64);
-      genZ = z1 + gap; segIdx++;
-      return;
+  // next obstacle down the pipe. Walls come closer together the further you go.
+  function genOb() {
+    const spacing = clamp(95 - genZ * 0.012, 48, 95);
+    genZ += spacing * (0.8 + grand() * 0.5);
+    const t = grand();
+    if (t < 0.30) {                        // low hurdle across the pipe + a kicker to clear it
+      kicks.push({ z: genZ - 16 });
+      walls.push({ z: genZ, x0: -PIPE_HW, x1: PIPE_HW, h: HURDLE_H });
+    } else if (t < 0.62) {                 // gate: a wall with the gap on one side
+      if (grand() < 0.5) walls.push({ z: genZ, x0: -PIPE_HW, x1: PIPE_HW - WALL_GAP, h: WALL_H });
+      else walls.push({ z: genZ, x0: -PIPE_HW + WALL_GAP, x1: PIPE_HW, h: WALL_H });
+    } else if (t < 0.80) {                 // centre block: squeeze past on either side
+      walls.push({ z: genZ, x0: -PIPE_HW + WALL_GAP * 0.9, x1: PIPE_HW - WALL_GAP * 0.9, h: WALL_H });
+    } else if (t < 0.92) {                 // lone kicker — a free launch
+      kicks.push({ z: genZ });
+    } else {                               // kicker aimed at a floating bounce pad
+      kicks.push({ z: genZ });
+      const pz = genZ + 30;
+      plats.push({ x: centerX(pz), z: pz, topY: yBase(pz) + PLAT_RISE, used: false });
     }
-
-    // randomly-cut straight half-pipes: lengths + gaps vary, runway up front
-    let len = clamp(reach * (0.7 + grand() * 0.5), 40, 120);
-    if (segIdx === 0) len += 50; else if (segIdx < 3) len += 22;
-    const z1 = z0 + len;
-    segs.push({ windy: false, side, xc: side * OFF, z0, z1, holes: null });
-    const gap = clamp(reach * (0.5 + grand() * 0.45), 16, 68);    // the random "cut" — a real jump
-    const nextWindy = (segIdx + 1) > 2 && (segIdx + 1) % 3 === 0;
-    if (segIdx > 0 && segIdx % 2 === 0 && !nextWindy) {           // no pad right before a windy pipe
-      const pz = z1 + gap / 2;
-      plats.push({ x: 0, z: pz, topY: yBase(pz) + PLAT_RISE, used: false });
-    }
-    genZ = z1 + gap; segIdx++;
   }
   function genReset() {
-    // first pipe is on the LEFT and straddles z=0, so the player starts in it
-    segs = []; plats = []; segIdx = 0; lastSide = 1; genZ = -18; grng = 1;
-    while (genZ < pos.z + GEN_AHEAD) genSeg();
+    walls = []; kicks = []; plats = []; genZ = 30; grng = 1;   // runway before the first obstacle
+    while (genZ < pos.z + GEN_AHEAD) genOb();
   }
   function genMore() {
-    while (genZ < pos.z + GEN_AHEAD) genSeg();
-    while (segs.length && segs[0].z1 < pos.z - 90) segs.shift();
-    while (plats.length && plats[0].z < pos.z - 90) plats.shift();
-  }
-  function segAt(z) {
-    for (const s of segs) if (z >= s.z0 && z <= s.z1) return s;
-    return null;
+    while (genZ < pos.z + GEN_AHEAD) genOb();
+    while (walls.length && walls[0].z < pos.z - 40) walls.shift();
+    while (kicks.length && kicks[0].z < pos.z - 40) kicks.shift();
+    while (plats.length && plats[0].z < pos.z - 40) plats.shift();
   }
 
-  // upward curl of the front kicker lip near a segment's end (0 until the last
-  // FRONT_LIP units, then a quadratic ramp up to FRONT_KICK at the very edge)
-  function lipRise(s, z) {
-    if (!s || z < s.z1 - FRONT_LIP) return 0;
-    const t = clamp((z - (s.z1 - FRONT_LIP)) / FRONT_LIP, 0, 1);
-    return FRONT_KICK * t * t;
-  }
-
-  function inHole(s, z, dx) {
-    if (!s.holes || Math.abs(dx) >= HOLE_HW) return false;
-    for (const h of s.holes) if (z >= h - HOLE_HL && z <= h + HOLE_HL) return true;
-    return false;
-  }
-
-  // Surface query: is there a half-pipe at (x,z)? The pipe is a concave U
-  // (y = bottom + CURVE·dx²) around its (possibly weaving) centre; the normal
-  // tilts inward up the walls, so a launch fired along it flings you up + in.
-  // Windy pipes can have holes in the floor (no surface near the centre).
+  // Surface query: the pipe is a concave U (y = bottom + CURVE·dx²) around its
+  // weaving centre. It never ends — anywhere between the lips is ground.
   function surfaceAt(x, z) {
-    const s = segAt(z);
-    if (s) {
-      const dx = x - centerOf(s, z);
-      if (Math.abs(dx) <= PIPE_HW && !inHole(s, z, dx)) {
-        const slope = 2 * CURVE * dx;                 // dy/dx across the pipe
-        return { onWall: true, y: yBase(z) + CURVE * dx * dx + lipRise(s, z), nx: -slope, ny: 1, nz: -dYBase(z), seg: s };
-      }
-    }
-    return { onWall: false, y: yBase(z), seg: null };
+    const dx = x - centerX(z);
+    if (Math.abs(dx) <= PIPE_HW) return { onWall: true, y: yBase(z) + CURVE * dx * dx };
+    return { onWall: false, y: yBase(z) };
   }
 
   // ---- state ---------------------------------------------------------------
@@ -218,11 +178,11 @@
   try { best = Math.max(0, +localStorage.getItem("orbit.bestDist") || 0); } catch (e) { /* ignore */ }
 
   function reset() {
-    pos.z = 0; pos.x = -OFF;                    // resting in the bottom of the first (left) pipe
+    pos.z = 0; pos.x = centerX(0);              // resting in the bottom of the pipe
     genReset();
     pos.y = surfaceAt(pos.x, 0).y + PR;
     vel.x = 0; vel.y = 0; vel.z = VZ0;
-    riding = true; ridingXc = -OFF;
+    riding = true; ridingXc = centerX(0);
     onSurface = true; offRamp = false; boost = 0;
     lipLaunched = false; combo = 0;
     cam.x = pos.x; cam.y = pos.y; camYsmooth = pos.y;
@@ -231,21 +191,10 @@
   }
 
   // ---- physics -------------------------------------------------------------
-  // The ramps are far apart now, so LAUNCHING is the whole game: pop off a side
-  // lip and you keep your momentum in the air, get a forward kick that scales
-  // with how hard you hit the lip, and every landed launch extends a combo that
-  // pays out bonus speed. The FRONT edge is a kicker lip too — ride straight off
-  // and it launches you. Only falling through a floor hole is a true drop:
-  // momentum bleeds fast and the combo resets.
-  function dropThroughHole() {                    // a drop, not a launch: no kick, hard bleed, combo lost
-    riding = false; onSurface = false; offRamp = true;
-    lipLaunched = false; combo = 0;
-  }
-  function launchOffFront() {                     // the front kicker lip pops you up, scaled by speed
-    vel.y = clamp(vel.z * FRONT_SLOPE, FRONT_VY_MIN, FRONT_VY_MAX);
-    riding = false; onSurface = false; offRamp = true; lipLaunched = true;
-    burst(pos.x, pos.y, pos.z, 12, "#ffe27a");
-  }
+  // LAUNCHING is still the fun: pop off a side lip with your outward speed (big
+  // forward kick), or roll over a golden kicker strip (pop scales with speed).
+  // Either way you keep your momentum in the air, and every landed launch
+  // extends a combo that pays out bonus speed.
   function popOffLip() {                          // launch off a side lip with your outward speed
     const out = Math.abs(vel.x);
     vel.y = Math.max(Math.min(out * LIP_SLOPE, LIP_VY_MAX), EDGE_VY);
@@ -253,63 +202,65 @@
     riding = false; onSurface = false; offRamp = true; lipLaunched = true;
     burst(pos.x, pos.y, pos.z, 12, "#ffe27a");
   }
+  function launchOffKicker() {                    // a kicker strip pops you up, scaled by speed
+    vel.y = clamp(vel.z * KICK_SLOPE, KICK_VY_MIN, KICK_VY_MAX);
+    riding = false; onSurface = false; offRamp = true; lipLaunched = true;
+    burst(pos.x, pos.y, pos.z, 12, "#ffe27a");
+  }
 
   function step(f) {
     if (boost > 0) boost = Math.max(0, boost - f);
     const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+    const xPrev = pos.x, yPrev = pos.y, zPrev = pos.z;   // for wall/kicker crossing checks
 
     if (riding) {
-      const sc = segAt(pos.z);
-      if (!sc) { launchOffFront(); }
-      else {
-        ridingXc = centerOf(sc, pos.z);
-        // ROLL: build forward momentum as you roll down the course (boost speeds it up)
-        const vmax = VZMAX * (boost > 0 ? BOOST_VZ : 1);
-        if (vel.z < vmax) vel.z = Math.min(vmax, vel.z + ROLL_ACC * (boost > 0 ? 2.5 : 1) * f);
-        else vel.z = Math.max(vmax, vel.z - 0.01 * f);
-        // lateral: the curve pulls you to the bottom + your (weak) steer, and rolling
-        // friction resists sliding sideways so the ball feels weighty.
-        vel.x += -CURVE_GAIN * 2 * CURVE * (pos.x - ridingXc) * G * f;
-        if (dir) vel.x = clamp(vel.x + dir * STRAFE * f, -VX_CAP, VX_CAP);
-        vel.x *= Math.pow(LAT_FRICTION, f);
-        pos.x += vel.x * f; pos.z += vel.z * f;
+      ridingXc = centerX(pos.z);
+      // ROLL: build forward momentum as you roll down the course (boost speeds it up)
+      const vmax = VZMAX * (boost > 0 ? BOOST_VZ : 1);
+      if (vel.z < vmax) vel.z = Math.min(vmax, vel.z + ROLL_ACC * (boost > 0 ? 2.5 : 1) * f);
+      else vel.z = Math.max(vmax, vel.z - 0.01 * f);
+      // lateral: the curve pulls you to the bottom + your (weak) steer, and rolling
+      // friction resists sliding sideways so the ball feels weighty.
+      vel.x += -CURVE_GAIN * 2 * CURVE * (pos.x - ridingXc) * G * f;
+      if (dir) vel.x = clamp(vel.x + dir * STRAFE * f, -VX_CAP, VX_CAP);
+      vel.x *= Math.pow(LAT_FRICTION, f);
+      pos.x += vel.x * f; pos.z += vel.z * f;
 
-        const sc2 = segAt(pos.z);
-        if (!sc2) { launchOffFront(); }
-        else {
-          const cx = centerOf(sc2, pos.z), dx = pos.x - cx;
-          // At a SIDE lip: STEERING INTO the lip always launches (a deliberate
-          // jump), and so does fast outward momentum. Only an idle slow drift
-          // is gently caught, so you can't slide off by accident.
-          if (dx < -PIPE_HW) {
-            if (dir < 0 || vel.x < -LIP_LAUNCH) popOffLip();
-            else { pos.x = cx - PIPE_HW; if (vel.x < 0) vel.x = 0; }
-          } else if (dx > PIPE_HW) {
-            if (dir > 0 || vel.x > LIP_LAUNCH) popOffLip();
-            else { pos.x = cx + PIPE_HW; if (vel.x > 0) vel.x = 0; }
-          }
-          if (riding) {
-            const s = surfaceAt(pos.x, pos.z);
-            if (s.onWall) { pos.y = s.y + PR; onSurface = true; offRamp = false; if (Math.random() < 0.22) spark(pos.x, s.y, pos.z); }
-            else dropThroughHole();                                       // fell through a floor hole
-          }
-        }
+      const cx = centerX(pos.z), dx = pos.x - cx;
+      // At a SIDE lip: STEERING INTO the lip always launches (a deliberate
+      // jump), and so does fast outward momentum. Only an idle slow drift
+      // is gently caught, so you can't slide off by accident.
+      if (dx < -PIPE_HW) {
+        if (dir < 0 || vel.x < -LIP_LAUNCH) popOffLip();
+        else { pos.x = cx - PIPE_HW; if (vel.x < 0) vel.x = 0; }
+      } else if (dx > PIPE_HW) {
+        if (dir > 0 || vel.x > LIP_LAUNCH) popOffLip();
+        else { pos.x = cx + PIPE_HW; if (vel.x > 0) vel.x = 0; }
+      }
+      // rolled over a golden kicker strip → launch
+      if (riding) {
+        for (const k of kicks) if (zPrev <= k.z && pos.z > k.z) { launchOffKicker(); break; }
+      }
+      if (riding) {
+        const s = surfaceAt(pos.x, pos.z);
+        pos.y = s.y + PR; onSurface = true; offRamp = false;
+        if (Math.random() < 0.22) spark(pos.x, s.y, pos.z);
       }
     } else {
-      // airborne: gravity + air-steer. A LIP LAUNCH (side or front kicker) carries
-      // its momentum through the air almost untouched; a hole drop bleeds it fast.
-      // Gravity fades with altitude (orbit float) so high launches hang longer.
+      // airborne: gravity + air-steer. A launch carries its momentum through the
+      // air almost untouched, and gravity fades with altitude (orbit float) so
+      // high launches hang longer.
       const alt = pos.y - yBase(pos.z);
       const gf = 1 - (1 - FLOAT_G) * clamp((alt - FLOAT_H0) / FLOAT_SPAN, 0, 1);
       vel.y -= G * gf * f;
-      vel.z *= Math.pow(lipLaunched ? AIR_VZ_KEEP : AIR_VZ_BLEED, f);
+      vel.z *= Math.pow(AIR_VZ_KEEP, f);
       if (dir) vel.x = clamp(vel.x + dir * STRAFE_AIR * f, -VX_CAP, VX_CAP);
       vel.x *= Math.pow(AIR_DRAG, f);
       pos.x += vel.x * f; pos.y += vel.y * f; pos.z += vel.z * f;
       const s = surfaceAt(pos.x, pos.z);
       offRamp = !s.onWall; onSurface = false;
       if (s.onWall && vel.y <= 0 && pos.y <= s.y + PR && pos.y > s.y - 2) {
-        // land DOWN onto the ramp → convert your fall into forward momentum
+        // land DOWN onto the pipe → convert your fall into forward momentum
         pos.y = s.y + PR; vel.z += Math.min(-vel.y, 1.5) * LAND_GAIN; vel.y = 0; vel.x *= 0.55;
         if (lipLaunched) {
           // a landed launch extends the combo and pays out bonus speed
@@ -322,7 +273,24 @@
           burst(pos.x, s.y, pos.z, 8, "#9fe8ff");
         }
         lipLaunched = false;
-        riding = true; ridingXc = centerOf(s.seg, pos.z); onSurface = true; offRamp = false;
+        riding = true; ridingXc = centerX(pos.z); onSurface = true; offRamp = false;
+      }
+    }
+
+    // RED WALLS: cross one's plane below its top — rolling or flying — and the
+    // run ends. Position at the crossing is interpolated so a clean jump that
+    // lands just behind a wall isn't counted as a hit.
+    for (const w of walls) {
+      if (zPrev <= w.z && pos.z > w.z) {
+        const t = (w.z - zPrev) / Math.max(1e-6, pos.z - zPrev);
+        const xw = xPrev + (pos.x - xPrev) * t, yw = yPrev + (pos.y - yPrev) * t;
+        const wx = xw - centerX(w.z);
+        if (wx >= w.x0 && wx <= w.x1 && yw - PR < yBase(w.z) + CURVE * wx * wx + w.h) {
+          pos.x = xw; pos.y = yw; pos.z = w.z;
+          vel.z = -0.15; vel.y = Math.max(vel.y, 0.2);   // splat back off the wall
+          fail("Smacked into a red wall.");
+          return;
+        }
       }
     }
 
@@ -447,43 +415,93 @@
     ctx.closePath(); ctx.fill();
   }
 
-  const pipeY = (s, z, dx) => yBase(z) + CURVE * dx * dx + lipRise(s, z);   // half-pipe surface height (with front kicker curl)
+  const pipeY = (z, dx) => yBase(z) + CURVE * dx * dx;   // half-pipe surface height
 
-  // Far → near painter's pass over z bands; draw whichever half-pipe (if any)
-  // covers each band — a curved U, shaded so the walls read — plus any pad.
+  // Far → near painter's pass over z bands of the one continuous pipe — a
+  // curved U, shaded so the walls read — plus kickers, red walls, and pads.
   function drawWorld() {
     const STEP = 4, FAR = 240, NX = 8;
     const z0 = Math.floor(pos.z / STEP) * STEP - 12;
     ctx.lineJoin = "round";
     for (let z = z0 + FAR; z >= z0; z -= STEP) {
-      const s = segAt(z + STEP / 2);
       const fog = clamp(1 - (z - z0) / FAR, 0.12, 1);
-      if (s) {
-        const ca = centerOf(s, z), cb = centerOf(s, z + STEP);   // weaving centres
-        for (let j = 0; j < NX; j++) {
-          const dxa = -PIPE_HW + (2 * PIPE_HW) * j / NX, dxb = -PIPE_HW + (2 * PIPE_HW) * (j + 1) / NX;
-          const dmid = (dxa + dxb) / 2;
-          // skip the floor cells where a hole is punched (windy pipes)
-          if (inHole(s, z + STEP / 2, dmid)) continue;
-          const steep = Math.abs(dmid) / PIPE_HW;                  // 0 centre → 1 lip
-          const checker = (j + Math.floor(z / 4)) % 2 === 0 ? 1 : 0.86;
-          const lit = (1 - steep * 0.55) * checker;
-          const fill = `rgb(${Math.round(124 * lit)},${Math.round(100 * lit)},${Math.round(214 * (1 - steep * 0.25))})`;
-          quad(ca + dxa, pipeY(s, z, dxa), z, ca + dxb, pipeY(s, z, dxb), z, cb + dxb, pipeY(s, z + STEP, dxb), z + STEP, cb + dxa, pipeY(s, z + STEP, dxa), z + STEP, fill, fog);
-        }
-        // glowing rails along the two lips — these are the BOOST edges: hit them
-        // with outward speed and you pop UP. Highlighted with a warm pulse + up-arrows.
-        drawEdge(ca - PIPE_HW, z, cb - PIPE_HW, z + STEP, pipeY(s, z, -PIPE_HW), pipeY(s, z + STEP, -PIPE_HW), fog);
-        drawEdge(ca + PIPE_HW, z, cb + PIPE_HW, z + STEP, pipeY(s, z, PIPE_HW), pipeY(s, z + STEP, PIPE_HW), fog);
-        // the front kicker lip gets its own glowing cross-rail at the ramp's end
-        if (s.z1 > z && s.z1 <= z + STEP) {
-          const ce = centerOf(s, s.z1);
-          drawEdge(ce - PIPE_HW, s.z1, ce + PIPE_HW, s.z1, pipeY(s, s.z1, -PIPE_HW), pipeY(s, s.z1, PIPE_HW), fog);
-        }
+      const ca = centerX(z), cb = centerX(z + STEP);   // weaving centres
+      for (let j = 0; j < NX; j++) {
+        const dxa = -PIPE_HW + (2 * PIPE_HW) * j / NX, dxb = -PIPE_HW + (2 * PIPE_HW) * (j + 1) / NX;
+        const dmid = (dxa + dxb) / 2;
+        const steep = Math.abs(dmid) / PIPE_HW;                  // 0 centre → 1 lip
+        const checker = (j + Math.floor(z / 4)) % 2 === 0 ? 1 : 0.86;
+        const lit = (1 - steep * 0.55) * checker;
+        const fill = `rgb(${Math.round(124 * lit)},${Math.round(100 * lit)},${Math.round(214 * (1 - steep * 0.25))})`;
+        quad(ca + dxa, pipeY(z, dxa), z, ca + dxb, pipeY(z, dxb), z, cb + dxb, pipeY(z + STEP, dxb), z + STEP, cb + dxa, pipeY(z + STEP, dxa), z + STEP, fill, fog);
       }
+      // glowing rails along the two lips — these are the BOOST edges: hit them
+      // with outward speed and you pop UP. Highlighted with a warm pulse + up-arrows.
+      drawEdge(ca - PIPE_HW, z, cb - PIPE_HW, z + STEP, pipeY(z, -PIPE_HW), pipeY(z + STEP, -PIPE_HW), fog);
+      drawEdge(ca + PIPE_HW, z, cb + PIPE_HW, z + STEP, pipeY(z, PIPE_HW), pipeY(z + STEP, PIPE_HW), fog);
+      for (const k of kicks) if (k.z >= z && k.z < z + STEP) drawKicker(k, fog);
+      for (const w of walls) if (w.z >= z && w.z < z + STEP) drawWall(w, fog);
       for (const p of plats) if (p.z >= z && p.z < z + STEP) drawPlatform(p);
     }
     ctx.globalAlpha = 1;
+  }
+
+  // a golden kicker strip lying across the pipe, with an up-chevron: "launch here"
+  function drawKicker(k, fog) {
+    const c = centerX(k.z);
+    const pulse = 0.55 + 0.45 * Math.sin(clock * 6 - k.z * 0.1);
+    const N = 6;
+    for (let j = 0; j < N; j++) {
+      const dxa = -PIPE_HW + (2 * PIPE_HW) * j / N, dxb = -PIPE_HW + (2 * PIPE_HW) * (j + 1) / N;
+      quad(c + dxa, pipeY(k.z, dxa) + 0.06, k.z, c + dxb, pipeY(k.z, dxb) + 0.06, k.z,
+        c + dxb, pipeY(k.z + KICK_LEN, dxb) + 0.06, k.z + KICK_LEN, c + dxa, pipeY(k.z + KICK_LEN, dxa) + 0.06, k.z + KICK_LEN,
+        "#ffd86b", fog * (0.45 + 0.45 * pulse));
+    }
+    const mid = project(c, pipeY(k.z, 0) + 0.1, k.z);
+    if (mid) {
+      ctx.globalAlpha = fog * (0.5 + 0.5 * pulse);
+      ctx.strokeStyle = "#fff4cf"; ctx.lineWidth = clamp(40 / mid.depth, 1, 4); ctx.lineCap = "round";
+      const w = clamp(120 / mid.depth, 4, 22), h = clamp(140 / mid.depth, 4, 26);
+      ctx.beginPath();
+      ctx.moveTo(mid.sx - w, mid.sy); ctx.lineTo(mid.sx, mid.sy - h); ctx.lineTo(mid.sx + w, mid.sy);
+      ctx.stroke();
+      ctx.lineCap = "butt"; ctx.globalAlpha = 1;
+    }
+  }
+
+  // a red wall standing on the pipe: deadly. Dark translucent body, burning top edge.
+  function drawWall(w, fog) {
+    const c = centerX(w.z);
+    const pulse = 0.7 + 0.3 * Math.sin(clock * 7 - w.z * 0.15);
+    const N = 4;
+    for (let j = 0; j < N; j++) {
+      const xa = w.x0 + (w.x1 - w.x0) * j / N, xb = w.x0 + (w.x1 - w.x0) * (j + 1) / N;
+      const ya = pipeY(w.z, xa), yb = pipeY(w.z, xb);
+      quad(c + xa, ya, w.z, c + xb, yb, w.z, c + xb, yb + w.h, w.z, c + xa, ya + w.h, w.z,
+        "rgb(225,35,55)", fog * (0.5 + 0.35 * pulse));
+    }
+    // burning top edge (a polyline, so it follows the pipe's curve)
+    const pts = [];
+    for (let j = 0; j <= N; j++) {
+      const x = w.x0 + (w.x1 - w.x0) * j / N;
+      const p = project(c + x, pipeY(w.z, x) + w.h, w.z);
+      if (p) pts.push(p);
+    }
+    if (pts.length > 1) {
+      for (const [width, style, a] of [
+        [60, "rgba(255,90,90,0.5)", fog * (0.4 + 0.4 * pulse)],
+        [24, pulse > 0.85 ? "#ffb3a3" : "#ff5a5a", fog],
+      ]) {
+        ctx.globalAlpha = a;
+        ctx.lineWidth = clamp(width / pts[0].depth, 0.8, width / 9);
+        ctx.strokeStyle = style;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].sx, pts[0].sy);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].sx, pts[i].sy);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
   }
 
   function drawEdge(xa, za, xb, zb, ya, yb, fog) {
@@ -704,9 +722,11 @@
   // expose a little for tuning/automated checks
   window.OrbitGame = {
     get state() { return { phase, pos: { ...pos }, vel: { ...vel }, dist: pos.z, onSurface, offRamp, boost, combo, lipLaunched, riding }; },
-    get segs() { return segs.map((s) => ({ ...s })); },
+    get walls() { return walls.map((w) => ({ ...w })); },
+    get kicks() { return kicks.map((k) => ({ ...k })); },
     get plats() { return plats.map((p) => ({ ...p })); },
-    consts: { PIPE_HW, OFF },
+    consts: { PIPE_HW },
+    centerX,
     setInput(left, right) { input.left = left; input.right = right; },
     start: startPlay,
   };
