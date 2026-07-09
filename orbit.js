@@ -39,8 +39,9 @@
   const LAT_FRICTION = 0.99; // light rolling friction — momentum persists so you can pump up the walls
   const AIR_DRAG = 0.992;    // in the air: sideways speed bleed
   const AIR_VZ_KEEP = 0.9985;  // airborne off a LIP LAUNCH: you keep nearly all your momentum
-  const AIR_VZ_BLEED = 0.984;  // airborne off a FRONT DROP (or a hole): momentum bleeds away fast
-  const LAND_GAIN = 0.7;     // landing DOWN onto a ramp turns your fall into forward momentum
+  const AIR_VZ_BLEED = 0.984;  // airborne off a DROP (falling through a hole): momentum bleeds fast
+  const LAND_GAIN = 0.4;     // landing DOWN onto a ramp turns your fall into forward momentum — gentle,
+                             //   so a landing nudges you faster instead of slingshotting you
   const ROLL_ACC = 0.0022;   // rolling down the course builds forward momentum — slow ramp-up, so speed earns
   const LIP_SLOPE = 2 * CURVE * PIPE_HW;   // wall steepness at the lip (dy/dx) — converts speed → launch
   const LIP_LAUNCH = 0.24;   // outward speed above which you pop off the lip instead of being caught
@@ -48,8 +49,24 @@
   const EDGE_VY = 0.78;      // every ramp edge gives a strong pop UP, so you can loft to the next ramp
   const EDGE_VZ = 0.26;      //   ...and a solid forward kick — launching is how you go fast
   const LAUNCH_CARRY = 0.25; // extra forward kick per unit of outward speed at the lip: hit it hard, fly far
-  const COMBO_GAIN = 0.05;   // bonus forward speed per landed launch in a chain...
+  const COMBO_GAIN = 0.03;   // bonus forward speed per landed launch in a chain...
   const COMBO_CAP = 6;       //   ...up to this chain length
+
+  // every ramp's FRONT end curls up into a little kicker lip: ride straight off
+  // it and you LAUNCH (momentum kept, combo alive) instead of dropping. The pop
+  // scales with your forward speed, so the faster you hit it the higher you fly.
+  const FRONT_LIP = 6;                                // length of the kicker curl along z
+  const FRONT_KICK = 1.6;                             // how high the lip curls at the very edge
+  const FRONT_SLOPE = 2 * FRONT_KICK / FRONT_LIP;     // lip steepness at the edge (dy/dz) — converts speed → pop
+  const FRONT_VY_MIN = 0.55;                          // even a slow roll off the front pops you up
+  const FRONT_VY_MAX = 1.1;
+
+  // ORBIT FLOAT: the higher you fly above the course, the weaker gravity gets —
+  // like brushing the edge of orbit. Big launches hang in the air, giving you
+  // time to read the course and steer back over a ramp.
+  const FLOAT_H0 = 6;      // altitude above the pipe bottom where the float starts
+  const FLOAT_SPAN = 14;   // over this much extra height, gravity eases down...
+  const FLOAT_G = 0.4;     //   ...to this fraction of full strength
 
   // momentum: forward speed builds up as you roll and can reach a high top speed.
   const VZ0 = 0.3, VZMAX = 2.0;
@@ -158,6 +175,14 @@
     return null;
   }
 
+  // upward curl of the front kicker lip near a segment's end (0 until the last
+  // FRONT_LIP units, then a quadratic ramp up to FRONT_KICK at the very edge)
+  function lipRise(s, z) {
+    if (!s || z < s.z1 - FRONT_LIP) return 0;
+    const t = clamp((z - (s.z1 - FRONT_LIP)) / FRONT_LIP, 0, 1);
+    return FRONT_KICK * t * t;
+  }
+
   function inHole(s, z, dx) {
     if (!s.holes || Math.abs(dx) >= HOLE_HW) return false;
     for (const h of s.holes) if (z >= h - HOLE_HL && z <= h + HOLE_HL) return true;
@@ -174,7 +199,7 @@
       const dx = x - centerOf(s, z);
       if (Math.abs(dx) <= PIPE_HW && !inHole(s, z, dx)) {
         const slope = 2 * CURVE * dx;                 // dy/dx across the pipe
-        return { onWall: true, y: yBase(z) + CURVE * dx * dx, nx: -slope, ny: 1, nz: -dYBase(z), seg: s };
+        return { onWall: true, y: yBase(z) + CURVE * dx * dx + lipRise(s, z), nx: -slope, ny: 1, nz: -dYBase(z), seg: s };
       }
     }
     return { onWall: false, y: yBase(z), seg: null };
@@ -209,11 +234,17 @@
   // The ramps are far apart now, so LAUNCHING is the whole game: pop off a side
   // lip and you keep your momentum in the air, get a forward kick that scales
   // with how hard you hit the lip, and every landed launch extends a combo that
-  // pays out bonus speed. Roll off the front (or fall through a hole) and you
-  // drop with none of that — momentum bleeds fast and the combo resets.
-  function rollOffFront() {                       // a drop, not a launch: no kick, hard bleed, combo lost
+  // pays out bonus speed. The FRONT edge is a kicker lip too — ride straight off
+  // and it launches you. Only falling through a floor hole is a true drop:
+  // momentum bleeds fast and the combo resets.
+  function dropThroughHole() {                    // a drop, not a launch: no kick, hard bleed, combo lost
     riding = false; onSurface = false; offRamp = true;
     lipLaunched = false; combo = 0;
+  }
+  function launchOffFront() {                     // the front kicker lip pops you up, scaled by speed
+    vel.y = clamp(vel.z * FRONT_SLOPE, FRONT_VY_MIN, FRONT_VY_MAX);
+    riding = false; onSurface = false; offRamp = true; lipLaunched = true;
+    burst(pos.x, pos.y, pos.z, 12, "#ffe27a");
   }
   function popOffLip() {                          // launch off a side lip with your outward speed
     const out = Math.abs(vel.x);
@@ -229,7 +260,7 @@
 
     if (riding) {
       const sc = segAt(pos.z);
-      if (!sc) { rollOffFront(); }
+      if (!sc) { launchOffFront(); }
       else {
         ridingXc = centerOf(sc, pos.z);
         // ROLL: build forward momentum as you roll down the course (boost speeds it up)
@@ -244,7 +275,7 @@
         pos.x += vel.x * f; pos.z += vel.z * f;
 
         const sc2 = segAt(pos.z);
-        if (!sc2) { rollOffFront(); }
+        if (!sc2) { launchOffFront(); }
         else {
           const cx = centerOf(sc2, pos.z), dx = pos.x - cx;
           // At a SIDE lip: STEERING INTO the lip always launches (a deliberate
@@ -260,14 +291,17 @@
           if (riding) {
             const s = surfaceAt(pos.x, pos.z);
             if (s.onWall) { pos.y = s.y + PR; onSurface = true; offRamp = false; if (Math.random() < 0.22) spark(pos.x, s.y, pos.z); }
-            else rollOffFront();                                          // fell through a floor hole
+            else dropThroughHole();                                       // fell through a floor hole
           }
         }
       }
     } else {
-      // airborne: gravity + air-steer. A LIP LAUNCH carries its momentum through
-      // the air almost untouched; a front drop bleeds it fast — launch, don't fall.
-      vel.y -= G * f;
+      // airborne: gravity + air-steer. A LIP LAUNCH (side or front kicker) carries
+      // its momentum through the air almost untouched; a hole drop bleeds it fast.
+      // Gravity fades with altitude (orbit float) so high launches hang longer.
+      const alt = pos.y - yBase(pos.z);
+      const gf = 1 - (1 - FLOAT_G) * clamp((alt - FLOAT_H0) / FLOAT_SPAN, 0, 1);
+      vel.y -= G * gf * f;
       vel.z *= Math.pow(lipLaunched ? AIR_VZ_KEEP : AIR_VZ_BLEED, f);
       if (dir) vel.x = clamp(vel.x + dir * STRAFE_AIR * f, -VX_CAP, VX_CAP);
       vel.x *= Math.pow(AIR_DRAG, f);
@@ -413,7 +447,7 @@
     ctx.closePath(); ctx.fill();
   }
 
-  const pipeY = (z, dx) => yBase(z) + CURVE * dx * dx;   // half-pipe surface height
+  const pipeY = (s, z, dx) => yBase(z) + CURVE * dx * dx + lipRise(s, z);   // half-pipe surface height (with front kicker curl)
 
   // Far → near painter's pass over z bands; draw whichever half-pipe (if any)
   // covers each band — a curved U, shaded so the walls read — plus any pad.
@@ -435,12 +469,17 @@
           const checker = (j + Math.floor(z / 4)) % 2 === 0 ? 1 : 0.86;
           const lit = (1 - steep * 0.55) * checker;
           const fill = `rgb(${Math.round(124 * lit)},${Math.round(100 * lit)},${Math.round(214 * (1 - steep * 0.25))})`;
-          quad(ca + dxa, pipeY(z, dxa), z, ca + dxb, pipeY(z, dxb), z, cb + dxb, pipeY(z + STEP, dxb), z + STEP, cb + dxa, pipeY(z + STEP, dxa), z + STEP, fill, fog);
+          quad(ca + dxa, pipeY(s, z, dxa), z, ca + dxb, pipeY(s, z, dxb), z, cb + dxb, pipeY(s, z + STEP, dxb), z + STEP, cb + dxa, pipeY(s, z + STEP, dxa), z + STEP, fill, fog);
         }
         // glowing rails along the two lips — these are the BOOST edges: hit them
         // with outward speed and you pop UP. Highlighted with a warm pulse + up-arrows.
-        drawEdge(ca - PIPE_HW, z, cb - PIPE_HW, z + STEP, pipeY(z, -PIPE_HW), pipeY(z + STEP, -PIPE_HW), fog);
-        drawEdge(ca + PIPE_HW, z, cb + PIPE_HW, z + STEP, pipeY(z, PIPE_HW), pipeY(z + STEP, PIPE_HW), fog);
+        drawEdge(ca - PIPE_HW, z, cb - PIPE_HW, z + STEP, pipeY(s, z, -PIPE_HW), pipeY(s, z + STEP, -PIPE_HW), fog);
+        drawEdge(ca + PIPE_HW, z, cb + PIPE_HW, z + STEP, pipeY(s, z, PIPE_HW), pipeY(s, z + STEP, PIPE_HW), fog);
+        // the front kicker lip gets its own glowing cross-rail at the ramp's end
+        if (s.z1 > z && s.z1 <= z + STEP) {
+          const ce = centerOf(s, s.z1);
+          drawEdge(ce - PIPE_HW, s.z1, ce + PIPE_HW, s.z1, pipeY(s, s.z1, -PIPE_HW), pipeY(s, s.z1, PIPE_HW), fog);
+        }
       }
       for (const p of plats) if (p.z >= z && p.z < z + STEP) drawPlatform(p);
     }
@@ -608,7 +647,10 @@
     $("orbitFailTitle").textContent = title;
     $("orbitFailMsg").innerHTML = "You rode <b>" + Math.floor(pos.z) + " m</b>" +
       (Math.floor(pos.z) >= Math.floor(best) ? " — a new best!" : ". Best: <b>" + Math.floor(best) + " m</b>.");
-    setTimeout(() => { $("orbitFail").hidden = false; hud.hidden = true; hint.hidden = true; }, 650);
+    setTimeout(() => {          // R can restart within this delay — only show if still failed
+      if (phase !== "fail") return;
+      $("orbitFail").hidden = false; hud.hidden = true; hint.hidden = true;
+    }, 650);
   }
   function saveBest() {
     if (pos.z > best) best = pos.z;
@@ -622,6 +664,7 @@
     if (LEFT.has(e.key)) { input.left = true; e.preventDefault(); }
     else if (RIGHT.has(e.key)) { input.right = true; e.preventDefault(); }
     else if (e.key === "Enter" && phase !== "play") { startPlay(); }
+    else if (e.key === "r" || e.key === "R") { startPlay(); e.preventDefault(); }   // restart anytime
   });
   window.addEventListener("keyup", (e) => {
     if (LEFT.has(e.key)) input.left = false;
