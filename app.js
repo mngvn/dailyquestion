@@ -35,6 +35,17 @@
   const dayOfYear = Math.floor((localMidnight - startOfYear) / 86400000);
   document.getElementById("dayCounter").textContent = `Day ${dayOfYear} of ${now.getFullYear()}`;
 
+  // ----- Today's puzzle (a single game whose type is drawn per day) -----
+  if (typeof Puzzles !== "undefined") {
+    const game = Puzzles.todaysGame();
+    const iconEl = document.getElementById("puzzleIcon");
+    const nameEl = document.getElementById("puzzleName");
+    const prevEl = document.getElementById("puzzlePreview");
+    if (iconEl) iconEl.textContent = game.icon;
+    if (nameEl) nameEl.textContent = game.name;
+    if (prevEl) prevEl.textContent = `Today's draw is ${game.name}. One puzzle a day — a new type unlocks tomorrow.`;
+  }
+
   // ----- Today's content (computed once) -----
   const fact = pick(FUN_FACTS, 11);
   const hist = HISTORY_BY_DATE[mmdd] || pick(HISTORY_FALLBACK, 41);

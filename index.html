@@ -43,7 +43,6 @@
     <div class="brand">
       <span class="logo-dot"></span>
       <span class="brand-name">Daily</span>
-      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle light or dark theme" title="Toggle theme">🌙</button>
     </div>
 
     <div class="date-block">
@@ -61,43 +60,49 @@
     </div>
   </header>
 
-  <main class="grid">
-    <!-- Each card is a trigger that opens its section in a modal -->
-    <div class="card card-fact reveal" style="--i:1" data-section="fact" role="button" tabindex="0" aria-haspopup="dialog">
-      <div class="card-head">
-        <span class="card-icon">💡</span>
-        <h2>Fun Fact</h2>
+  <main class="content">
+    <!-- Featured: one puzzle per day, its type drawn at random each morning -->
+    <section class="card hero-card card-puzzle reveal" style="--i:1" data-section="puzzle" role="button" tabindex="0" aria-haspopup="dialog">
+      <div class="hero-main">
+        <span class="hero-kicker">Today's Puzzle</span>
+        <h2 class="hero-title">
+          <span class="hero-ico" id="puzzleIcon">🧩</span>
+          <span id="puzzleName">Daily Puzzle</span>
+        </h2>
+        <p class="card-preview" id="puzzlePreview">One puzzle each day — the type is drawn fresh every morning.</p>
       </div>
-      <p class="card-preview" id="factPreview">Discover a surprising fact you'll want to share today.</p>
-      <span class="card-cta">Tap to reveal <span class="cta-arrow">↗</span></span>
-    </div>
-
-    <div class="card card-puzzle reveal" style="--i:2" data-section="puzzle" role="button" tabindex="0" aria-haspopup="dialog">
-      <div class="card-head">
-        <span class="card-icon">🧩</span>
-        <h2>Daily Puzzle</h2>
-      </div>
-      <p class="card-preview" id="puzzlePreview">Five logic mini-games — Wordle, Sudoku, Nonogram &amp; more. One of each, fresh every day.</p>
       <span class="card-cta">Tap to play <span class="cta-arrow">↗</span></span>
-    </div>
+    </section>
 
-    <div class="card card-history reveal" style="--i:3" data-section="history" role="button" tabindex="0" aria-haspopup="dialog">
-      <div class="card-head">
-        <span class="card-icon">📜</span>
-        <h2>On This Day</h2>
+    <!-- Each card is a trigger that opens its section in a modal -->
+    <div class="grid">
+      <div class="card card-fact reveal" style="--i:2" data-section="fact" role="button" tabindex="0" aria-haspopup="dialog">
+        <div class="card-head">
+          <span class="card-icon">💡</span>
+          <h2>Fun Fact</h2>
+        </div>
+        <p class="card-preview" id="factPreview">Discover a surprising fact you'll want to share today.</p>
+        <span class="card-cta">Tap to reveal <span class="cta-arrow">↗</span></span>
       </div>
-      <p class="card-preview" id="historyPreview">A notable moment that happened on this date in history.</p>
-      <span class="card-cta">Tap to open <span class="cta-arrow">↗</span></span>
-    </div>
 
-    <div class="card card-trivia reveal" style="--i:4" data-section="trivia" role="button" tabindex="0" aria-haspopup="dialog">
-      <div class="card-head">
-        <span class="card-icon">🎯</span>
-        <h2>Trivia</h2>
-        <span class="card-badge" id="triviaBadge"></span>
+      <div class="card card-history reveal" style="--i:3" data-section="history" role="button" tabindex="0" aria-haspopup="dialog">
+        <div class="card-head">
+          <span class="card-icon">📜</span>
+          <h2>On This Day</h2>
+        </div>
+        <p class="card-preview" id="historyPreview">A notable moment that happened on this date in history.</p>
+        <span class="card-cta">Tap to open <span class="cta-arrow">↗</span></span>
       </div>
-      <p class="card-preview" id="triviaPreview">Answer today's multiple-choice trivia question.</p>
-      <span class="card-cta" id="triviaCta">Tap to play <span class="cta-arrow">↗</span></span>
+
+      <div class="card card-trivia reveal" style="--i:4" data-section="trivia" role="button" tabindex="0" aria-haspopup="dialog">
+        <div class="card-head">
+          <span class="card-icon">🎯</span>
+          <h2>Trivia</h2>
+          <span class="card-badge" id="triviaBadge"></span>
+        </div>
+        <p class="card-preview" id="triviaPreview">Answer today's multiple-choice trivia question.</p>
+        <span class="card-cta" id="triviaCta">Tap to play <span class="cta-arrow">↗</span></span>
+      </div>
     </div>
   </main>
 
