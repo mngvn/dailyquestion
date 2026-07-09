@@ -26,7 +26,7 @@ body {
   color: var(--text);
   min-height: 100vh;
   width: 100%;
-  max-width: 1640px;
+  max-width: 1240px;
   margin-inline: auto;
   padding: clamp(16px, 3vw, 44px) clamp(16px, 4vw, 64px);
   display: flex;
@@ -150,13 +150,58 @@ body {
 .streak-num { font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 1.5rem; }
 .streak-label { font-size: 0.66rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
 
-/* ---------- Grid ---------- */
+/* ---------- Main content: featured puzzle + section grid ---------- */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(16px, 1.6vw, 26px);
+}
+
 .grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: clamp(16px, 1.6vw, 26px);
   perspective: 1200px;
 }
+
+/* Featured "Today's Puzzle" banner card. (.card.hero-card so these win over
+   the base .card rules that appear later in the file.) */
+.card.hero-card {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(18px, 3vw, 40px);
+  min-height: 0;
+  padding: clamp(24px, 3vw, 38px) clamp(22px, 3.4vw, 44px);
+}
+.hero-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.hero-kicker {
+  font-size: 0.72rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  font-weight: 600;
+}
+.hero-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(1.6rem, 3.4vw, 2.3rem);
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.hero-ico {
+  font-size: clamp(1.8rem, 3.4vw, 2.5rem);
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.25));
+  animation: bob 4s ease-in-out infinite;
+}
+.hero-card .card-preview { max-width: 60ch; }
+.hero-card .card-cta { margin-top: 0; flex-shrink: 0; }
 
 .card {
   position: relative;
@@ -442,13 +487,15 @@ body {
   .vault-list { grid-template-columns: 1fr; }
 }
 
-/* ---------- Footer stats ---------- */
+/* ---------- Footer stats: one slim inline strip ---------- */
 .footer {
   position: relative;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: clamp(12px, 2vw, 20px);
-  padding: clamp(16px, 2vw, 24px);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: clamp(20px, 5vw, 64px);
+  padding: clamp(14px, 2vw, 20px) clamp(18px, 3vw, 32px);
   background: var(--card);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
@@ -481,10 +528,10 @@ body {
   outline: none;
   text-shadow: 0 0 14px var(--accent-2);
 }
-.stat { display: flex; flex-direction: column; gap: 4px; }
+.stat { display: flex; flex-direction: row; align-items: baseline; gap: 8px; }
 .stat-num {
   font-family: "Space Grotesk", sans-serif;
-  font-weight: 700; font-size: clamp(1.4rem, 3vw, 2rem);
+  font-weight: 700; font-size: clamp(1.2rem, 2.4vw, 1.6rem);
   background: linear-gradient(120deg, #fff, #b9a8ff);
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -663,38 +710,24 @@ body.modal-open { overflow: hidden; }
 /* ---------- Puzzle mini-games ---------- */
 .pz-root { display: flex; flex-direction: column; gap: 16px; }
 
-.pz-tabs {
+/* banner naming the single game type drawn for today */
+.pz-today {
   display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  scrollbar-width: thin;
-}
-.pz-tab {
-  flex: 0 0 auto;
-  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-family: "Inter", sans-serif;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--muted);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--card-border);
-  border-radius: 999px;
-  padding: 8px 14px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.2s ease;
+  gap: 14px;
+  padding: 14px 18px;
+  background: rgba(124, 92, 255, 0.10);
+  border: 1px solid rgba(124, 92, 255, 0.3);
+  border-radius: 16px;
 }
-.pz-tab:hover { color: var(--text); background: rgba(124, 92, 255, 0.12); }
-.pz-tab.active {
-  color: #fff;
-  background: linear-gradient(120deg, var(--accent), #b06bff);
-  border-color: transparent;
-  box-shadow: 0 6px 18px -6px var(--accent);
+.pz-today-ico { font-size: 1.7rem; line-height: 1; }
+.pz-today-meta { display: flex; flex-direction: column; gap: 3px; }
+.pz-today-name {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
 }
-.pz-tab-ico { font-size: 0.95rem; }
+.pz-today-sub { font-size: 0.8rem; color: var(--muted); line-height: 1.4; }
 
 .pz-game { display: flex; flex-direction: column; gap: 14px; align-items: center; }
 .pz-intro {
@@ -857,18 +890,14 @@ body.modal-open { overflow: hidden; }
   .vault-list { grid-template-columns: repeat(3, 1fr); }
 }
 
-@media (max-width: 1180px) {
-  .grid { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 900px) {
+  .grid { grid-template-columns: 1fr; }
+  .card.hero-card { flex-direction: column; align-items: flex-start; }
 }
 
 @media (max-width: 820px) {
   .topbar { grid-template-columns: 1fr; justify-items: center; gap: 14px; text-align: center; }
   .streak-pill { justify-self: center; }
-  .footer { grid-template-columns: repeat(2, 1fr); }
-}
-
-@media (max-width: 640px) {
-  .grid { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -909,7 +938,6 @@ body.modal-open { overflow: hidden; }
 
 /* Lift translucent surfaces so they read as panels on a light page. */
 [data-theme="light"] .ghost-btn,
-[data-theme="light"] .pz-tab,
 [data-theme="light"] .pz-input,
 [data-theme="light"] .pz-wtile,
 [data-theme="light"] .pz-ncell,
@@ -936,10 +964,11 @@ body.modal-open { overflow: hidden; }
 [data-theme="light"] .pz-scell.bdr-r,
 [data-theme="light"] .pz-scell.bdr-b { border-color: rgba(28, 30, 64, 0.35); }
 [data-theme="light"] .pz-wtile.absent { background: #c4c7d6; border-color: #c4c7d6; color: #2a2c3a; }
-/* Tone the neon cursor effects down so they read on a light page. */
+/* Tone the neon cursor glow down so it reads on a light page. The streak
+   canvas stays at full opacity — the trail is one constant opacity in both
+   themes (its palette shifts instead; see trail.js). */
 [data-theme="light"] .pointer-glow { mix-blend-mode: normal; }
 [data-theme="light"] body.pointer-active .pointer-glow { opacity: 0.45; }
-[data-theme="light"] .fx-canvas { opacity: 0.45; }
 
 /* ---------- Cursor-reactive light ---------- */
 .pointer-glow {

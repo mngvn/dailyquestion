@@ -1,5 +1,6 @@
 // trail.js — neon streaks that only appear while the cursor is moving and
-// emit from the mouse trail, then fade. Shared across pages; draws onto a
+// emit from the mouse trail. Every streak renders at one constant opacity for
+// its whole life (it shrinks away rather than fading out). Draws onto a
 // full-viewport <canvas id="fxCanvas"> sitting behind the content. Idle =
 // pure black. Disabled under prefers-reduced-motion.
 
@@ -30,6 +31,10 @@
 
   const streaks = [];
   const MAX = 240;
+  // One constant opacity for every streak, in both themes: a soft outer glow
+  // pass and a bright core pass. Life only controls length, never alpha.
+  const GLOW_ALPHA = 0.18;
+  const CORE_ALPHA = 0.9;
   let lastX = null, lastY = null, lastT = 0;
 
   function onMove(e) {
@@ -78,16 +83,15 @@
       s.life -= s.decay;
       if (s.life <= 0) { streaks.splice(i, 1); continue; }
 
-      const a = s.life;
       const sp = Math.hypot(s.vx, s.vy) || 0.001;
       const ux = s.vx / sp, uy = s.vy / sp;
-      const len = s.len * a;
+      const len = s.len * s.life;
       const tx = s.x - ux * len, ty = s.y - uy * len;
 
       ctx.strokeStyle = s.c;
-      ctx.globalAlpha = a * (light ? 0.14 : 0.2); ctx.lineWidth = s.r * 3.2;
+      ctx.globalAlpha = GLOW_ALPHA; ctx.lineWidth = s.r * 3.2;
       ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(s.x, s.y); ctx.stroke();
-      ctx.globalAlpha = a * (light ? 0.8 : 0.95); ctx.lineWidth = Math.max(1, s.r);
+      ctx.globalAlpha = CORE_ALPHA; ctx.lineWidth = Math.max(1, s.r);
       ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(s.x, s.y); ctx.stroke();
     }
     ctx.globalAlpha = 1;

@@ -1,7 +1,7 @@
 // puzzles.js — five self-contained logic mini-games for the Daily Puzzle
-// section. Each game is seeded from the calendar day, so every player gets the
-// same puzzle and there is exactly one puzzle per game per day — no rerolling.
-// Exposes Puzzles.mountHub(root).
+// section. One game type is drawn per calendar day and its puzzle is seeded
+// from that day, so every player gets the same single puzzle — no rerolling.
+// Exposes Puzzles.todaysGame() and Puzzles.mountHub(root).
 
 const Puzzles = (function () {
   "use strict";
@@ -467,35 +467,33 @@ const Puzzles = (function () {
     { id: "nonogram", name: "Nonogram", icon: "🎨", salt: 569, mount: gameNonogram }
   ];
 
+  // The single game type drawn for today. Hashing the day number scrambles the
+  // rotation so consecutive days don't just cycle through the list in order.
+  function todaysGame() {
+    return GAMES[((DAY_NUMBER * 2654435761) >>> 0) % GAMES.length];
+  }
+
   function mountHub(root) {
     root.innerHTML = "";
 
-    // All five games are available, but each is just one fixed puzzle per day:
-    // seeded from the calendar day, with no "new puzzle" control to re-roll.
-    let idx = 0;
+    // Exactly one puzzle per day: today's drawn game, seeded from the calendar
+    // day, with no tabs or "new puzzle" control to re-roll.
+    const game = todaysGame();
 
-    const tabs = el("div", "pz-tabs");
-    GAMES.forEach((game, i) => {
-      const t = el("button", "pz-tab");
-      t.type = "button";
-      t.innerHTML = `<span class="pz-tab-ico">${game.icon}</span><span>${game.name}</span>`;
-      t.addEventListener("click", () => { idx = i; select(); });
-      tabs.append(t);
-    });
+    const head = el("div", "pz-today");
+    head.innerHTML =
+      `<span class="pz-today-ico">${game.icon}</span>` +
+      `<span class="pz-today-meta">` +
+      `<span class="pz-today-name">${game.name}</span>` +
+      `<span class="pz-today-sub">Today's draw — a different puzzle type each day. No do-overs; a fresh one unlocks tomorrow.</span>` +
+      `</span>`;
 
-    const note = el("div", "pz-intro", "One of each puzzle every day — no do-overs. Fresh puzzles unlock tomorrow.");
     const gameWrap = el("div", "pz-game");
-    root.append(tabs, note, gameWrap);
+    root.append(head, gameWrap);
 
-    function select() {
-      [...tabs.children].forEach((t, i) => t.classList.toggle("active", i === idx));
-      gameWrap.innerHTML = "";
-      // Reseed from today's date so each game is fixed for the whole day.
-      seedFor(GAMES[idx].salt);
-      GAMES[idx].mount(gameWrap);
-    }
-    select();
+    seedFor(game.salt);
+    game.mount(gameWrap);
   }
 
-  return { GAMES, mountHub };
+  return { GAMES, todaysGame, mountHub };
 })();
