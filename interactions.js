@@ -1,9 +1,8 @@
 // interactions.js — ambient, cursor-reactive polish for the home page:
 // a light that trails the pointer, a gentle parallax on the background,
-// subtle 3D tilt + spotlight on the cards, and water-ripple feedback on
-// clicks. Purely decorative and layered on top of app.js — it never blocks
-// or alters the existing click/modal behaviour. Fully disabled when the
-// user prefers reduced motion.
+// and water-ripple feedback on clicks. Purely decorative and layered on top
+// of app.js — it never blocks or alters the existing click/modal behaviour.
+// Fully disabled when the user prefers reduced motion.
 
 (function () {
   "use strict";
@@ -45,7 +44,7 @@
   }
 
   const TAP_SEL =
-    ".card, .ghost-btn, .pz-btn, .pz-new, .choice, .vault-item, .streak-pill, .modal-close";
+    ".ghost-btn, .pz-btn, .choice, .streak-pill, .modal-close";
 
   if (!reduce) {
     document.addEventListener(
@@ -96,37 +95,5 @@
     })();
   }
 
-  // --------------------------------------------------- card tilt + spotlight
-  if (!reduce && finePointer) {
-    const MAX_TILT = 9;
-    const ease = "box-shadow 0.4s ease, border-color 0.4s ease";
-    const settle = "transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), " + ease;
-    const track = "transform 0.08s ease-out, " + ease;
-
-    // Wait for the entrance animation to finish so we don't fight it.
-    setTimeout(() => {
-      document.querySelectorAll(".card").forEach((card) => {
-        card.addEventListener("pointermove", (e) => {
-          const r = card.getBoundingClientRect();
-          const px = (e.clientX - r.left) / r.width; // 0..1
-          const py = (e.clientY - r.top) / r.height;
-          const rotX = (py - 0.5) * -2 * MAX_TILT;
-          const rotY = (px - 0.5) * 2 * MAX_TILT;
-          card.style.transition = track;
-          card.style.transform =
-            `perspective(900px) rotateX(${rotX}deg) rotateY(${rotY}deg) translateY(-8px)`;
-          card.style.setProperty("--spot-x", px * 100 + "%");
-          card.style.setProperty("--spot-y", py * 100 + "%");
-        });
-
-        card.addEventListener("pointerleave", () => {
-          card.style.transition = settle;
-          card.style.transform = "";
-          card.style.removeProperty("--spot-x");
-          card.style.removeProperty("--spot-y");
-        });
-      });
-    }, 950);
-  }
-  // (neon streaks now live in trail.js — they emit from the moving cursor)
+  // (neon streaks live in trail.js — they emit from the moving cursor)
 })();

@@ -1,5 +1,5 @@
-// app.js — Daily. Deterministic daily content, modal sections, and streak
-// tracking via localStorage.
+// app.js — Daily. Deterministic daily content, the pie-chart section wheel,
+// modal sections, and streak tracking via localStorage.
 
 (function () {
   "use strict";
@@ -20,7 +20,7 @@
   // Independent index per category so they don't all rotate in lockstep.
   const pick = (arr, salt) => arr[(((dayNumber * 2654435761 + salt) >>> 0)) % arr.length];
 
-  // ----- Header date -----
+  // ----- Header date (animated, character by character) -----
   const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const ord = (d) => {
@@ -30,23 +30,32 @@
   };
 
   document.getElementById("weekday").textContent = weekdays[now.getDay()];
-  document.getElementById("dateMain").textContent = `${months[now.getMonth()]} ${ord(now.getDate())}, ${now.getFullYear()}`;
+
+  // Each character gets its own pair of spans: the outer one floats forever on
+  // a staggered wave, the inner one handles the entrance flip + the shimmer
+  // that sweeps across the line. Screen readers get the plain string instead.
+  const dateStr = `${months[now.getMonth()]} ${ord(now.getDate())}, ${now.getFullYear()}`;
+  const dateMain = document.getElementById("dateMain");
+  dateMain.textContent = "";
+  dateMain.setAttribute("aria-label", dateStr);
+  [...dateStr].forEach((ch, i) => {
+    const outer = document.createElement("span");
+    outer.className = "dchar";
+    outer.style.setProperty("--ci", i);
+    outer.setAttribute("aria-hidden", "true");
+    const inner = document.createElement("span");
+    inner.className = "dchar-in";
+    inner.textContent = ch === " " ? " " : ch;
+    outer.appendChild(inner);
+    dateMain.appendChild(outer);
+  });
+
   const startOfYear = new Date(now.getFullYear(), 0, 0);
   const dayOfYear = Math.floor((localMidnight - startOfYear) / 86400000);
   document.getElementById("dayCounter").textContent = `Day ${dayOfYear} of ${now.getFullYear()}`;
 
-  // ----- Today's puzzle (a single game whose type is drawn per day) -----
-  if (typeof Puzzles !== "undefined") {
-    const game = Puzzles.todaysGame();
-    const iconEl = document.getElementById("puzzleIcon");
-    const nameEl = document.getElementById("puzzleName");
-    const prevEl = document.getElementById("puzzlePreview");
-    if (iconEl) iconEl.textContent = game.icon;
-    if (nameEl) nameEl.textContent = game.name;
-    if (prevEl) prevEl.textContent = `Today's draw is ${game.name}. One puzzle a day — a new type unlocks tomorrow.`;
-  }
-
   // ----- Today's content (computed once) -----
+  const todaysGame = (typeof Puzzles !== "undefined") ? Puzzles.todaysGame() : null;
   const fact = pick(FUN_FACTS, 11);
   const hist = HISTORY_BY_DATE[mmdd] || pick(HISTORY_FALLBACK, 41);
   const trivia = pick(TRIVIA, 67);
@@ -73,7 +82,10 @@
       triviaAnswered: 0,
       triviaCorrect: 0,
       answeredToday: false,   // whether today's trivia is locked in
-      answeredKey: null       // which dayKey the above flag refers to
+      answeredKey: null,      // which dayKey the above flag refers to
+      puzzleAnswered: 0,      // daily puzzles finished (win or lose)
+      puzzleCorrect: 0,       // daily puzzles solved
+      puzzleKey: null         // dayKey of the last recorded puzzle result
     };
   }
   function saveStats(s) {
@@ -81,6 +93,9 @@
   }
 
   const stats = loadStats();
+  // Older saves predate puzzle tracking.
+  stats.puzzleAnswered = stats.puzzleAnswered || 0;
+  stats.puzzleCorrect = stats.puzzleCorrect || 0;
 
   // Reset the per-day "answered" flag when a new day starts.
   if (stats.answeredKey !== dayKey) {
@@ -128,6 +143,10 @@
       : null;
   }
 
+  function puzzleAccuracy() {
+    return stats.puzzleAnswered ? stats.puzzleCorrect / stats.puzzleAnswered : 0;
+  }
+
   function renderFooter() {
     document.getElementById("statPlayed").textContent = stats.daysPlayed;
     document.getElementById("statBest").textContent = stats.bestStreak;
@@ -136,23 +155,178 @@
     document.getElementById("statAccuracy").textContent = a === null ? "—" : a + "%";
   }
 
-  // ----- Card state -----
-  // Card previews are static teasers (set in HTML) describing each section;
-  // the actual content only appears inside the modal. Only the trivia card
-  // reflects per-day state (played vs. new).
-  function refreshCards() {
-    const badge = document.getElementById("triviaBadge");
-    const cta = document.getElementById("triviaCta");
-    if (stats.answeredToday) {
-      badge.textContent = "✓ Played";
-      badge.classList.add("done");
-      cta.innerHTML = "View result <span class=\"cta-arrow\">↗</span>";
+  // ----- The pie: every section is a slice of one circle -----
+  // Fractions are how much of the circle each section takes. The puzzle slice
+  // additionally fills from the hub outward according to puzzle accuracy.
+  const SLICES = [
+    { id: "puzzle",  frac: 0.40, c1: "#7c5cff", c2: "#b06bff", icon: "🧩", name: "Puzzle" },
+    { id: "trivia",  frac: 0.25, c1: "#ff5c9c", c2: "#ff8a5c", icon: "🎯", name: "Trivia" },
+    { id: "fact",    frac: 0.20, c1: "#ffd86b", c2: "#ff9a3c", icon: "💡", name: "Fun Fact" },
+    { id: "history", frac: 0.15, c1: "#00e0c6", c2: "#1f9bff", icon: "📜", name: "On This Day" }
+  ];
+
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const CX = 260, CY = 260, R = 244;
+  const HUB_R = 74;              // central disc — slice fills grow out from it
+  const PAD = 0.016;             // radians shaved off each slice edge (the gap)
+
+  const polar = (a, r) => [CX + Math.cos(a) * r, CY + Math.sin(a) * r];
+
+  function wedgePath(a0, a1, r) {
+    const [x0, y0] = polar(a0, r);
+    const [x1, y1] = polar(a1, r);
+    const large = a1 - a0 > Math.PI ? 1 : 0;
+    return `M ${CX} ${CY} L ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1} Z`;
+  }
+
+  // Annular wedge (a slice with the hub cut out) used for the accuracy fill.
+  function ringWedgePath(a0, a1, r0, r1) {
+    const [ox0, oy0] = polar(a0, r1);
+    const [ox1, oy1] = polar(a1, r1);
+    const [ix0, iy0] = polar(a0, r0);
+    const [ix1, iy1] = polar(a1, r0);
+    const large = a1 - a0 > Math.PI ? 1 : 0;
+    return `M ${ox0} ${oy0} A ${r1} ${r1} 0 ${large} 1 ${ox1} ${oy1} ` +
+           `L ${ix1} ${iy1} A ${r0} ${r0} 0 ${large} 0 ${ix0} ${iy0} Z`;
+  }
+
+  function svgEl(tag, attrs) {
+    const n = document.createElementNS(SVG_NS, tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  }
+
+  let puzzleFillEl = null;   // the accuracy fill path
+  let puzzleAccTextEl = null; // "NN% solved" caption in the puzzle slice
+  let puzzleAngles = null;   // the puzzle slice's [start, end] angles
+  let triviaSubEl = null;    // per-day state line in the trivia slice
+
+  function buildPie() {
+    const svg = document.getElementById("pieSvg");
+    if (!svg) return;
+    svg.innerHTML = "";
+
+    const defs = svgEl("defs", {});
+    SLICES.forEach((s) => {
+      const grad = svgEl("linearGradient", {
+        id: "grad-" + s.id, x1: "0%", y1: "0%", x2: "100%", y2: "100%"
+      });
+      grad.append(
+        svgEl("stop", { offset: "0%", "stop-color": s.c1 }),
+        svgEl("stop", { offset: "100%", "stop-color": s.c2 })
+      );
+      defs.append(grad);
+    });
+    svg.append(defs);
+
+    let angle = -Math.PI / 2; // start at 12 o'clock, sweep clockwise
+    SLICES.forEach((s, idx) => {
+      const a0 = angle + PAD;
+      const a1 = angle + s.frac * Math.PI * 2 - PAD;
+      angle += s.frac * Math.PI * 2;
+
+      const mid = (a0 + a1) / 2;
+      const g = svgEl("g", {
+        class: "pie-slice",
+        "data-section": s.id,
+        role: "button",
+        tabindex: "0",
+        "aria-haspopup": "dialog",
+        "aria-label": s.name
+      });
+      g.style.setProperty("--i", idx);
+      // hover nudge: the slice slides outward along its own mid-angle
+      g.style.setProperty("--ox", (Math.cos(mid) * 12).toFixed(1) + "px");
+      g.style.setProperty("--oy", (Math.sin(mid) * 12).toFixed(1) + "px");
+
+      g.append(svgEl("path", {
+        class: "slice-bg",
+        d: wedgePath(a0, a1, R),
+        fill: `url(#grad-${s.id})`,
+        stroke: s.c1
+      }));
+
+      if (s.id === "puzzle") {
+        puzzleAngles = [a0, a1];
+        puzzleFillEl = svgEl("path", {
+          class: "slice-fill",
+          d: "",
+          fill: `url(#grad-${s.id})`
+        });
+        g.append(puzzleFillEl);
+      }
+
+      // labels sit on the slice's mid-angle
+      const [lx, ly] = polar(mid, R * 0.63);
+      const label = svgEl("g", { class: "slice-label", transform: `translate(${lx} ${ly})` });
+      const icon = svgEl("text", { class: "slice-icon", x: 0, y: -14, "text-anchor": "middle" });
+      icon.textContent = s.icon;
+      const name = svgEl("text", { class: "slice-name", x: 0, y: 16, "text-anchor": "middle" });
+      name.textContent = s.name;
+      const sub = svgEl("text", { class: "slice-sub", x: 0, y: 36, "text-anchor": "middle" });
+      label.append(icon, name, sub);
+      g.append(label);
+
+      if (s.id === "puzzle") {
+        sub.textContent = todaysGame ? `Today: ${todaysGame.name} ${todaysGame.icon}` : "One draw a day";
+        puzzleAccTextEl = svgEl("text", { class: "slice-sub slice-acc", x: 0, y: 54, "text-anchor": "middle" });
+        label.append(puzzleAccTextEl);
+      } else if (s.id === "trivia") {
+        triviaSubEl = sub;
+      } else if (s.id === "fact") {
+        sub.textContent = "Tap to reveal";
+      } else if (s.id === "history") {
+        sub.textContent = String(hist.year);
+      }
+
+      svg.append(g);
+    });
+
+    // central hub covering the point where all slices meet
+    const hub = svgEl("g", { class: "pie-hub" });
+    hub.append(svgEl("circle", { class: "hub-ring", cx: CX, cy: CY, r: HUB_R + 8 }));
+    hub.append(svgEl("circle", { class: "hub-disc", cx: CX, cy: CY, r: HUB_R }));
+    const hubTop = svgEl("text", { class: "hub-top", x: CX, y: CY - 6, "text-anchor": "middle" });
+    hubTop.textContent = "DAILY";
+    const hubSub = svgEl("text", { class: "hub-sub", x: CX, y: CY + 18, "text-anchor": "middle" });
+    hubSub.textContent = `Day ${dayOfYear}`;
+    hub.append(hubTop, hubSub);
+    svg.append(hub);
+  }
+
+  // The puzzle slice fills from the hub outward, proportionally to accuracy.
+  function renderPuzzleFill() {
+    if (!puzzleFillEl || !puzzleAngles) return;
+    const pct = puzzleAccuracy();
+    if (pct <= 0) {
+      puzzleFillEl.setAttribute("d", "");
     } else {
-      badge.textContent = "New";
-      badge.classList.remove("done");
-      cta.innerHTML = "Tap to play <span class=\"cta-arrow\">↗</span>";
+      const r1 = HUB_R + (R - HUB_R) * Math.min(1, pct);
+      puzzleFillEl.setAttribute("d", ringWedgePath(puzzleAngles[0], puzzleAngles[1], HUB_R, r1));
+    }
+    if (puzzleAccTextEl) {
+      puzzleAccTextEl.textContent = stats.puzzleAnswered
+        ? `${Math.round(pct * 100)}% solved (${stats.puzzleCorrect}/${stats.puzzleAnswered})`
+        : "No puzzles yet";
     }
   }
+
+  // Slice state that changes within the day (trivia played / new).
+  function refreshSlices() {
+    if (triviaSubEl) triviaSubEl.textContent = stats.answeredToday ? "✓ Played" : "New today";
+  }
+
+  // Puzzles report their daily result here (true = solved). Only the first
+  // result of the day counts toward accuracy.
+  window.DailyPuzzleResult = function (won) {
+    if (stats.puzzleKey === dayKey) return;
+    stats.puzzleKey = dayKey;
+    stats.puzzleAnswered += 1;
+    if (won) stats.puzzleCorrect += 1;
+    saveStats(stats);
+    registerPlay();
+    renderPuzzleFill();
+  };
 
   // ----- Confetti -----
   function burstConfetti() {
@@ -250,7 +424,7 @@
 
         registerPlay();
         renderFooter();
-        refreshCards();
+        refreshSlices();
         if (correct) burstConfetti();
       };
 
@@ -291,12 +465,10 @@
   const modalTitle = document.getElementById("modalTitle");
   const modalBody = document.getElementById("modalBody");
   let lastFocused = null;
-  let currentSection = null;
 
   function openModal(id) {
     const section = SECTIONS[id];
     if (!section) return;
-    currentSection = id;
     lastFocused = document.activeElement;
 
     modal.dataset.section = id;
@@ -318,11 +490,11 @@
     overlay.classList.remove("open");
     overlay.setAttribute("aria-hidden", "true");
     document.body.classList.remove("modal-open");
-    currentSection = null;
 
     // Persist any results gathered while the modal was open, then sync the UI.
     saveStats(stats);
-    refreshCards();
+    refreshSlices();
+    renderPuzzleFill();
     renderFooter();
 
     if (lastFocused && typeof lastFocused.focus === "function") lastFocused.focus();
@@ -336,100 +508,22 @@
     if (e.key === "Escape") closeModal();
   });
 
-  // Wire each card to open its section.
-  document.querySelectorAll(".card[data-section]").forEach((card) => {
-    const id = card.getAttribute("data-section");
-    card.addEventListener("click", () => openModal(id));
-    card.addEventListener("keydown", (e) => {
+  // ----- Init -----
+  buildPie();
+  renderPuzzleFill();
+  refreshSlices();
+
+  // Wire each slice to open its section.
+  document.querySelectorAll(".pie-slice[data-section]").forEach((slice) => {
+    const id = slice.getAttribute("data-section");
+    slice.addEventListener("click", () => openModal(id));
+    slice.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openModal(id); }
     });
   });
 
-  // ----- Popular trivia vault -----
-  const vaultList = document.getElementById("vaultList");
-  if (vaultList && typeof POPULAR_TRIVIA !== "undefined") {
-    POPULAR_TRIVIA.forEach((item, idx) => {
-      const row = el("div", "vault-item");
-      row.setAttribute("role", "button");
-      row.setAttribute("tabindex", "0");
-      row.setAttribute("aria-expanded", "false");
-      row.style.setProperty("--vi", idx);
-      row.innerHTML =
-        `<span class="vault-num">${String(idx + 1).padStart(2, "0")}</span>` +
-        `<span class="vault-q">${item.q}</span>` +
-        `<span class="vault-chev">▾</span>` +
-        `<div class="vault-a-wrap"><span class="vault-a">${item.a}</span></div>`;
-      const toggle = () => {
-        const open = row.classList.toggle("open");
-        row.setAttribute("aria-expanded", open ? "true" : "false");
-      };
-      row.addEventListener("click", toggle);
-      row.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
-      });
-      vaultList.appendChild(row);
-    });
-  }
-
-  // ----- Theme (light/dark) -----
-  const THEME_KEY = "daily.theme";
-  const themeToggle = document.getElementById("themeToggle");
-  function systemPrefersLight() {
-    return window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
-  }
-  function applyTheme(theme) {
-    const light = theme === "light";
-    document.documentElement.dataset.theme = light ? "light" : "dark";
-    if (themeToggle) {
-      themeToggle.textContent = light ? "☀️" : "🌙";
-      themeToggle.setAttribute("aria-label", light ? "Switch to dark theme" : "Switch to light theme");
-    }
-  }
-  let theme;
-  try { theme = localStorage.getItem(THEME_KEY); } catch (e) { theme = null; }
-  if (theme !== "light" && theme !== "dark") theme = systemPrefersLight() ? "light" : "dark";
-  applyTheme(theme);
-  if (themeToggle) {
-    themeToggle.addEventListener("click", () => {
-      theme = document.documentElement.dataset.theme === "light" ? "dark" : "light";
-      applyTheme(theme);
-      try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* ignore */ }
-    });
-  }
-
-  // Collapse the whole vault section + a "reveal all" control.
-  const vaultSection = document.getElementById("vault");
-  const vaultHead = document.getElementById("vaultHead");
-  const vaultRevealAll = document.getElementById("vaultRevealAll");
-
-  if (vaultSection && vaultHead) {
-    const toggleVault = () => {
-      const collapsed = vaultSection.classList.toggle("collapsed");
-      vaultHead.setAttribute("aria-expanded", collapsed ? "false" : "true");
-    };
-    vaultHead.addEventListener("click", toggleVault);
-    vaultHead.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleVault(); }
-    });
-  }
-
-  if (vaultRevealAll && vaultList) {
-    vaultRevealAll.addEventListener("click", () => {
-      const rows = [...vaultList.children];
-      const reveal = rows.some((r) => !r.classList.contains("open"));
-      rows.forEach((r) => {
-        r.classList.toggle("open", reveal);
-        r.setAttribute("aria-expanded", reveal ? "true" : "false");
-      });
-      vaultRevealAll.textContent = reveal ? "Hide all answers" : "Reveal all answers";
-      vaultRevealAll.setAttribute("aria-pressed", reveal ? "true" : "false");
-    });
-  }
-
-  // ----- Init -----
   renderStreak(false);
   renderFooter();
-  refreshCards();
 
   // Visiting counts as playing — register on first load of the day.
   registerPlay();

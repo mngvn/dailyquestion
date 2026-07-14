@@ -26,17 +26,9 @@
 
   <div id="confetti" class="confetti-layer" aria-hidden="true"></div>
 
-  <!-- random ambient events (train, storm, earthquake) draw here -->
-  <canvas id="eventCanvas" class="event-canvas" aria-hidden="true"></canvas>
-  <div id="eventLayer" class="event-layer" aria-hidden="true"></div>
-
-  <!-- floating controls: theme toggle + manual event triggers -->
-  <div class="controls" id="controls" role="toolbar" aria-label="Display and effects">
+  <!-- floating controls: theme toggle -->
+  <div class="controls" id="controls" role="toolbar" aria-label="Display settings">
     <button class="ctrl-btn" id="themeToggle" type="button" aria-pressed="false" title="Toggle light / dark mode" aria-label="Toggle light or dark mode">🌙</button>
-    <span class="ctrl-sep" aria-hidden="true"></span>
-    <button class="ctrl-btn ev-trigger" id="evTrain" type="button" data-event="train" title="Send a train through" aria-label="Trigger the train event">🚂</button>
-    <button class="ctrl-btn ev-trigger" id="evStorm" type="button" data-event="storm" title="Brew a storm &amp; tornado" aria-label="Trigger the storm event">🌪️</button>
-    <button class="ctrl-btn ev-trigger" id="evQuake" type="button" data-event="quake" title="Trigger an earthquake" aria-label="Trigger the earthquake event">💥</button>
   </div>
 
   <header class="topbar reveal">
@@ -47,7 +39,7 @@
 
     <div class="date-block">
       <div class="weekday" id="weekday">—</div>
-      <h1 class="date-main" id="dateMain">Loading…</h1>
+      <h1 class="date-main" id="dateMain" aria-live="off">Loading…</h1>
       <div class="day-counter" id="dayCounter"></div>
     </div>
 
@@ -60,69 +52,17 @@
     </div>
   </header>
 
+  <!-- The daily sections, laid out as slices of a pie chart. Each slice is a
+       trigger that opens its section in a modal. Built by app.js. -->
   <main class="content">
-    <!-- Featured: one puzzle per day, its type drawn at random each morning -->
-    <section class="card hero-card card-puzzle reveal" style="--i:1" data-section="puzzle" role="button" tabindex="0" aria-haspopup="dialog">
-      <div class="hero-main">
-        <span class="hero-kicker">Today's Puzzle</span>
-        <h2 class="hero-title">
-          <span class="hero-ico" id="puzzleIcon">🧩</span>
-          <span id="puzzleName">Daily Puzzle</span>
-        </h2>
-        <p class="card-preview" id="puzzlePreview">One puzzle each day — the type is drawn fresh every morning.</p>
+    <section class="pie-stage reveal" style="--i:1">
+      <div class="pie-wrap">
+        <svg id="pieSvg" viewBox="0 0 520 520" role="group" aria-label="Today's sections"></svg>
       </div>
-      <span class="card-cta">Tap to play <span class="cta-arrow">↗</span></span>
     </section>
-
-    <!-- Each card is a trigger that opens its section in a modal -->
-    <div class="grid">
-      <div class="card card-fact reveal" style="--i:2" data-section="fact" role="button" tabindex="0" aria-haspopup="dialog">
-        <div class="card-head">
-          <span class="card-icon">💡</span>
-          <h2>Fun Fact</h2>
-        </div>
-        <p class="card-preview" id="factPreview">Discover a surprising fact you'll want to share today.</p>
-        <span class="card-cta">Tap to reveal <span class="cta-arrow">↗</span></span>
-      </div>
-
-      <div class="card card-history reveal" style="--i:3" data-section="history" role="button" tabindex="0" aria-haspopup="dialog">
-        <div class="card-head">
-          <span class="card-icon">📜</span>
-          <h2>On This Day</h2>
-        </div>
-        <p class="card-preview" id="historyPreview">A notable moment that happened on this date in history.</p>
-        <span class="card-cta">Tap to open <span class="cta-arrow">↗</span></span>
-      </div>
-
-      <div class="card card-trivia reveal" style="--i:4" data-section="trivia" role="button" tabindex="0" aria-haspopup="dialog">
-        <div class="card-head">
-          <span class="card-icon">🎯</span>
-          <h2>Trivia</h2>
-          <span class="card-badge" id="triviaBadge"></span>
-        </div>
-        <p class="card-preview" id="triviaPreview">Answer today's multiple-choice trivia question.</p>
-        <span class="card-cta" id="triviaCta">Tap to play <span class="cta-arrow">↗</span></span>
-      </div>
-    </div>
   </main>
 
-  <section class="vault reveal" style="--i:5" id="vault">
-    <div class="vault-head" id="vaultHead" role="button" tabindex="0" aria-expanded="true" aria-controls="vaultBody">
-      <span class="card-icon">📚</span>
-      <h2>Most Common Trivia Questions</h2>
-      <span class="vault-chevron" id="vaultChevron" aria-hidden="true">▾</span>
-    </div>
-    <div class="vault-collapse" id="vaultBody">
-      <div class="vault-collapse-inner">
-        <div class="vault-controls">
-          <button class="vault-revealall" id="vaultRevealAll" type="button" aria-pressed="false">Reveal all answers</button>
-        </div>
-        <div class="vault-list" id="vaultList"></div>
-      </div>
-    </div>
-  </section>
-
-  <footer class="footer reveal">
+  <footer class="footer reveal" style="--i:2">
     <div class="stat">
       <span class="stat-num" id="statPlayed">0</span>
       <span class="stat-label">days played</span>
@@ -162,6 +102,5 @@
   <script src="interactions.js"></script>
   <script src="trail.js"></script>
   <script src="theme.js"></script>
-  <script src="events.js"></script>
 </body>
 </html>
