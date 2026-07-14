@@ -58,6 +58,14 @@ const Puzzles = (function () {
     return b;
   }
 
+  // Tell the app how today's puzzle ended (true = solved) so it can track
+  // puzzle accuracy. The app only counts the first result of the day.
+  function report(won) {
+    if (typeof window !== "undefined" && typeof window.DailyPuzzleResult === "function") {
+      window.DailyPuzzleResult(!!won);
+    }
+  }
+
   // ========================================================
   // Game 1 — Wordle
   // ========================================================
@@ -134,6 +142,7 @@ const Puzzles = (function () {
         done = true;
         setStatus(status, `Solved in ${row + 1}! 🎉`, "good");
         input.disabled = btn.disabled = true;
+        report(true);
         return;
       }
       row++;
@@ -141,6 +150,7 @@ const Puzzles = (function () {
         done = true;
         setStatus(status, `Out of tries — the word was ${target}.`, "bad");
         input.disabled = btn.disabled = true;
+        report(false);
       } else {
         setStatus(status, `${maxRows - row} ${maxRows - row === 1 ? "try" : "tries"} left.`, "");
       }
@@ -218,13 +228,14 @@ const Puzzles = (function () {
       if (done) return;
       done = true;
       setStatus(status, `Answer: ${next} — ${rule}.`, "");
+      report(false);
     });
     form.addEventListener("submit", (e) => {
       e.preventDefault();
       if (done) return;
       const v = parseInt((input.value || "").trim(), 10);
       if (Number.isNaN(v)) { setStatus(status, "Enter a number.", "bad"); return; }
-      if (v === next) { done = true; setStatus(status, `Correct! The rule: ${rule}. 🎉`, "good"); }
+      if (v === next) { done = true; setStatus(status, `Correct! The rule: ${rule}. 🎉`, "good"); report(true); }
       else setStatus(status, "Not quite — try again or reveal.", "bad");
     });
   }
@@ -317,7 +328,7 @@ const Puzzles = (function () {
           g[r][col] = v;
         }
       }
-      if (validSudoku(g)) setStatus(status, "Solved! Every line checks out. 🎉", "good");
+      if (validSudoku(g)) { setStatus(status, "Solved! Every line checks out. 🎉", "good"); report(true); }
       else setStatus(status, "Not valid yet — check your rows, columns, and boxes.", "bad");
     });
   }
@@ -372,12 +383,14 @@ const Puzzles = (function () {
         done = true;
         setStatus(status, `Cracked it in ${guesses}! 🎉`, "good");
         input.disabled = btn.disabled = true;
+        report(true);
         return;
       }
       if (guesses >= maxG) {
         done = true;
         setStatus(status, `Out of guesses — the code was ${secret.join("")}.`, "bad");
         input.disabled = btn.disabled = true;
+        report(false);
       } else {
         setStatus(status, `${maxG - guesses} guesses left.`, "");
       }
@@ -433,7 +446,7 @@ const Puzzles = (function () {
           if (done) return;
           player[r][col] = player[r][col] ? 0 : 1;
           cell.classList.toggle("on", !!player[r][col]);
-          if (solved()) { done = true; setStatus(status, "Solved! 🎉", "good"); }
+          if (solved()) { done = true; setStatus(status, "Solved! 🎉", "good"); report(true); }
         });
         wrap.append(cell);
         cellEls[r][col] = cell;
@@ -450,7 +463,7 @@ const Puzzles = (function () {
     }
     btn.addEventListener("click", () => {
       if (done) return;
-      if (solved()) { done = true; setStatus(status, "Solved! 🎉", "good"); }
+      if (solved()) { done = true; setStatus(status, "Solved! 🎉", "good"); report(true); }
       else setStatus(status, "Doesn't match the clues yet.", "bad");
     });
   }

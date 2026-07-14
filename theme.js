@@ -1,7 +1,7 @@
 // theme.js — light / dark mode for the home page. The choice is persisted to
 // localStorage; with no saved choice we follow the OS preference. The mode is
-// reflected on <body> via the `light` class and read by styles.css, trail.js
-// and events.js so the whole page (and its effects) adapt.
+// reflected on <body> via the `light` class and read by styles.css and
+// trail.js so the whole page (and its effects) adapt.
 
 (function () {
   "use strict";
