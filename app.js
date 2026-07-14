@@ -156,8 +156,9 @@
   }
 
   // ----- The pie: every section is a slice of one circle -----
-  // Fractions are how much of the circle each section takes. The puzzle slice
-  // additionally fills from the hub outward according to puzzle accuracy.
+  // Fractions are how much of the circle each section takes. The puzzle and
+  // trivia slices additionally fill from the hub outward according to their
+  // respective accuracy.
   const SLICES = [
     { id: "puzzle",  frac: 0.40, c1: "#7c5cff", c2: "#b06bff", icon: "🧩", name: "Puzzle" },
     { id: "trivia",  frac: 0.25, c1: "#ff5c9c", c2: "#ff8a5c", icon: "🎯", name: "Trivia" },
@@ -196,9 +197,9 @@
     return n;
   }
 
-  let puzzleFillEl = null;   // the accuracy fill path
-  let puzzleAccTextEl = null; // "NN% solved" caption in the puzzle slice
-  let puzzleAngles = null;   // the puzzle slice's [start, end] angles
+  // Slices with an accuracy fill: id -> { el, accEl, a0, a1 }. The fill path
+  // grows from the hub outward in proportion to that section's accuracy.
+  const sliceFills = {};
   let triviaSubEl = null;    // per-day state line in the trivia slice
 
   function buildPie() {
@@ -246,14 +247,14 @@
         stroke: s.c1
       }));
 
-      if (s.id === "puzzle") {
-        puzzleAngles = [a0, a1];
-        puzzleFillEl = svgEl("path", {
+      if (s.id === "puzzle" || s.id === "trivia") {
+        const fill = svgEl("path", {
           class: "slice-fill",
           d: "",
           fill: `url(#grad-${s.id})`
         });
-        g.append(puzzleFillEl);
+        g.append(fill);
+        sliceFills[s.id] = { el: fill, accEl: null, a0, a1 };
       }
 
       // labels sit on the slice's mid-angle
@@ -269,14 +270,18 @@
 
       if (s.id === "puzzle") {
         sub.textContent = todaysGame ? `Today: ${todaysGame.name} ${todaysGame.icon}` : "One draw a day";
-        puzzleAccTextEl = svgEl("text", { class: "slice-sub slice-acc", x: 0, y: 54, "text-anchor": "middle" });
-        label.append(puzzleAccTextEl);
       } else if (s.id === "trivia") {
         triviaSubEl = sub;
       } else if (s.id === "fact") {
         sub.textContent = "Tap to reveal";
       } else if (s.id === "history") {
         sub.textContent = String(hist.year);
+      }
+
+      if (sliceFills[s.id]) {
+        const acc = svgEl("text", { class: "slice-sub slice-acc", x: 0, y: 54, "text-anchor": "middle" });
+        label.append(acc);
+        sliceFills[s.id].accEl = acc;
       }
 
       svg.append(g);
@@ -294,21 +299,29 @@
     svg.append(hub);
   }
 
-  // The puzzle slice fills from the hub outward, proportionally to accuracy.
-  function renderPuzzleFill() {
-    if (!puzzleFillEl || !puzzleAngles) return;
-    const pct = puzzleAccuracy();
+  // A slice's fill grows from the hub outward, proportionally to accuracy.
+  function renderFill(id, pct, caption) {
+    const f = sliceFills[id];
+    if (!f) return;
     if (pct <= 0) {
-      puzzleFillEl.setAttribute("d", "");
+      f.el.setAttribute("d", "");
     } else {
       const r1 = HUB_R + (R - HUB_R) * Math.min(1, pct);
-      puzzleFillEl.setAttribute("d", ringWedgePath(puzzleAngles[0], puzzleAngles[1], HUB_R, r1));
+      f.el.setAttribute("d", ringWedgePath(f.a0, f.a1, HUB_R, r1));
     }
-    if (puzzleAccTextEl) {
-      puzzleAccTextEl.textContent = stats.puzzleAnswered
-        ? `${Math.round(pct * 100)}% solved (${stats.puzzleCorrect}/${stats.puzzleAnswered})`
-        : "No puzzles yet";
-    }
+    if (f.accEl) f.accEl.textContent = caption;
+  }
+
+  function renderFills() {
+    const pPct = puzzleAccuracy();
+    renderFill("puzzle", pPct, stats.puzzleAnswered
+      ? `${Math.round(pPct * 100)}% solved (${stats.puzzleCorrect}/${stats.puzzleAnswered})`
+      : "No puzzles yet");
+
+    const tPct = stats.triviaAnswered ? stats.triviaCorrect / stats.triviaAnswered : 0;
+    renderFill("trivia", tPct, stats.triviaAnswered
+      ? `${Math.round(tPct * 100)}% correct (${stats.triviaCorrect}/${stats.triviaAnswered})`
+      : "No answers yet");
   }
 
   // Slice state that changes within the day (trivia played / new).
@@ -325,7 +338,7 @@
     if (won) stats.puzzleCorrect += 1;
     saveStats(stats);
     registerPlay();
-    renderPuzzleFill();
+    renderFills();
   };
 
   // ----- Confetti -----
@@ -494,7 +507,7 @@
     // Persist any results gathered while the modal was open, then sync the UI.
     saveStats(stats);
     refreshSlices();
-    renderPuzzleFill();
+    renderFills();
     renderFooter();
 
     if (lastFocused && typeof lastFocused.focus === "function") lastFocused.focus();
@@ -510,7 +523,7 @@
 
   // ----- Init -----
   buildPie();
-  renderPuzzleFill();
+  renderFills();
   refreshSlices();
 
   // Wire each slice to open its section.

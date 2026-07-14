@@ -200,7 +200,7 @@ body {
 .pie-slice:hover .slice-bg,
 .pie-slice:focus-visible .slice-bg { fill-opacity: 0.32; stroke-opacity: 0.9; }
 
-/* accuracy fill inside the puzzle slice */
+/* accuracy fill inside the puzzle and trivia slices */
 .slice-fill {
   fill-opacity: 0.75;
   pointer-events: none;
@@ -215,8 +215,9 @@ body {
 }
 .slice-sub { font-size: 12.5px; fill: var(--muted); }
 .slice-acc { font-weight: 600; fill: var(--text); }
-/* the puzzle labels sit on top of the accuracy fill — keep them readable */
-.pie-slice[data-section="puzzle"] .slice-sub { fill: var(--text); opacity: 0.78; }
+/* these labels sit on top of the accuracy fills — keep them readable */
+.pie-slice[data-section="puzzle"] .slice-sub,
+.pie-slice[data-section="trivia"] .slice-sub { fill: var(--text); opacity: 0.78; }
 
 /* central hub covering the point where the slices meet */
 .pie-hub { pointer-events: none; }
