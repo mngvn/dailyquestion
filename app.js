@@ -11,7 +11,6 @@
   // Local-day key (YYYY-MM-DD) so "today" matches the user's calendar.
   const pad = (n) => String(n).padStart(2, "0");
   const dayKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-  const mmdd = `${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
   // A stable integer that increments once per local day, used to pick content.
   const localMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -57,7 +56,7 @@
   // ----- Today's content (computed once) -----
   const todaysGame = (typeof Puzzles !== "undefined") ? Puzzles.todaysGame() : null;
   const fact = pick(FUN_FACTS, 11);
-  const hist = HISTORY_BY_DATE[mmdd] || pick(HISTORY_FALLBACK, 41);
+  const artwork = pick(ARTWORKS, 41);
   const trivia = pick(TRIVIA, 67);
   const keys = ["A", "B", "C", "D"];
 
@@ -163,7 +162,7 @@
     { id: "puzzle",  frac: 0.40, c1: "#7c5cff", c2: "#b06bff", icon: "🧩", name: "Puzzle" },
     { id: "trivia",  frac: 0.25, c1: "#ff5c9c", c2: "#ff8a5c", icon: "🎯", name: "Trivia" },
     { id: "fact",    frac: 0.20, c1: "#ffd86b", c2: "#ff9a3c", icon: "💡", name: "Fun Fact" },
-    { id: "history", frac: 0.15, c1: "#00e0c6", c2: "#1f9bff", icon: "📜", name: "On This Day" }
+    { id: "artwork", frac: 0.15, c1: "#00e0c6", c2: "#1f9bff", icon: "🎨", name: "Artwork" }
   ];
 
   const SVG_NS = "http://www.w3.org/2000/svg";
@@ -274,8 +273,8 @@
         triviaSubEl = sub;
       } else if (s.id === "fact") {
         sub.textContent = "Tap to reveal";
-      } else if (s.id === "history") {
-        sub.textContent = String(hist.year);
+      } else if (s.id === "artwork") {
+        sub.textContent = artwork.artist;
       }
 
       if (sliceFills[s.id]) {
@@ -393,9 +392,38 @@
     else body.append(el("p", "modal-text", "Puzzles failed to load."));
   }
 
-  function buildHistory(body) {
-    body.append(el("div", "history-year", String(hist.year)));
-    body.append(el("p", "modal-text", hist.text));
+  function buildArtwork(body) {
+    const a = artwork;
+
+    // The visual is generated locally from the work's palette and composition
+    // — see artwork.js. It is a study, never a reproduction, so the card says
+    // so and points at where the real thing lives.
+    const frame = el("div", "aw-frame");
+    if (typeof Artwork !== "undefined") frame.append(Artwork.render(a));
+    frame.append(el("span", "aw-tag", a.faithful ? "Reconstruction" : "Colour study"));
+    body.append(frame);
+
+    const cap = el("div", "aw-caption");
+    cap.append(el("h3", "aw-title", a.title));
+    cap.append(el("p", "aw-artist", `${a.artist} · ${a.year}`));
+    const meta = [a.medium, a.where].filter(Boolean).join(" · ");
+    if (meta) cap.append(el("p", "aw-meta", meta));
+    body.append(cap);
+
+    body.append(el("p", "modal-text", a.blurb));
+
+    const foot = el("div", "modal-foot aw-foot");
+    const link = el("a", "ghost-btn", "See the real thing →");
+    // Special:Search always resolves, so this can never land on a dead article.
+    link.href = "https://en.wikipedia.org/wiki/Special:Search?search=" +
+      encodeURIComponent(`${a.title} ${a.artist}`);
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    foot.append(link);
+    body.append(foot);
+
+    body.append(el("div", "modal-note",
+      "The image above is generated from this work's palette and composition — it is not the artwork itself."));
   }
 
   function lockChoices(container, selectedDom, correctDom) {
@@ -466,7 +494,7 @@
   const SECTIONS = {
     fact: { icon: "💡", title: "Fun Fact", build: buildFact },
     puzzle: { icon: "🧩", title: "Daily Puzzle", build: buildPuzzle },
-    history: { icon: "📜", title: "On This Day", build: buildHistory },
+    artwork: { icon: "🎨", title: "Artwork of the Day", build: buildArtwork },
     trivia: { icon: "🎯", title: "Trivia", build: buildTrivia }
   };
 
