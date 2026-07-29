@@ -73,7 +73,9 @@ window.Artwork = (function () {
 
   // Molnár, Interruptions: a field of jittered segments with patches removed.
   function interruptions(g, p, rand) {
-    const cols = 30, rows = 24;
+    // Molnár started from a 25-by-25 grid; keep that, since this one is
+    // presented as a reconstruction rather than an impression.
+    const cols = 25, rows = 25;
     const cw = (W - 40) / cols, ch = (H - 40) / rows;
     // A few circular "interruptions" punched out of the field.
     const holes = [];

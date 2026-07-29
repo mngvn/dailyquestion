@@ -178,9 +178,9 @@ const ARTWORKS = [
     title: "Schotter (Gravel)",
     artist: "Georg Nees",
     year: "1968",
-    medium: "Plotter drawing on paper",
+    medium: "Computer-generated drawing, lithograph on paper",
     where: "Victoria and Albert Museum, London",
-    blurb: "A grid of squares that falls apart as it descends. Nees wrote a program that drew each square with a small random rotation and offset, then let that randomness grow row by row, so order at the top decays into rubble at the bottom. It is one of the first artworks whose composition was authored as an algorithm rather than drawn, and it still teaches the central lesson of generative art: the artist chooses the rule, and the rule chooses the picture.",
+    blurb: "A grid of squares that falls apart as it descends. Nees wrote an ALGOL program, plotted on a Zuse Graphomat, that drew each square with a small random rotation and offset, then let that randomness grow row by row, so order at the top decays into rubble at the bottom. It is one of the first artworks whose composition was authored as an algorithm rather than drawn, and it still teaches the central lesson of generative art: the artist chooses the rule, and the rule chooses the picture.",
     style: "scatter",
     faithful: true,
     palette: ["#f3efe6", "#1a1a1a"]
@@ -190,14 +190,14 @@ const ARTWORKS = [
     artist: "Vera Molnár",
     year: "1968–69",
     medium: "Plotter drawing on paper",
-    where: "Plotter drawings, various collections",
-    blurb: "A dense field of short line segments, each rotated slightly at random — and then Molnár deletes patches of them, leaving holes the eye reads as shapes that aren't there. She had been making 'machine imaginaire' work for years before she had a computer, simulating algorithms by hand. When she finally got access to one in 1968 she was in her forties and had already been waiting a decade for it.",
+    where: "The Morgan Library & Museum, New York, and other collections",
+    blurb: "A dense field of short line segments, each rotated slightly at random — and then Molnár deletes patches of them, leaving holes the eye reads as shapes that aren't there. She had been making 'machine imaginaire' work for years before she had a computer, simulating algorithms by hand. When she finally got access to one in 1968 she taught herself Fortran, punched her program onto cards, and was already in her forties.",
     style: "interruptions",
     faithful: true,
     palette: ["#f5f2ea", "#151515"]
   },
   {
-    title: "Untitled (Amiga self-portrait)",
+    title: "Andy2",
     artist: "Andy Warhol",
     year: "1985",
     medium: "Digital image on floppy disk",
@@ -208,7 +208,7 @@ const ARTWORKS = [
     palette: ["#1d1440", "#ff4fa3", "#28d9d0", "#ffd23f", "#f6f2ff"]
   },
   {
-    title: "Portrait of Edmond Belamy",
+    title: "Portrait of Edmond de Belamy",
     artist: "Obvious (with a GAN)",
     year: "2018",
     medium: "Inkjet print on canvas",
@@ -235,7 +235,7 @@ const ARTWORKS = [
     year: "1884–86",
     medium: "Oil on canvas",
     where: "Art Institute of Chicago",
-    blurb: "Seurat built this scene out of millions of separate dots of unmixed colour, on the theory that the eye would blend them more vividly than a palette could. He was essentially hand-computing additive colour mixing decades before anyone had a screen to do it on — a pixel grid painted by a person, at a rate of about one two-metre canvas every two years.",
+    blurb: "Seurat built this scene out of some 220,000 separate dots of unmixed colour, on the theory that the eye would blend them more vividly than a palette could. He was essentially hand-computing additive colour mixing decades before anyone had a screen to do it on — a pixel grid painted by a person, at a rate of about one two-metre canvas every two years.",
     style: "dots",
     faithful: false,
     palette: ["#2f5d34", "#7fae4e", "#d8c96b", "#3d6fa8", "#e6dfae"]
@@ -246,7 +246,7 @@ const ARTWORKS = [
     year: "1844",
     medium: "Oil on canvas",
     where: "National Gallery, London",
-    blurb: "A locomotive comes at you out of a storm, and almost everything else in the picture has dissolved into weather. Turner painted it when railways were the disruptive technology of the age, and rather than depicting the machine he painted what it felt like to be overtaken by one. If you look closely at the track ahead of the engine there is a hare, running to stay in front of it.",
+    blurb: "A locomotive comes at you out of a storm, and almost everything else in the picture has dissolved into weather. Turner painted it when railways were the disruptive technology of the age, and rather than depicting the machine he painted what it felt like to be overtaken by one. He put a hare on the track ahead of the engine, running to stay in front of it — and one witness said the hare, not the train, was the thing meant to stand for speed. The paint has since gone transparent and the hare is now almost impossible to see.",
     style: "swirl",
     faithful: false,
     palette: ["#8a7d5c", "#d9c99a", "#f0e6c8", "#5c4a2e", "#2b2418"]
@@ -255,7 +255,7 @@ const ARTWORKS = [
     title: "Relativity",
     artist: "M. C. Escher",
     year: "1953",
-    medium: "Lithograph",
+    medium: "Lithograph (a woodcut version came first)",
     where: "Editions in various collections",
     blurb: "Three sources of gravity coexist in one building, so a staircase that is a floor to one figure is a wall to another. Escher had no mathematical training and worked it out visually, yet mathematicians and computer scientists adopted him immediately — the print is a rigorous demonstration that a scene can be locally consistent everywhere and globally impossible, which is exactly the failure mode that haunts 3D geometry code.",
     style: "grid",
@@ -332,7 +332,7 @@ const ARTWORKS = [
     title: "Black Square",
     artist: "Kazimir Malevich",
     year: "1915",
-    medium: "Oil on linen",
+    medium: "Oil on canvas",
     where: "Tretyakov Gallery, Moscow",
     blurb: "Malevich hung it high in the corner of the room, the position a Russian household reserves for its icon, and called it the zero point of painting. X-rays later revealed two earlier compositions underneath, plus a faint inscription. The paint has since cracked into a web of craquelure, so the emptiest painting in modern art now has a great deal of texture in it.",
     style: "mono",
@@ -378,7 +378,7 @@ const ARTWORKS = [
     year: "1962",
     medium: "Synthetic polymer paint on 32 canvases",
     where: "Museum of Modern Art, New York",
-    blurb: "Thirty-two canvases, one for every variety Campbell's sold at the time, hung on a shelf like supermarket stock. The gallery next door responded by stacking real cans in the window at three for sixty cents. Warhol said he painted soup because he had eaten it for lunch every day for twenty years, which is either the shallowest or the most honest artist's statement on record.",
+    blurb: "Thirty-two canvases, one for every variety Campbell's sold at the time, hung on a shelf like supermarket stock. A nearby gallery responded by stacking real cans in its window, undercutting him on price. Warhol said he painted soup because he had eaten it for lunch every day for twenty years, which is either the shallowest or the most honest artist's statement on record.",
     style: "repeat",
     faithful: false,
     palette: ["#f4f1e6", "#c8102e", "#1a1a1a", "#c9a227"]
@@ -444,7 +444,7 @@ const ARTWORKS = [
     year: "c. 1831",
     medium: "Woodblock print",
     where: "Impressions in collections worldwide",
-    blurb: "There is no original. It is a print, pulled from carved blocks in thousands of impressions, and the surviving ones vary because the blocks wore down as the edition ran. Its blue is Prussian blue, a synthetic pigment newly imported into Japan, so the most recognisable image in Japanese art depends on a chemical import. Hokusai was about seventy when he made it, and considered his best work still ahead of him.",
+    blurb: "There is no original. It is a print, pulled from carved blocks in the thousands over the life of the edition, and surviving impressions differ visibly because the blocks wore down as the run went on. Its blue is Prussian blue, a synthetic pigment newly imported into Japan, so the most recognisable image in Japanese art depends on a chemical import. Hokusai was about seventy when he made it, and considered his best work still ahead of him.",
     style: "wave",
     faithful: false,
     palette: ["#e8e0cc", "#0f3057", "#2e6f95", "#f5f2e6", "#1b2733"]
@@ -488,7 +488,7 @@ const ARTWORKS = [
     year: "1642",
     medium: "Oil on canvas",
     where: "Rijksmuseum, Amsterdam",
-    blurb: "It isn't a night scene — centuries of darkened varnish made it look like one, and the name stuck. It was also cut down in 1715 to fit a wall, losing figures from the left side permanently; in 2021 the museum used AI trained on Rembrandt's brushwork to reconstruct and print the missing strips. Each militiaman in it paid toward the commission, and they were charged more for a better position.",
+    blurb: "It isn't a night scene — centuries of darkened varnish made it look like one, and the name stuck. It was also cut down on all four sides in 1715 to fit a wall, losing two figures from the left permanently; in 2021 the museum used AI trained on Rembrandt's brushwork to reconstruct and print the missing strips. Each militiaman in it paid toward the commission, and they were charged more for a better position.",
     style: "figure",
     faithful: false,
     palette: ["#241a0e", "#7a5a24", "#c9a44a", "#0f0b06", "#a83a2a"]
@@ -510,7 +510,7 @@ const ARTWORKS = [
     year: "c. 1485",
     medium: "Tempera on canvas",
     where: "Uffizi Gallery, Florence",
-    blurb: "One of the first large-scale canvases painted in Renaissance Italy, at a time when serious painting still meant wood panel. Botticelli used a thin, matte technique with some of the surfaces finished in real gold, and Venus stands in an anatomically impossible pose — her neck is too long and her left shoulder drops at an angle no shoulder does — which nobody notices, because the rhythm of the line matters more than the anatomy.",
+    blurb: "Painted on canvas rather than the wood panel Botticelli used for its companion piece, the Primavera — canvas was the cheaper support, favoured for works destined for a private house. He used a thin, matte tempera technique with some surfaces finished in real gold, and Venus stands in an anatomically impossible pose — her neck is too long and her left shoulder drops at an angle no shoulder does — which nobody notices, because the rhythm of the line matters more than the anatomy.",
     style: "figure",
     faithful: false,
     palette: ["#a8c4c0", "#dcc9a0", "#f0e6d2", "#5b7f6f", "#c98f5a"]
@@ -521,7 +521,7 @@ const ARTWORKS = [
     year: "c. 1490–1510",
     medium: "Oil on oak panel triptych",
     where: "Museo del Prado, Madrid",
-    blurb: "Close the wings and the outside is a grey sphere: the world on the third day of creation. Open them and you get Eden, then a crowded garden, then hell — where a figure has a fragment of musical notation tattooed across their backside. Someone eventually transcribed it and played it, which is how a five-hundred-year-old joke ended up on the internet as a listenable piece of music.",
+    blurb: "Close the wings and the outside is a grey sphere: the world on the third day of creation. Open them and you get Eden, then a crowded garden, then hell — where a figure has a fragment of musical notation tattooed across their backside. A student transcribed and recorded it in 2014 and it went viral, though specialists argue the marks were never really readable notation to begin with.",
     style: "scene",
     faithful: false,
     palette: ["#e3d5b0", "#7fa05a", "#3f5f8a", "#b0472c", "#221a12"]
@@ -587,7 +587,7 @@ const ARTWORKS = [
     year: "1937",
     medium: "Oil on canvas",
     where: "Museo Reina Sofía, Madrid",
-    blurb: "Eleven feet tall, twenty-five feet wide, and painted in about five weeks in black, white and grey after the bombing of a Basque town. Picasso refused to let it go to Spain while Franco lived, so it spent decades at MoMA; it finally arrived in Madrid in 1981. A tapestry copy hangs at the United Nations, and in 2003 it was covered with a curtain during a press conference about Iraq.",
+    blurb: "Eleven feet tall, twenty-five feet wide, and painted in about five weeks in black, white and grey after the bombing of a Basque town. Picasso refused to let it go to Spain while Franco lived, so it spent decades at MoMA; it finally arrived in Madrid in 1981. A tapestry copy hangs at the United Nations, and in 2003 it was covered with a large blue curtain while the case for war in Iraq was being made there.",
     style: "facets",
     faithful: false,
     palette: ["#e8e6e0", "#3a3a3a", "#9a9a96", "#151515", "#c4c2bb"]
@@ -653,7 +653,7 @@ const ARTWORKS = [
     year: "1939",
     medium: "Oil on canvas",
     where: "Museo de Arte Moderno, Mexico City",
-    blurb: "Her largest painting, made the year she divorced Diego Rivera: two versions of herself holding hands, one in a European lace dress and one in Tehuana clothing, hearts exposed and joined by a single artery. The European Frida is cutting the vessel with surgical scissors and bleeding onto her own dress. Kahlo painted much of her work using a mirror mounted above her bed.",
+    blurb: "Her largest painting, made the year she divorced Diego Rivera: two versions of herself holding hands, one in a European lace dress and one in Tehuana clothing, hearts exposed and joined by a single artery. The European Frida is clamping the vessel shut with surgical forceps and bleeding onto her own dress. Kahlo painted much of her work using a mirror mounted above her bed.",
     style: "figure",
     faithful: false,
     palette: ["#2a4a5a", "#e8e0d0", "#a81a2a", "#3a6a4a", "#1a1a1a"]
@@ -663,8 +663,8 @@ const ARTWORKS = [
     artist: "Cindy Sherman",
     year: "1978",
     medium: "Gelatin silver print",
-    where: "Editions in major collections",
-    blurb: "A young woman in a city, shot from below, looking off-frame — it reads instantly as a still from a film you half remember. There is no film. Sherman photographed herself in seventy of these, playing every role and operating the camera, inventing a genre of picture that is entirely made of other pictures' conventions. She has consistently refused to call any of them self-portraits.",
+    where: "Museum of Modern Art, New York (edition)",
+    blurb: "A young woman in a city, shot from below, looking off-frame — it reads instantly as a still from a film you half remember. There is no film. Sherman photographed herself in about seventy of these, playing every role and operating the camera, inventing a genre of picture that is entirely made of other pictures' conventions. She has consistently refused to call any of them self-portraits.",
     style: "figure",
     faithful: false,
     palette: ["#c8c8c4", "#6a6a68", "#2a2a28", "#f0f0ec", "#9a9a96"]
@@ -672,7 +672,7 @@ const ARTWORKS = [
   {
     title: "The Dinner Party",
     artist: "Judy Chicago",
-    year: "1979",
+    year: "1974–79",
     medium: "Ceramic, porcelain, and textile installation",
     where: "Brooklyn Museum, New York",
     blurb: "A triangular banquet table with thirty-nine place settings, each one for a woman from history, with another 999 names inscribed on the tile floor beneath. It took five years and hundreds of collaborators working in ceramics and needlework — crafts that had been filed as women's work and therefore excluded from fine art, which was precisely the argument. It toured to enormous crowds and scathing reviews before any museum would take it permanently.",
