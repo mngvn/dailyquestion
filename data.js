@@ -169,7 +169,12 @@ const TRIVIA = [
 // artwork.js needs to draw a study of it — a generated abstraction built from
 // the work's own palette and composition, never a reproduction of the original.
 //
-// style      which renderer in artwork.js draws the study
+// wiki       English Wikipedia article title, used to look up a photograph of
+//            the real work at runtime (see artwork.js). Only freely licensed
+//            Commons files are ever displayed; works still in copyright fall
+//            back to the generated study.
+// style      which renderer in artwork.js draws the study, used as the
+//            placeholder while the photograph loads and as the fallback
 // palette    colours sampled from the work itself; palette[0] is the ground
 // faithful   true when the work is geometric/algorithmic enough that the study
 //            genuinely reconstructs its logic rather than merely evoking it
@@ -209,6 +214,7 @@ const ARTWORKS = [
   },
   {
     title: "Portrait of Edmond de Belamy",
+    wiki: "Edmond de Belamy",
     artist: "Obvious (with a GAN)",
     year: "2018",
     medium: "Inkjet print on canvas",
@@ -220,6 +226,7 @@ const ARTWORKS = [
   },
   {
     title: "Electronic Superhighway: Continental U.S., Alaska, Hawaii",
+    wiki: "Electronic Superhighway: Continental U.S., Alaska, Hawaii",
     artist: "Nam June Paik",
     year: "1995",
     medium: "Neon, video, and 336 television screens",
@@ -231,6 +238,7 @@ const ARTWORKS = [
   },
   {
     title: "A Sunday on La Grande Jatte",
+    wiki: "A Sunday Afternoon on the Island of La Grande Jatte",
     artist: "Georges Seurat",
     year: "1884–86",
     medium: "Oil on canvas",
@@ -242,6 +250,7 @@ const ARTWORKS = [
   },
   {
     title: "Rain, Steam and Speed – The Great Western Railway",
+    wiki: "Rain, Steam and Speed – The Great Western Railway",
     artist: "J. M. W. Turner",
     year: "1844",
     medium: "Oil on canvas",
@@ -253,6 +262,7 @@ const ARTWORKS = [
   },
   {
     title: "Relativity",
+    wiki: "Relativity (M. C. Escher)",
     artist: "M. C. Escher",
     year: "1953",
     medium: "Lithograph (a woodcut version came first)",
@@ -264,6 +274,7 @@ const ARTWORKS = [
   },
   {
     title: "The Treachery of Images",
+    wiki: "The Treachery of Images",
     artist: "René Magritte",
     year: "1929",
     medium: "Oil on canvas",
@@ -275,6 +286,7 @@ const ARTWORKS = [
   },
   {
     title: "Broadway Boogie Woogie",
+    wiki: "Broadway Boogie Woogie",
     artist: "Piet Mondrian",
     year: "1942–43",
     medium: "Oil on canvas",
@@ -297,6 +309,7 @@ const ARTWORKS = [
   },
   {
     title: "Homage to the Square",
+    wiki: "Homage to the Square",
     artist: "Josef Albers",
     year: "1950–76",
     medium: "Oil on masonite",
@@ -308,6 +321,7 @@ const ARTWORKS = [
   },
   {
     title: "Composition with Red, Blue and Yellow",
+    wiki: "Composition with Red, Blue and Yellow",
     artist: "Piet Mondrian",
     year: "1930",
     medium: "Oil on canvas",
@@ -319,6 +333,7 @@ const ARTWORKS = [
   },
   {
     title: "No. 61 (Rust and Blue)",
+    wiki: "No. 61 (Rust and Blue)",
     artist: "Mark Rothko",
     year: "1953",
     medium: "Oil on canvas",
@@ -330,6 +345,7 @@ const ARTWORKS = [
   },
   {
     title: "Black Square",
+    wiki: "Black Square (painting)",
     artist: "Kazimir Malevich",
     year: "1915",
     medium: "Oil on canvas",
@@ -341,6 +357,7 @@ const ARTWORKS = [
   },
   {
     title: "IKB 191",
+    wiki: "International Klein Blue",
     artist: "Yves Klein",
     year: "1962",
     medium: "Dry pigment in synthetic resin on canvas",
@@ -352,6 +369,7 @@ const ARTWORKS = [
   },
   {
     title: "Fountain",
+    wiki: "Fountain (Duchamp)",
     artist: "Marcel Duchamp",
     year: "1917",
     medium: "Porcelain urinal",
@@ -363,6 +381,7 @@ const ARTWORKS = [
   },
   {
     title: "Whaam!",
+    wiki: "Whaam!",
     artist: "Roy Lichtenstein",
     year: "1963",
     medium: "Acrylic and oil on canvas",
@@ -374,6 +393,7 @@ const ARTWORKS = [
   },
   {
     title: "Campbell's Soup Cans",
+    wiki: "Campbell's Soup Cans",
     artist: "Andy Warhol",
     year: "1962",
     medium: "Synthetic polymer paint on 32 canvases",
@@ -385,6 +405,7 @@ const ARTWORKS = [
   },
   {
     title: "Love Is in the Bin",
+    wiki: "Girl with Balloon",
     artist: "Banksy",
     year: "2018",
     medium: "Spray paint and acrylic on canvas, partly shredded",
@@ -407,6 +428,7 @@ const ARTWORKS = [
   },
   {
     title: "Nude Descending a Staircase, No. 2",
+    wiki: "Nude Descending a Staircase, No. 2",
     artist: "Marcel Duchamp",
     year: "1912",
     medium: "Oil on canvas",
@@ -418,6 +440,7 @@ const ARTWORKS = [
   },
   {
     title: "Autumn Rhythm (Number 30)",
+    wiki: "Autumn Rhythm (Number 30)",
     artist: "Jackson Pollock",
     year: "1950",
     medium: "Enamel on canvas",
@@ -429,6 +452,7 @@ const ARTWORKS = [
   },
   {
     title: "The Starry Night",
+    wiki: "The Starry Night",
     artist: "Vincent van Gogh",
     year: "1889",
     medium: "Oil on canvas",
@@ -440,6 +464,7 @@ const ARTWORKS = [
   },
   {
     title: "The Great Wave off Kanagawa",
+    wiki: "The Great Wave off Kanagawa",
     artist: "Katsushika Hokusai",
     year: "c. 1831",
     medium: "Woodblock print",
@@ -451,6 +476,7 @@ const ARTWORKS = [
   },
   {
     title: "The Scream",
+    wiki: "The Scream",
     artist: "Edvard Munch",
     year: "1893",
     medium: "Tempera and crayon on cardboard",
@@ -462,6 +488,7 @@ const ARTWORKS = [
   },
   {
     title: "Mona Lisa",
+    wiki: "Mona Lisa",
     artist: "Leonardo da Vinci",
     year: "c. 1503–19",
     medium: "Oil on poplar panel",
@@ -473,6 +500,7 @@ const ARTWORKS = [
   },
   {
     title: "Girl with a Pearl Earring",
+    wiki: "Girl with a Pearl Earring",
     artist: "Johannes Vermeer",
     year: "c. 1665",
     medium: "Oil on canvas",
@@ -484,6 +512,7 @@ const ARTWORKS = [
   },
   {
     title: "The Night Watch",
+    wiki: "The Night Watch",
     artist: "Rembrandt van Rijn",
     year: "1642",
     medium: "Oil on canvas",
@@ -495,6 +524,7 @@ const ARTWORKS = [
   },
   {
     title: "Las Meninas",
+    wiki: "Las Meninas",
     artist: "Diego Velázquez",
     year: "1656",
     medium: "Oil on canvas",
@@ -506,6 +536,7 @@ const ARTWORKS = [
   },
   {
     title: "The Birth of Venus",
+    wiki: "The Birth of Venus",
     artist: "Sandro Botticelli",
     year: "c. 1485",
     medium: "Tempera on canvas",
@@ -517,6 +548,7 @@ const ARTWORKS = [
   },
   {
     title: "The Garden of Earthly Delights",
+    wiki: "The Garden of Earthly Delights",
     artist: "Hieronymus Bosch",
     year: "c. 1490–1510",
     medium: "Oil on oak panel triptych",
@@ -528,6 +560,7 @@ const ARTWORKS = [
   },
   {
     title: "Impression, Sunrise",
+    wiki: "Impression, Sunrise",
     artist: "Claude Monet",
     year: "1872",
     medium: "Oil on canvas",
@@ -539,6 +572,7 @@ const ARTWORKS = [
   },
   {
     title: "Water Lilies",
+    wiki: "Water Lilies (Monet series)",
     artist: "Claude Monet",
     year: "1896–1926",
     medium: "Oil on canvas",
@@ -550,6 +584,7 @@ const ARTWORKS = [
   },
   {
     title: "Nighthawks",
+    wiki: "Nighthawks (Hopper)",
     artist: "Edward Hopper",
     year: "1942",
     medium: "Oil on canvas",
@@ -561,6 +596,7 @@ const ARTWORKS = [
   },
   {
     title: "American Gothic",
+    wiki: "American Gothic",
     artist: "Grant Wood",
     year: "1930",
     medium: "Oil on beaverboard",
@@ -572,6 +608,7 @@ const ARTWORKS = [
   },
   {
     title: "The Kiss",
+    wiki: "The Kiss (Klimt)",
     artist: "Gustav Klimt",
     year: "1907–08",
     medium: "Oil and gold leaf on canvas",
@@ -583,6 +620,7 @@ const ARTWORKS = [
   },
   {
     title: "Guernica",
+    wiki: "Guernica (Picasso)",
     artist: "Pablo Picasso",
     year: "1937",
     medium: "Oil on canvas",
@@ -594,6 +632,7 @@ const ARTWORKS = [
   },
   {
     title: "Les Demoiselles d'Avignon",
+    wiki: "Les Demoiselles d'Avignon",
     artist: "Pablo Picasso",
     year: "1907",
     medium: "Oil on canvas",
@@ -605,6 +644,7 @@ const ARTWORKS = [
   },
   {
     title: "The Persistence of Memory",
+    wiki: "The Persistence of Memory",
     artist: "Salvador Dalí",
     year: "1931",
     medium: "Oil on canvas",
@@ -616,6 +656,7 @@ const ARTWORKS = [
   },
   {
     title: "The Third of May 1808",
+    wiki: "The Third of May 1808",
     artist: "Francisco Goya",
     year: "1814",
     medium: "Oil on canvas",
@@ -627,6 +668,7 @@ const ARTWORKS = [
   },
   {
     title: "Ophelia",
+    wiki: "Ophelia (painting)",
     artist: "John Everett Millais",
     year: "1851–52",
     medium: "Oil on canvas",
@@ -638,6 +680,7 @@ const ARTWORKS = [
   },
   {
     title: "Sunflowers",
+    wiki: "Sunflowers (Van Gogh series)",
     artist: "Vincent van Gogh",
     year: "1888",
     medium: "Oil on canvas",
@@ -649,6 +692,7 @@ const ARTWORKS = [
   },
   {
     title: "The Two Fridas",
+    wiki: "The Two Fridas",
     artist: "Frida Kahlo",
     year: "1939",
     medium: "Oil on canvas",
@@ -660,6 +704,7 @@ const ARTWORKS = [
   },
   {
     title: "Untitled Film Still #21",
+    wiki: "Untitled Film Stills",
     artist: "Cindy Sherman",
     year: "1978",
     medium: "Gelatin silver print",
@@ -671,6 +716,7 @@ const ARTWORKS = [
   },
   {
     title: "The Dinner Party",
+    wiki: "The Dinner Party",
     artist: "Judy Chicago",
     year: "1974–79",
     medium: "Ceramic, porcelain, and textile installation",
@@ -680,4 +726,104 @@ const ARTWORKS = [
     faithful: false,
     palette: ["#e8dcc8", "#c96a8a", "#8a6ac9", "#d9b06a", "#3a2a3a"]
   }
+];
+
+// "On this day" events keyed by MM-DD. A curated set of dates; days not
+// present fall back to a deterministic pick from HISTORY_FALLBACK.
+const HISTORY_BY_DATE = {
+  "01-01": { year: 1983, text: "ARPANET switched over to TCP/IP in a single 'flag day' cutover — the moment the internet as we know it began speaking its native language." },
+  "01-03": { year: 2009, text: "The Bitcoin genesis block was mined, with a Times headline about bank bailouts embedded in it as a timestamp and a comment." },
+  "01-09": { year: 2007, text: "Steve Jobs introduced the iPhone at Macworld, demoing a device so unfinished the team had to follow an exact script to keep it from crashing on stage." },
+  "01-15": { year: 2001, text: "Wikipedia launched — originally just a side experiment to feed articles into a more traditional, expert-reviewed encyclopedia project." },
+  "01-24": { year: 1984, text: "The Macintosh went on sale, the first mass-market computer built around a mouse, windows, and proportional typefaces." },
+  "01-28": { year: 1912, text: "Jackson Pollock was born. He would abandon the easel entirely, laying canvas on the floor and painting from above." },
+  "02-04": { year: 2004, text: "Facebook launched from a Harvard dorm room, restricted at first to people with a harvard.edu email address." },
+  "02-10": { year: 1996, text: "Deep Blue beat Garry Kasparov in a single game — the first time a computer defeated a reigning world champion under tournament conditions. Kasparov won the match anyway." },
+  "02-14": { year: 1876, text: "Alexander Graham Bell filed his telephone patent, reportedly hours ahead of a rival filing on the same principle." },
+  "02-16": { year: 1978, text: "The first computerized bulletin board system went online in Chicago, built during a blizzard. Online community predates the web by more than a decade." },
+  "02-24": { year: 1955, text: "Steve Jobs was born. He later credited a college calligraphy class he audited for the Mac's typography." },
+  "03-06": { year: 1475, text: "Michelangelo was born. He always described himself as a sculptor, and considered the Sistine Chapel ceiling a distraction from that." },
+  "03-12": { year: 1989, text: "Tim Berners-Lee circulated a proposal at CERN for a hypertext system. His manager's note on the cover read: 'Vague but exciting.'" },
+  "03-14": { year: 1879, text: "Albert Einstein was born — on what would later, by coincidence of notation, also become Pi Day." },
+  "03-15": { year: 1985, text: "symbolics.com was registered, the first .com domain in existence. Only five more followed that year." },
+  "03-21": { year: 2006, text: "The first tweet was posted: 'just setting up my twttr.' The 140-character limit existed to fit inside an SMS." },
+  "03-30": { year: 1853, text: "Vincent van Gogh was born. He didn't start painting seriously until his late twenties and was dead within a decade." },
+  "03-31": { year: 1889, text: "The Eiffel Tower opened. Leading French artists had signed a public letter calling it a monstrous, useless iron chimney." },
+  "04-01": { year: 1976, text: "Apple Computer was founded. A third co-founder sold his 10% stake twelve days later for $800." },
+  "04-03": { year: 1973, text: "Martin Cooper made the first handheld mobile phone call, standing on a Manhattan sidewalk — to his chief rival at Bell Labs, to tell him he'd done it first." },
+  "04-04": { year: 1975, text: "Microsoft was founded to write a BASIC interpreter for a computer its founders had never actually seen in person." },
+  "04-12": { year: 1961, text: "Yuri Gagarin became the first human in space, in a capsule flown almost entirely by automated control." },
+  "04-15": { year: 1452, text: "Leonardo da Vinci was born. He wrote his notebooks in mirror script and left most of his projects unfinished." },
+  "04-23": { year: 2005, text: "The first YouTube video was uploaded: 19 seconds of a co-founder standing in front of the elephants at the San Diego Zoo." },
+  "04-30": { year: 1993, text: "CERN released the World Wide Web software into the public domain, royalty-free. Arguably the single most valuable thing anyone has ever given away." },
+  "05-11": { year: 1904, text: "Salvador Dalí was born. He claimed to induce his melting imagery by napping in a chair holding a key over a metal plate." },
+  "05-16": { year: 1929, text: "The first Academy Awards were handed out in a 15-minute ceremony. The winners had been announced three months earlier." },
+  "05-17": { year: 1902, text: "An archaeologist noticed a gear embedded in a corroded lump from a Greek shipwreck — the Antikythera mechanism, a 2,000-year-old geared computer." },
+  "05-22": { year: 1980, text: "Pac-Man was released in Japan, designed deliberately to appeal to players who had no interest in shooting things." },
+  "05-24": { year: 1844, text: "Samuel Morse sent 'What hath God wrought' over the first long-distance telegraph line, collapsing the time it took news to cross a continent." },
+  "05-25": { year: 1977, text: "Star Wars opened on fewer than 40 screens. The effects work behind it created the company that later became Pixar." },
+  "05-29": { year: 1913, text: "The premiere of Stravinsky's The Rite of Spring in Paris set off a riot in the theater. It's now standard repertoire." },
+  "06-01": { year: 1967, text: "Sgt. Pepper's Lonely Hearts Club Band was released, with a collaged cover so elaborate the band had to get legal clearance for the faces on it." },
+  "06-08": { year: 1955, text: "Tim Berners-Lee was born. He would later refuse to patent the web." },
+  "06-21": { year: 1948, text: "The Manchester 'Baby' ran the first program ever executed from electronic memory. It took 52 minutes to find the highest factor of a number." },
+  "06-23": { year: 1912, text: "Alan Turing was born. His 1936 paper defined what a computer is before any computer existed." },
+  "07-04": { year: 1997, text: "Mars Pathfinder landed and released Sojourner, the first rover to drive on another planet. It used airbags to bounce to a stop." },
+  "07-06": { year: 1907, text: "Frida Kahlo was born. She painted most of her self-portraits using a mirror mounted above her bed." },
+  "07-20": { year: 1969, text: "Apollo 11 landed while its guidance computer threw overflow alarms. The software had been designed to shed low-priority tasks instead of crashing — and that's why they didn't abort." },
+  "08-01": { year: 1981, text: "MTV launched. The first video it played was 'Video Killed the Radio Star.'" },
+  "08-06": { year: 1991, text: "Tim Berners-Lee posted a short public summary of the World Wide Web project to a Usenet newsgroup — the web's first public announcement." },
+  "08-09": { year: 1995, text: "Netscape went public without ever having turned a profit, and the price more than doubled on day one. The dot-com era had a starting gun." },
+  "08-12": { year: 1981, text: "IBM introduced the Personal Computer. Its open architecture let competitors clone it, which IBM had not adequately planned for." },
+  "08-21": { year: 1911, text: "The Mona Lisa was stolen from the Louvre by a museum worker who simply walked out with it under his smock. The theft is what made it famous." },
+  "09-04": { year: 1998, text: "Google was incorporated in a garage. Its founders had earlier tried to sell the technology for about $1 million and found no buyer." },
+  "09-08": { year: 1504, text: "Michelangelo's David was unveiled in Florence, carved from a block of marble two other sculptors had already given up on." },
+  "09-09": { year: 1947, text: "Operators pulled a moth out of the Harvard Mark II and taped it into the logbook: 'First actual case of bug being found.'" },
+  "09-19": { year: 1982, text: "Scott Fahlman proposed :-) on a Carnegie Mellon message board to mark jokes. Every emoji descends from that suggestion." },
+  "10-04": { year: 1957, text: "Sputnik 1 launched. The panic it caused in the U.S. led directly to the agency that funded ARPANET." },
+  "10-05": { year: 2018, text: "Banksy's Girl with Balloon shredded itself seconds after selling at Sotheby's, via a mechanism hidden in the frame for years." },
+  "10-23": { year: 2001, text: "Apple introduced the iPod. The press response was largely a shrug about an expensive music player with no wireless." },
+  "10-25": { year: 1881, text: "Pablo Picasso was born. He was a fully trained academic realist by his teens and spent the rest of his life dismantling that training." },
+  "10-28": { year: 1955, text: "Bill Gates was born. He wrote his first program, a tic-tac-toe game, at thirteen." },
+  "10-29": { year: 1969, text: "The first message was sent over ARPANET. They typed 'LOGIN,' the system crashed after two characters, and the internet's first word was 'LO.'" },
+  "10-30": { year: 1938, text: "Orson Welles broadcast The War of the Worlds as simulated news bulletins — an early demonstration that the format of a medium can be more persuasive than its content." },
+  "11-01": { year: 1512, text: "The Sistine Chapel ceiling was revealed to the public after four years of work Michelangelo had tried to refuse." },
+  "11-04": { year: 1922, text: "Howard Carter found the sealed entrance to Tutankhamun's tomb, preserving the largest intact collection of ancient Egyptian art ever recovered." },
+  "11-09": { year: 1989, text: "The Berlin Wall opened. Within days, sections of it were being cut up and sold as art objects." },
+  "11-18": { year: 1928, text: "Steamboat Willie premiered — not the first Mickey Mouse cartoon, but the first with synchronized sound, which is why it's the one everyone remembers." },
+  "11-22": { year: 1995, text: "Toy Story opened, the first feature film animated entirely by computer. Every frame was rendered from scratch by a farm of machines running for months." },
+  "11-30": { year: 2022, text: "ChatGPT was released as a low-key research preview. It reached a million users in five days." },
+  "12-09": { year: 1968, text: "Douglas Engelbart's 'Mother of All Demos' showed the mouse, hypertext, windows, video conferencing, and collaborative editing — in one 90-minute session, decades before any of it shipped." },
+  "12-10": { year: 1815, text: "Ada Lovelace was born. Her notes on Babbage's Analytical Engine include the first published algorithm intended for a machine." },
+  "12-12": { year: 1913, text: "The Mona Lisa was recovered in Florence, two years after its theft, when the thief tried to sell it to an art dealer." },
+  "12-16": { year: 1947, text: "Bell Labs built the first working transistor. Nearly every device you have ever used contains descendants of it, now measured in the billions per chip." },
+  "12-17": { year: 1903, text: "The Wright brothers flew. The longest flight that day covered 852 feet — shorter than the wingspan of a modern airliner's route to the gate." },
+  "12-21": { year: 1937, text: "Snow White premiered, the first full-length cel-animated feature. The industry had called it Disney's Folly." },
+  "12-25": { year: 1990, text: "Tim Berners-Lee got the first web browser and web server talking to each other — the first successful client-server exchange over the World Wide Web." }
+};
+
+const HISTORY_FALLBACK = [
+  { year: 1971, text: "Intel shipped the 4004, the first commercial microprocessor. It held 2,300 transistors and was designed for a desktop calculator." },
+  { year: 1843, text: "Ada Lovelace published notes describing how a machine could manipulate symbols, not just numbers — the conceptual leap from calculator to computer." },
+  { year: 1936, text: "Alan Turing described a machine that could simulate any other machine, defining the limits of computation before hardware existed to test it." },
+  { year: 1948, text: "Claude Shannon published 'A Mathematical Theory of Communication,' inventing information theory and the bit in one paper." },
+  { year: 1969, text: "Unix was started at Bell Labs as an unofficial project on a spare minicomputer nobody else wanted." },
+  { year: 1973, text: "The Xerox Alto was built with a bitmapped screen, a mouse, and windows. Xerox never sold it, and visitors took the ideas elsewhere." },
+  { year: 1977, text: "RSA public-key cryptography was published, making it possible to exchange secrets with strangers you've never met." },
+  { year: 1984, text: "The first fully computer-generated character in a feature film appeared, stitched together frame by frame on machines slower than a modern thermostat." },
+  { year: 1991, text: "Linux was announced as a hobby project that would 'not be big and professional like gnu.'" },
+  { year: 1994, text: "The QR code was invented to track car parts on an assembly line, deliberately designed to still scan when partly damaged." },
+  { year: 2007, text: "The smartphone era began in earnest, collapsing the camera, map, music player, and computer into one object." },
+  { year: 1957, text: "The first digital image was scanned — a 176-pixel-square photograph, the ancestor of every JPEG." },
+  { year: 1962, text: "Spacewar!, one of the first video games, was written for fun on a $120,000 research computer and given away for free." },
+  { year: 1975, text: "A university researcher digitized a teapot as a graphics test object. It became the most rendered shape in the history of computing." },
+  { year: 2021, text: "Researchers dated a warty pig painted on a cave wall in Sulawesi to at least 45,500 years ago — the oldest known figurative artwork anywhere." },
+  { year: 1420, text: "Brunelleschi worked out linear perspective, giving European painting a mathematics of depth and changing how a flat surface could lie convincingly." },
+  { year: 1665, text: "Vermeer painted Girl with a Pearl Earring — technically not a portrait but a tronie, a study of a type rather than a person." },
+  { year: 1831, text: "Hokusai published The Great Wave, using a synthetic blue pigment newly imported from Europe." },
+  { year: 1874, text: "The first Impressionist exhibition opened in Paris after the official Salon rejected the work. The movement's name came from a hostile review." },
+  { year: 1907, text: "Picasso finished Les Demoiselles d'Avignon and showed it to almost no one for years. It broke the picture plane open and started Cubism." },
+  { year: 1917, text: "Duchamp submitted a factory-made urinal to an exhibition as sculpture, and the question of what counts as art never fully closed again." },
+  { year: 1962, text: "Pop Art arrived in the gallery, insisting that soup cans and comic panels were legitimate subjects for serious painting." },
+  { year: 1968, text: "The exhibition Cybernetic Serendipity in London showed computer-generated art, music, and poetry to the public for the first time." },
+  { year: 1985, text: "Desktop publishing arrived — a computer, a page layout program, and a laser printer put typesetting on a desk instead of in a print shop." }
 ];

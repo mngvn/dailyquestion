@@ -1,12 +1,14 @@
-// artwork.js — draws the daily artwork "study".
+// artwork.js — the picture for the daily artwork.
 //
-// Every image in the Artwork section is generated here from the palette and
-// composition parameters in data.js. Nothing is loaded over the network and
-// nothing is a reproduction: for the geometric and algorithmic works the study
-// genuinely reconstructs the rule the artist used (Nees really did rotate a
-// grid of squares by a growing random angle), and for everything else it is an
-// abstraction of the composition — a stand-in that tells you the shape and the
-// colour of the thing, and sends you to go look at the real one.
+// Two layers. `findImage` looks up a photograph of the actual work on
+// Wikipedia at runtime and is what you normally see. `render` draws a
+// generated study from the palette and composition in data.js; it shows while
+// the photograph loads, and it stays when there is no freely licensed
+// photograph to show — either because the work is still in copyright or
+// because it has no article. For the geometric and algorithmic works that
+// study genuinely reconstructs the artist's rule (Nees really did rotate a
+// grid of squares by a growing random angle); elsewhere it is an abstraction
+// of the composition.
 //
 // Renderers are deterministic: the same artwork always draws the same study.
 
@@ -529,5 +531,100 @@ window.Artwork = (function () {
     return svg;
   }
 
-  return { render };
+
+  // ------------------------------------------------------------ real images
+  // The study above is a stand-in. Where the work has an English Wikipedia
+  // article we look up a photograph of the original at runtime and swap it in.
+  //
+  // Licensing guard: Wikipedia serves freely licensed media from Commons
+  // (/wikipedia/commons/...) and non-free "fair use" uploads from the local
+  // wiki (/wikipedia/en/...). Only the former may be displayed on someone
+  // else's site, so anything not on Commons is rejected and the work keeps its
+  // generated study. This is checked on the URL we get back rather than from a
+  // hardcoded list, so the rule holds even as files move between wikis.
+  const CACHE_KEY = "daily.artimg.v2";
+  const RETRY_MS = 7 * 24 * 60 * 60 * 1000;   // re-ask about a miss after a week
+  const API = "https://en.wikipedia.org/w/api.php";
+
+  function loadCache() {
+    try { return JSON.parse(localStorage.getItem(CACHE_KEY)) || {}; } catch (e) { return {}; }
+  }
+  function saveCache(c) {
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(c)); } catch (e) { /* ignore */ }
+  }
+
+  function apiUrl(extra) {
+    const q = new URLSearchParams(Object.assign({
+      action: "query", format: "json", origin: "*", redirects: "1",
+      prop: "pageimages", piprop: "original|thumbnail", pithumbsize: "1200"
+    }, extra));
+    return API + "?" + q.toString();
+  }
+
+  const isFree = (u) => typeof u === "string" && u.indexOf("/wikipedia/commons/") !== -1;
+
+  function pickImage(json) {
+    const pages = json && json.query && json.query.pages;
+    if (!pages) return null;
+    const keys = Object.keys(pages);
+    if (!keys.length) return null;
+    const page = pages[keys[0]];
+    if (!page) return null;
+    const thumb = page.thumbnail && page.thumbnail.source;
+    const full = page.original && page.original.source;
+    if (isFree(thumb)) return thumb;
+    if (isFree(full)) return full;
+    return null;
+  }
+
+  function fetchJSON(url, ms) {
+    if (typeof fetch !== "function") return Promise.resolve(null);
+    const ctrl = typeof AbortController === "function" ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), ms) : null;
+    const opts = { mode: "cors", credentials: "omit" };
+    if (ctrl) opts.signal = ctrl.signal;
+    return fetch(url, opts)
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null)
+      .then((v) => { if (timer) clearTimeout(timer); return v; });
+  }
+
+  // Resolves to { src, status }:
+  //   ok           a freely licensed photograph to display
+  //   unavailable  the lookup worked but there is no Commons image — normally
+  //                because the work is still in copyright
+  //   error        the lookup itself failed (offline, blocked, API down)
+  // The distinction matters: "unavailable" is a permanent fact about the work
+  // and worth caching, "error" is transient and must not be.
+  function findImage(art) {
+    if (!art.wiki) return Promise.resolve({ src: null, status: "unavailable" });
+
+    const cache = loadCache();
+    const hit = cache[art.title];
+    if (hit && (hit.src || Date.now() - hit.t < RETRY_MS)) {
+      return Promise.resolve({ src: hit.src || null, status: hit.src ? "ok" : "unavailable" });
+    }
+
+    let reached = false;
+    const look = (params) => fetchJSON(apiUrl(params), 8000).then((j) => {
+      if (j) reached = true;
+      return pickImage(j);
+    });
+
+    return look({ titles: art.wiki })
+      .then((src) => src || look({
+        // The article may have been renamed — try resolving it by search.
+        generator: "search", gsrsearch: art.title + " " + art.artist, gsrlimit: "1"
+      }))
+      .then((src) => {
+        if (!reached) return { src: null, status: "error" };
+        const c = loadCache();
+        c[art.title] = { src: src || null, t: Date.now() };
+        saveCache(c);
+        return { src: src || null, status: src ? "ok" : "unavailable" };
+      })
+      .catch(() => ({ src: null, status: "error" }));
+  }
+
+  return { render, findImage };
 })();

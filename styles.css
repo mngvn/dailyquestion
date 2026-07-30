@@ -335,6 +335,40 @@ body {
   animation: popIn 0.5s ease;
 }
 .aw-svg { display: block; width: 100%; height: 100%; }
+
+/* Once the real photograph arrives the frame stops being a fixed 4:3 box and
+   letterboxes the work at its own proportions, the way a gallery wall would. */
+.aw-frame.has-photo {
+  aspect-ratio: auto;
+  max-height: none;
+  background: #08080c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+}
+.aw-photo {
+  max-width: 100%;
+  max-height: min(52vh, 440px);
+  width: auto; height: auto;
+  display: block;
+  border-radius: 6px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  animation: popIn 0.45s ease;
+}
+/* while the lookup is in flight, the study sits under a slow shimmer */
+.aw-frame.aw-loading::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,0.16) 50%, transparent 80%);
+  background-size: 220% 100%;
+  animation: awShimmer 1.5s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes awShimmer {
+  from { background-position: 140% 0; }
+  to   { background-position: -40% 0; }
+}
 /* Says what the generated image actually is, so it is never mistaken for
    a photograph of the work. */
 .aw-tag {
@@ -361,8 +395,20 @@ body {
 }
 .aw-artist { font-size: 0.95rem; font-weight: 600; color: var(--text); }
 .aw-meta { font-size: 0.82rem; color: var(--muted); line-height: 1.45; }
-.aw-foot { display: flex; }
+.aw-foot { display: flex; gap: 10px; flex-wrap: wrap; }
 .aw-foot .ghost-btn { text-decoration: none; display: inline-block; }
+.copy-btn.copied { border-color: var(--good); color: var(--good); }
+
+/* On This Day */
+.history-year {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  font-weight: 700;
+  background: linear-gradient(120deg, #4aa8ff, #1f5fe0);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1;
+}
 
 /* Trivia */
 .trivia-q { font-weight: 500; }
@@ -474,7 +520,8 @@ body.modal-open { overflow: hidden; }
 }
 .modal[data-section="fact"]    { --mc1: #ffd86b; --mc2: #ff9a3c; }
 .modal[data-section="puzzle"]  { --mc1: #7c5cff; --mc2: #b06bff; }
-.modal[data-section="artwork"] { --mc1: #00e0c6; --mc2: #1f9bff; }
+.modal[data-section="artwork"] { --mc1: #47e0a0; --mc2: #0fb5a5; }
+.modal[data-section="history"] { --mc1: #4aa8ff; --mc2: #1f5fe0; }
 .modal[data-section="trivia"]  { --mc1: #ff5c9c; --mc2: #ff8a5c; }
 
 .modal-close {

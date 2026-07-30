@@ -11,6 +11,7 @@
   // Local-day key (YYYY-MM-DD) so "today" matches the user's calendar.
   const pad = (n) => String(n).padStart(2, "0");
   const dayKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const mmdd = `${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
   // A stable integer that increments once per local day, used to pick content.
   const localMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -57,6 +58,7 @@
   const todaysGame = (typeof Puzzles !== "undefined") ? Puzzles.todaysGame() : null;
   const fact = pick(FUN_FACTS, 11);
   const artwork = pick(ARTWORKS, 41);
+  const hist = HISTORY_BY_DATE[mmdd] || pick(HISTORY_FALLBACK, 53);
   const trivia = pick(TRIVIA, 67);
   const keys = ["A", "B", "C", "D"];
 
@@ -159,10 +161,11 @@
   // trivia slices additionally fill from the hub outward according to their
   // respective accuracy.
   const SLICES = [
-    { id: "puzzle",  frac: 0.40, c1: "#7c5cff", c2: "#b06bff", icon: "🧩", name: "Puzzle" },
-    { id: "trivia",  frac: 0.25, c1: "#ff5c9c", c2: "#ff8a5c", icon: "🎯", name: "Trivia" },
-    { id: "fact",    frac: 0.20, c1: "#ffd86b", c2: "#ff9a3c", icon: "💡", name: "Fun Fact" },
-    { id: "artwork", frac: 0.15, c1: "#00e0c6", c2: "#1f9bff", icon: "🎨", name: "Artwork" }
+    { id: "puzzle",  frac: 0.32, c1: "#7c5cff", c2: "#b06bff", icon: "🧩", name: "Puzzle" },
+    { id: "trivia",  frac: 0.22, c1: "#ff5c9c", c2: "#ff8a5c", icon: "🎯", name: "Trivia" },
+    { id: "fact",    frac: 0.16, c1: "#ffd86b", c2: "#ff9a3c", icon: "💡", name: "Fun Fact" },
+    { id: "artwork", frac: 0.17, c1: "#47e0a0", c2: "#0fb5a5", icon: "🎨", name: "Artwork" },
+    { id: "history", frac: 0.13, c1: "#4aa8ff", c2: "#1f5fe0", icon: "📜", name: "On This Day" }
   ];
 
   const SVG_NS = "http://www.w3.org/2000/svg";
@@ -275,6 +278,8 @@
         sub.textContent = "Tap to reveal";
       } else if (s.id === "artwork") {
         sub.textContent = artwork.artist;
+      } else if (s.id === "history") {
+        sub.textContent = String(hist.year);
       }
 
       if (sliceFills[s.id]) {
@@ -367,21 +372,50 @@
     return n;
   }
 
+  // navigator.clipboard is undefined on insecure origins (and when the page is
+  // opened straight off disk), so keep the old execCommand path as a fallback.
+  function legacyCopy(text) {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.cssText = "position:fixed;top:-1000px;opacity:0";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      ta.remove();
+      return ok;
+    } catch (e) { return false; }
+  }
+
+  // A copy button for any block of text. `getText` is called at click time so
+  // sections can copy content that isn't known when the button is built.
+  function copyBtn(getText, label) {
+    const idle = label || "Copy";
+    const btn = el("button", "ghost-btn copy-btn", idle);
+    btn.type = "button";
+    const flash = (msg) => {
+      btn.textContent = msg;
+      btn.classList.add("copied");
+      setTimeout(() => { btn.textContent = idle; btn.classList.remove("copied"); }, 1500);
+    };
+    btn.addEventListener("click", () => {
+      const text = getText();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text)
+          .then(() => flash("Copied!"))
+          .catch(() => flash(legacyCopy(text) ? "Copied!" : "Copy failed"));
+      } else {
+        flash(legacyCopy(text) ? "Copied!" : "Copy failed");
+      }
+    });
+    return btn;
+  }
+
   function buildFact(body) {
     body.append(el("p", "modal-text", fact));
     const foot = el("div", "modal-foot");
-    const btn = el("button", "ghost-btn", "Copy");
-    btn.type = "button";
-    btn.addEventListener("click", () => {
-      navigator.clipboard?.writeText(fact).then(() => {
-        btn.textContent = "Copied!";
-        setTimeout(() => (btn.textContent = "Copy"), 1500);
-      }).catch(() => {
-        btn.textContent = "Copy failed";
-        setTimeout(() => (btn.textContent = "Copy"), 1500);
-      });
-    });
-    foot.append(btn);
+    foot.append(copyBtn(() => fact));
     body.append(foot);
   }
 
@@ -395,12 +429,14 @@
   function buildArtwork(body) {
     const a = artwork;
 
-    // The visual is generated locally from the work's palette and composition
-    // — see artwork.js. It is a study, never a reproduction, so the card says
-    // so and points at where the real thing lives.
-    const frame = el("div", "aw-frame");
-    if (typeof Artwork !== "undefined") frame.append(Artwork.render(a));
-    frame.append(el("span", "aw-tag", a.faithful ? "Reconstruction" : "Colour study"));
+    // The generated study shows immediately; if a freely licensed photograph
+    // of the actual work is available it replaces the study once it loads.
+    // See artwork.js for why only Commons-hosted images are ever used.
+    const frame = el("div", "aw-frame aw-loading");
+    const study = (typeof Artwork !== "undefined") ? Artwork.render(a) : null;
+    if (study) frame.append(study);
+    const tag = el("span", "aw-tag", a.faithful ? "Reconstruction" : "Colour study");
+    frame.append(tag);
     body.append(frame);
 
     const cap = el("div", "aw-caption");
@@ -413,6 +449,8 @@
     body.append(el("p", "modal-text", a.blurb));
 
     const foot = el("div", "modal-foot aw-foot");
+    foot.append(copyBtn(() =>
+      `${a.title} — ${a.artist}, ${a.year}\n${meta}\n\n${a.blurb}`));
     const link = el("a", "ghost-btn", "See the real thing →");
     // Special:Search always resolves, so this can never land on a dead article.
     link.href = "https://en.wikipedia.org/wiki/Special:Search?search=" +
@@ -422,8 +460,52 @@
     foot.append(link);
     body.append(foot);
 
-    body.append(el("div", "modal-note",
-      "The image above is generated from this work's palette and composition — it is not the artwork itself."));
+    const note = el("div", "modal-note", a.wiki
+      ? "Looking for a photograph of the original…"
+      : "No freely licensed photograph of this work is available, so the image above is generated from its palette and composition.");
+    body.append(note);
+
+    const keepStudy = (why) => {
+      frame.classList.remove("aw-loading");
+      note.textContent = why;
+    };
+
+    if (!a.wiki || typeof Artwork === "undefined") {
+      frame.classList.remove("aw-loading");
+      return;
+    }
+
+    const NO_FREE_IMAGE = "No freely licensed photograph of this work exists — it is almost certainly still in copyright — so the image above is generated from its palette and composition. Use the link to see the original.";
+    const LOOKUP_FAILED = "Couldn't reach Wikipedia just now, so the image above is generated from this work's palette and composition.";
+
+    Artwork.findImage(a).then((res) => {
+      if (!res || !res.src) {
+        keepStudy(res && res.status === "error" ? LOOKUP_FAILED : NO_FREE_IMAGE);
+        return;
+      }
+      const img = new Image();
+      img.className = "aw-photo";
+      img.alt = `${a.title} by ${a.artist}`;
+      img.referrerPolicy = "no-referrer";
+      img.addEventListener("load", () => {
+        if (study) study.remove();
+        frame.classList.remove("aw-loading");
+        frame.classList.add("has-photo");
+        frame.prepend(img);
+        tag.textContent = "Wikimedia Commons";
+        note.textContent = "Photograph of the original, via Wikimedia Commons.";
+      });
+      img.addEventListener("error", () => keepStudy(LOOKUP_FAILED));
+      img.src = res.src;
+    }).catch(() => keepStudy(LOOKUP_FAILED));
+  }
+
+  function buildHistory(body) {
+    body.append(el("div", "history-year", String(hist.year)));
+    body.append(el("p", "modal-text", hist.text));
+    const foot = el("div", "modal-foot");
+    foot.append(copyBtn(() => `${hist.year} — ${hist.text}`));
+    body.append(foot);
   }
 
   function lockChoices(container, selectedDom, correctDom) {
@@ -495,6 +577,7 @@
     fact: { icon: "💡", title: "Fun Fact", build: buildFact },
     puzzle: { icon: "🧩", title: "Daily Puzzle", build: buildPuzzle },
     artwork: { icon: "🎨", title: "Artwork of the Day", build: buildArtwork },
+    history: { icon: "📜", title: "On This Day", build: buildHistory },
     trivia: { icon: "🎯", title: "Trivia", build: buildTrivia }
   };
 
