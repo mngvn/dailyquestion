@@ -59,12 +59,37 @@ window.Duel = (function () {
   }
 
   // ---- logos ----------------------------------------------------------
-  // Logos are the companies' own favicons, fetched at display time from public
-  // favicon services — nothing is bundled with the site. Each card also renders
-  // a coloured monogram underneath, which is what you see if the icon is
-  // missing, blocked, or the company no longer exists (a fair few of these
-  // domains are long dead). Marks are used only to identify the product the
-  // card is about.
+  // Three sources, in order:
+  //   1. logos.js — real brand marks bundled as SVG paths (Simple Icons, CC0).
+  //      No network, so these always render.
+  //   2. the company's own favicon, fetched at display time, for brands Simple
+  //      Icons doesn't ship.
+  //   3. a coloured monogram, for anything left — mostly products whose company
+  //      and domain are both long gone.
+  const SVG_NS = "http://www.w3.org/2000/svg";
+
+  // Perceived brightness, so a near-white mark isn't drawn on a white tile.
+  function luminance(hex) {
+    const n = parseInt(hex, 16);
+    const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+      const c = v / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+  }
+
+  function brandMark(brand) {
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("class", "duel-logo-svg");
+    svg.setAttribute("aria-hidden", "true");
+    const path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("d", brand.p);
+    path.setAttribute("fill", "#" + brand.h);
+    svg.append(path);
+    return svg;
+  }
+
   function iconSources(domain) {
     return [
       // DuckDuckGo 404s cleanly on an unknown domain, so it goes first;
@@ -90,6 +115,18 @@ window.Duel = (function () {
     mono.style.background = `linear-gradient(140deg, hsl(${hue} 62% 46%), hsl(${(hue + 40) % 360} 58% 32%))`;
     wrap.append(mono);
 
+    // 1. bundled brand mark
+    const brand = (typeof APP_LOGOS !== "undefined") ? APP_LOGOS[app.name] : null;
+    if (brand) {
+      wrap.append(brandMark(brand));
+      // Yellow-ish marks (Snapchat, Robinhood) vanish on white, so those tiles
+      // go dark instead.
+      if (luminance(brand.h) > 0.75) wrap.classList.add("on-dark");
+      wrap.classList.add("has-logo", "has-mark");
+      return wrap;
+    }
+
+    // 2. the company's own favicon
     if (!app.domain) return wrap;
 
     const sources = iconSources(app.domain);
