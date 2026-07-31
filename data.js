@@ -827,3 +827,105 @@ const HISTORY_FALLBACK = [
   { year: 1968, text: "The exhibition Cybernetic Serendipity in London showed computer-generated art, music, and poetry to the public for the first time." },
   { year: 1985, text: "Desktop publishing arrived — a computer, a page layout program, and a laser printer put typesetting on a desk instead of in a print shop." }
 ];
+
+// APPS — the pool for the App Duel game (duel.js). Players compare two
+// products and pick the one with more users.
+//
+// users   the headline figure, as an integer
+// metric  what that figure actually counts. These are NOT all the same thing —
+//         monthly actives, registered accounts and paying subscribers measure
+//         very different things — so every card shows its metric and date and
+//         the player can see exactly what is being compared.
+// asOf    when the figure is from. Defunct products are recorded at their
+//         documented peak, which is what makes them interesting to play.
+// note    one line of colour, shown on reveal.
+//
+// Figures are the latest publicly reported numbers at time of writing; company
+// disclosures, press statements and third-party estimates all appear here, and
+// several companies stopped publishing years ago (their last figure is used).
+const APPS = [
+  { name: "Facebook", users: 3200000000, metric: "monthly active users", asOf: "2026", note: "Roughly two in five people alive." },
+  { name: "Instagram", users: 3000000000, metric: "monthly active users", asOf: "2026", note: "Bought by Facebook in 2012 for $1bn, when it had 13 employees." },
+  { name: "WhatsApp", users: 3000000000, metric: "monthly active users", asOf: "2026", note: "Had 55 staff when Facebook paid $19bn for it." },
+  { name: "YouTube", users: 2580000000, metric: "monthly active users", asOf: "2026", note: "Started as a video dating site that nobody used." },
+  { name: "TikTok", users: 1990000000, metric: "monthly active users", asOf: "2026", note: "Built on the corpse of Musical.ly, which ByteDance bought in 2017." },
+  { name: "Gmail", users: 1800000000, metric: "users", asOf: "2018 (last figure Google gave)", note: "Launched on April 1st, 2004 — most people assumed it was a prank." },
+  { name: "Wikipedia", users: 1500000000, metric: "unique devices per month", asOf: "2024", note: "Run by a non-profit with a few hundred staff." },
+  { name: "WeChat", users: 1300000000, metric: "monthly active users", asOf: "2026", note: "Messaging, payments, taxis, government ID — one app for all of it." },
+  { name: "LinkedIn", users: 1200000000, metric: "registered members", asOf: "2026", note: "Registered members, not active ones — a very different number." },
+  { name: "Telegram", users: 1000000000, metric: "monthly active users", asOf: "2026", note: "Still run by a founder who left Russia rather than hand over data." },
+  { name: "Google Maps", users: 1000000000, metric: "monthly active users", asOf: "2020", note: "Grew out of a startup founded by two Danish brothers in Sydney." },
+  { name: "Facebook Messenger", users: 942000000, metric: "monthly active users", asOf: "2026", note: "Split out of the Facebook app in 2014, to widespread annoyance." },
+  { name: "Snapchat", users: 932000000, metric: "monthly active users", asOf: "2026", note: "Turned down $3bn from Facebook in 2013." },
+  { name: "ChatGPT", users: 900000000, metric: "weekly active users", asOf: "2026", note: "Went from zero to a million users in five days." },
+  { name: "Spotify", users: 761000000, metric: "monthly active users", asOf: "2026", note: "Of those, fewer than 300 million pay." },
+  { name: "Fortnite", users: 650000000, metric: "registered accounts", asOf: "2023", note: "The battle royale mode was bolted on late and ate the game." },
+  { name: "Pinterest", users: 631000000, metric: "monthly active users", asOf: "2026", note: "Quietly one of the largest search engines on the internet." },
+  { name: "X (Twitter)", users: 600000000, metric: "monthly active users (company-stated)", asOf: "2025", note: "The company stopped publishing audited user figures after 2022." },
+  { name: "Reddit", users: 471000000, metric: "weekly active uniques", asOf: "2025", note: "Went public in 2024, twenty years after launching." },
+  { name: "PayPal", users: 434000000, metric: "active accounts", asOf: "2024", note: "Its founders went on to start Tesla, YouTube, LinkedIn and Palantir." },
+  { name: "Threads", users: 400000000, metric: "monthly active users", asOf: "2025", note: "Signed up 30 million people in its first day by borrowing Instagram's graph." },
+  { name: "Quora", users: 400000000, metric: "monthly active users", asOf: "2021", note: "Founded by two early Facebook employees." },
+  { name: "Roblox", users: 381000000, metric: "monthly active users", asOf: "2025", note: "Most of its games are made by teenagers." },
+  { name: "MSN / Windows Live Messenger", users: 330000000, metric: "monthly active users", asOf: "2009 (peak)", note: "The nudge. The buzz. The status message aimed at one person." },
+  { name: "Microsoft Teams", users: 320000000, metric: "monthly active users", asOf: "2023", note: "Bundled into Office, which regulators took a dim view of." },
+  { name: "Netflix", users: 325000000, metric: "paying subscribers", asOf: "2025", note: "Started by mailing DVDs in red envelopes." },
+  { name: "Amazon", users: 310000000, metric: "active customer accounts", asOf: "2023", note: "Sold only books for its first three years." },
+  { name: "Orkut", users: 300000000, metric: "registered users", asOf: "2012 (peak)", note: "Google's social network — huge in Brazil and India, nowhere else." },
+  { name: "Google+", users: 300000000, metric: "monthly active users (company-stated)", asOf: "2015", note: "Shut down in 2019 after a data leak; the numbers were always disputed." },
+  { name: "Skype", users: 300000000, metric: "monthly active users", asOf: "2016", note: "eBay bought it for $2.6bn, then wrote off most of that." },
+  { name: "Zoom", users: 300000000, metric: "daily meeting participants", asOf: "April 2020 (peak)", note: "Went from 10 million to 300 million daily participants in four months." },
+  { name: "Airbnb", users: 290000000, metric: "people who have used it", asOf: "2025", note: "Began as three air mattresses in a San Francisco flat." },
+  { name: "Angry Birds", users: 263000000, metric: "monthly active users", asOf: "2012 (peak)", note: "Rovio's 52nd game. The first 51 went nowhere." },
+  { name: "Pokémon GO", users: 232000000, metric: "monthly active users", asOf: "2016 (peak)", note: "Briefly made people walk into traffic on every continent." },
+  { name: "Canva", users: 220000000, metric: "monthly active users", asOf: "2024", note: "Founded in Perth after its founder was turned down by investors 100 times." },
+  { name: "Uber", users: 202000000, metric: "monthly active platform consumers", asOf: "2025", note: "Named 'UberCab' until San Francisco told it to drop the 'Cab'." },
+  { name: "MyFitnessPal", users: 200000000, metric: "registered users", asOf: "2019", note: "Under Armour bought it for $475m, then sold it for less." },
+  { name: "Club Penguin", users: 200000000, metric: "registered accounts", asOf: "2013 (peak)", note: "Disney paid $350m for it, then closed it in 2017." },
+  { name: "Musical.ly", users: 200000000, metric: "registered users", asOf: "2017 (peak)", note: "ByteDance bought it and folded it into TikTok." },
+  { name: "Vine", users: 200000000, metric: "monthly active users", asOf: "2015 (peak)", note: "Six seconds. Twitter shut it down a year later." },
+  { name: "Discord", users: 200000000, metric: "monthly active users", asOf: "2021 (last figure published)", note: "Built for gamers, quietly taken over by everyone else." },
+  { name: "Minecraft", users: 170000000, metric: "monthly active users", asOf: "2023", note: "The best-selling video game ever made, by a wide margin." },
+  { name: "Waze", users: 151000000, metric: "monthly active users", asOf: "2023", note: "Google paid about $1bn for it and kept it separate from Maps." },
+  { name: "Strava", users: 150000000, metric: "registered athletes", asOf: "2024", note: "Its public heatmap once revealed the layout of secret military bases." },
+  { name: "Duolingo", users: 133000000, metric: "monthly active users", asOf: "2025", note: "The guilt-trip owl is a deliberate, tested retention mechanic." },
+  { name: "Steam", users: 132000000, metric: "monthly active users", asOf: "2021 (last figure published)", note: "Players hated it when Valve made it mandatory in 2004." },
+  { name: "eBay", users: 132000000, metric: "active buyers", asOf: "2024", note: "The first thing ever sold on it was a broken laser pointer." },
+  { name: "Tumblr", users: 135000000, metric: "monthly active users", asOf: "2022", note: "Yahoo paid $1.1bn for it; it later sold for a reported $3m." },
+  { name: "SoundCloud", users: 130000000, metric: "monthly active users", asOf: "2023", note: "An entire genre of rap is named after it." },
+  { name: "Twitch", users: 105000000, metric: "monthly active users", asOf: "2024", note: "Started as Justin.tv, one man streaming his life 24/7." },
+  { name: "Coinbase", users: 108000000, metric: "verified users", asOf: "2023", note: "Ran a Super Bowl ad that was just a bouncing QR code." },
+  { name: "GitHub", users: 100000000, metric: "registered developers", asOf: "2023", note: "Microsoft bought it for $7.5bn, to the horror of much of its userbase." },
+  { name: "Notion", users: 100000000, metric: "registered users", asOf: "2024", note: "Nearly died in 2015; the founders moved to Kyoto to rebuild it." },
+  { name: "ICQ", users: 100000000, metric: "registered accounts", asOf: "2001 (peak)", note: "That 'uh-oh' notification sound. Finally shut down in 2024." },
+  { name: "Venmo", users: 90000000, metric: "active accounts", asOf: "2023", note: "Made your friends' payments public by default for years." },
+  { name: "Apple Music", users: 93000000, metric: "paying subscribers", asOf: "2022 (estimated)", note: "Launched by putting a U2 album in everyone's library uninvited." },
+  { name: "Candy Crush Saga", users: 93000000, metric: "daily active users", asOf: "2013 (peak)", note: "King made about a million dollars a day from it." },
+  { name: "Flickr", users: 90000000, metric: "registered users", asOf: "2013", note: "Started as a feature inside a failed multiplayer game." },
+  { name: "FarmVille", users: 83000000, metric: "monthly active users", asOf: "2010 (peak)", note: "At its height it had more players than Twitter had users." },
+  { name: "Napster", users: 80000000, metric: "registered users", asOf: "2001 (peak)", note: "Written by a 19-year-old. Killed by a lawsuit, not a competitor." },
+  { name: "MySpace", users: 75900000, metric: "monthly unique visitors", asOf: "December 2008 (peak)", note: "Beat Google to become the most-visited site in the US in 2006." },
+  { name: "Tinder", users: 75000000, metric: "monthly active users", asOf: "2023", note: "The swipe was reportedly inspired by shuffling a deck of cards." },
+  { name: "Signal", users: 70000000, metric: "monthly active users (estimated)", asOf: "2024", note: "Run by a non-profit foundation and funded by donations." },
+  { name: "Winamp", users: 60000000, metric: "users", asOf: "2001 (peak)", note: "It really whipped the llama's ass." },
+  { name: "Among Us", users: 60000000, metric: "daily active users", asOf: "September 2020 (peak)", note: "Released in 2018 to near-total silence, then exploded two years later." },
+  { name: "Cash App", users: 57000000, metric: "monthly transacting actives", asOf: "2024", note: "Block's other business, alongside Square card readers." },
+  { name: "Bumble", users: 50000000, metric: "monthly active users", asOf: "2023", note: "Founded by an early Tinder executive after she sued the company." },
+  { name: "LimeWire", users: 50000000, metric: "monthly users", asOf: "2007 (peak)", note: "A generation's music library, and its first computer virus." },
+  { name: "Foursquare", users: 50000000, metric: "registered users", asOf: "2014", note: "Checking in and fighting over mayorships was, briefly, a whole thing." },
+  { name: "Nextdoor", users: 45000000, metric: "weekly active users", asOf: "2024", note: "Neighbourhood watch, reinvented as an argument about parking." },
+  { name: "Pandora", users: 46000000, metric: "monthly active users", asOf: "2022", note: "Its Music Genome Project had humans hand-tag songs on 400 attributes." },
+  { name: "DoorDash", users: 42000000, metric: "monthly active users", asOf: "2024", note: "Started as a website called Palo Alto Delivery." },
+  { name: "Digg", users: 40000000, metric: "monthly visitors", asOf: "2008 (peak)", note: "A 2010 redesign drove its users to Reddit almost overnight." },
+  { name: "Lyft", users: 28300000, metric: "active riders (quarterly)", asOf: "2026", note: "The giant pink moustache on the bumper lasted until 2015." },
+  { name: "Bluesky", users: 25000000, metric: "registered accounts", asOf: "2024", note: "Started inside Twitter as a research project, then spun out." },
+  { name: "Neopets", users: 25000000, metric: "registered users", asOf: "2005", note: "Many accounts outlived their pets, who starved unattended." },
+  { name: "Robinhood", users: 24000000, metric: "funded customers", asOf: "2024", note: "Restricting GameStop trades in 2021 nearly ended it." },
+  { name: "Grindr", users: 14000000, metric: "monthly active users", asOf: "2024", note: "One of the first dating apps built around location, in 2009." },
+  { name: "Slack", users: 12000000, metric: "daily active users", asOf: "2019 (last figure published)", note: "Started as internal chat for a video game that failed." },
+  { name: "Clubhouse", users: 10000000, metric: "weekly active users", asOf: "2021 (peak)", note: "Invite-only audio rooms. The pandemic ended and so did it." },
+  { name: "Figma", users: 4000000, metric: "registered users", asOf: "2022", note: "Adobe's $20bn offer was blocked by regulators in 2023." },
+  { name: "Mastodon", users: 2500000, metric: "monthly active users", asOf: "December 2022 (peak)", note: "Spiked every time Twitter did something unpopular." },
+  { name: "Second Life", users: 1000000, metric: "monthly active users", asOf: "2013", note: "Still running, and still has its own functioning economy." },
+  { name: "Wordle", users: 300000, metric: "daily players", asOf: "January 2022", note: "Had 90 players in November 2021. The NYT bought it two months later." }
+];
