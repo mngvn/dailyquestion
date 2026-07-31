@@ -1029,6 +1029,34 @@ body.light.pointer-active .pointer-glow { opacity: 0.45; }
   background: rgba(163, 230, 53, 0.12);
   outline: none;
 }
+/* The logo sits on a light tile so dark marks stay visible in dark mode;
+   the monogram underneath shows through whenever the favicon can't load. */
+.duel-logo {
+  position: relative;
+  width: 46px; height: 46px;
+  margin-bottom: 6px;
+  border-radius: 12px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.duel-mono {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.35rem; font-weight: 700; color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.duel-logo-img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: contain;
+  padding: 7px;
+  background: #fff;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.duel-logo.has-logo .duel-logo-img { opacity: 1; }
+
 .duel-name {
   font-family: "Space Grotesk", sans-serif;
   font-size: 1.02rem; font-weight: 700; line-height: 1.2;

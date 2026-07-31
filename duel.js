@@ -58,6 +58,64 @@ window.Duel = (function () {
     requestAnimationFrame(step);
   }
 
+  // ---- logos ----------------------------------------------------------
+  // Logos are the companies' own favicons, fetched at display time from public
+  // favicon services — nothing is bundled with the site. Each card also renders
+  // a coloured monogram underneath, which is what you see if the icon is
+  // missing, blocked, or the company no longer exists (a fair few of these
+  // domains are long dead). Marks are used only to identify the product the
+  // card is about.
+  function iconSources(domain) {
+    return [
+      // DuckDuckGo 404s cleanly on an unknown domain, so it goes first;
+      // Google's service answers with a generic globe instead.
+      "https://icons.duckduckgo.com/ip3/" + domain + ".ico",
+      "https://www.google.com/s2/favicons?sz=128&domain=" + domain
+    ];
+  }
+
+  // Stable colour per name, so a monogram always looks the same for an app.
+  function monogramHue(name) {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+    return h % 360;
+  }
+
+  function logo(app) {
+    const wrap = el("div", "duel-logo");
+
+    const initial = (app.name.match(/[A-Za-z0-9]/) || ["?"])[0].toUpperCase();
+    const mono = el("span", "duel-mono", initial);
+    const hue = monogramHue(app.name);
+    mono.style.background = `linear-gradient(140deg, hsl(${hue} 62% 46%), hsl(${(hue + 40) % 360} 58% 32%))`;
+    wrap.append(mono);
+
+    if (!app.domain) return wrap;
+
+    const sources = iconSources(app.domain);
+    let next = 0;
+    const img = el("img", "duel-logo-img");
+    img.alt = "";
+    img.setAttribute("aria-hidden", "true");
+    img.referrerPolicy = "no-referrer";
+    img.loading = "lazy";
+
+    const tryNext = () => {
+      if (next >= sources.length) return;       // out of options, monogram stays
+      img.src = sources[next++];
+    };
+    img.addEventListener("load", () => {
+      // Some services answer a miss with a 1px or empty image rather than a 404.
+      if (img.naturalWidth <= 1) { tryNext(); return; }
+      wrap.classList.add("has-logo");
+    });
+    img.addEventListener("error", tryNext);
+    tryNext();
+
+    wrap.append(img);
+    return wrap;
+  }
+
   function loadBest(key) {
     try { return parseInt(localStorage.getItem(key), 10) || 0; } catch (e) { return 0; }
   }
@@ -118,6 +176,7 @@ window.Duel = (function () {
       const c = el("div", "duel-card duel-" + side);
       c.dataset.side = side;
 
+      c.append(logo(app));
       c.append(el("div", "duel-name", app.name));
       c.append(el("div", "duel-has", "has"));
 
