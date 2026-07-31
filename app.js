@@ -57,7 +57,16 @@
   // ----- Today's content (computed once) -----
   const todaysGame = (typeof Puzzles !== "undefined") ? Puzzles.todaysGame() : null;
   const fact = pick(FUN_FACTS, 11);
-  const artwork = pick(ARTWORKS, 41);
+  // Most of the modern pieces are still in copyright, so no photograph of them
+  // can be shown and the card falls back to a generated study. Weight the daily
+  // pick toward works we can actually display: six days in seven come from the
+  // public-domain set, the seventh from everything else so the in-copyright
+  // pieces still come round with their blurb and a link out.
+  const artPhoto = ARTWORKS.filter((a) => a.pd && a.wiki);
+  const artOther = ARTWORKS.filter((a) => !(a.pd && a.wiki));
+  const artwork = (dayNumber % 7 === 3 && artOther.length)
+    ? pick(artOther, 41)
+    : pick(artPhoto.length ? artPhoto : ARTWORKS, 41);
   const hist = HISTORY_BY_DATE[mmdd] || pick(HISTORY_FALLBACK, 53);
   const trivia = pick(TRIVIA, 67);
   const keys = ["A", "B", "C", "D"];
