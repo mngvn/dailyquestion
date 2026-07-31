@@ -169,6 +169,10 @@ const TRIVIA = [
 // artwork.js needs to draw a study of it — a generated abstraction built from
 // the work's own palette and composition, never a reproduction of the original.
 //
+// pd         true when the work's photograph is public domain and can
+//            actually be displayed. Used to weight the daily pick toward
+//            works we can show, not to decide what gets fetched — that is
+//            still driven by what the API returns.
 // wiki       English Wikipedia article title, used to look up a photograph of
 //            the real work at runtime (see artwork.js). Only freely licensed
 //            Commons files are ever displayed; works still in copyright fall
@@ -238,6 +242,7 @@ const ARTWORKS = [
   },
   {
     title: "A Sunday on La Grande Jatte",
+    pd: true,
     wiki: "A Sunday Afternoon on the Island of La Grande Jatte",
     artist: "Georges Seurat",
     year: "1884–86",
@@ -250,6 +255,7 @@ const ARTWORKS = [
   },
   {
     title: "Rain, Steam and Speed – The Great Western Railway",
+    pd: true,
     wiki: "Rain, Steam and Speed – The Great Western Railway",
     artist: "J. M. W. Turner",
     year: "1844",
@@ -286,6 +292,7 @@ const ARTWORKS = [
   },
   {
     title: "Broadway Boogie Woogie",
+    pd: true,
     wiki: "Broadway Boogie Woogie",
     artist: "Piet Mondrian",
     year: "1942–43",
@@ -321,6 +328,7 @@ const ARTWORKS = [
   },
   {
     title: "Composition with Red, Blue and Yellow",
+    pd: true,
     wiki: "Composition with Red, Blue and Yellow",
     artist: "Piet Mondrian",
     year: "1930",
@@ -345,6 +353,7 @@ const ARTWORKS = [
   },
   {
     title: "Black Square",
+    pd: true,
     wiki: "Black Square (painting)",
     artist: "Kazimir Malevich",
     year: "1915",
@@ -369,6 +378,7 @@ const ARTWORKS = [
   },
   {
     title: "Fountain",
+    pd: true,
     wiki: "Fountain (Duchamp)",
     artist: "Marcel Duchamp",
     year: "1917",
@@ -417,6 +427,7 @@ const ARTWORKS = [
   },
   {
     title: "Composition VIII",
+    pd: true,
     artist: "Wassily Kandinsky",
     year: "1923",
     medium: "Oil on canvas",
@@ -452,6 +463,7 @@ const ARTWORKS = [
   },
   {
     title: "The Starry Night",
+    pd: true,
     wiki: "The Starry Night",
     artist: "Vincent van Gogh",
     year: "1889",
@@ -464,6 +476,7 @@ const ARTWORKS = [
   },
   {
     title: "The Great Wave off Kanagawa",
+    pd: true,
     wiki: "The Great Wave off Kanagawa",
     artist: "Katsushika Hokusai",
     year: "c. 1831",
@@ -476,6 +489,7 @@ const ARTWORKS = [
   },
   {
     title: "The Scream",
+    pd: true,
     wiki: "The Scream",
     artist: "Edvard Munch",
     year: "1893",
@@ -488,6 +502,7 @@ const ARTWORKS = [
   },
   {
     title: "Mona Lisa",
+    pd: true,
     wiki: "Mona Lisa",
     artist: "Leonardo da Vinci",
     year: "c. 1503–19",
@@ -500,6 +515,7 @@ const ARTWORKS = [
   },
   {
     title: "Girl with a Pearl Earring",
+    pd: true,
     wiki: "Girl with a Pearl Earring",
     artist: "Johannes Vermeer",
     year: "c. 1665",
@@ -512,6 +528,7 @@ const ARTWORKS = [
   },
   {
     title: "The Night Watch",
+    pd: true,
     wiki: "The Night Watch",
     artist: "Rembrandt van Rijn",
     year: "1642",
@@ -524,6 +541,7 @@ const ARTWORKS = [
   },
   {
     title: "Las Meninas",
+    pd: true,
     wiki: "Las Meninas",
     artist: "Diego Velázquez",
     year: "1656",
@@ -536,6 +554,7 @@ const ARTWORKS = [
   },
   {
     title: "The Birth of Venus",
+    pd: true,
     wiki: "The Birth of Venus",
     artist: "Sandro Botticelli",
     year: "c. 1485",
@@ -548,6 +567,7 @@ const ARTWORKS = [
   },
   {
     title: "The Garden of Earthly Delights",
+    pd: true,
     wiki: "The Garden of Earthly Delights",
     artist: "Hieronymus Bosch",
     year: "c. 1490–1510",
@@ -560,6 +580,7 @@ const ARTWORKS = [
   },
   {
     title: "Impression, Sunrise",
+    pd: true,
     wiki: "Impression, Sunrise",
     artist: "Claude Monet",
     year: "1872",
@@ -572,6 +593,7 @@ const ARTWORKS = [
   },
   {
     title: "Water Lilies",
+    pd: true,
     wiki: "Water Lilies (Monet series)",
     artist: "Claude Monet",
     year: "1896–1926",
@@ -608,6 +630,7 @@ const ARTWORKS = [
   },
   {
     title: "The Kiss",
+    pd: true,
     wiki: "The Kiss (Klimt)",
     artist: "Gustav Klimt",
     year: "1907–08",
@@ -656,6 +679,7 @@ const ARTWORKS = [
   },
   {
     title: "The Third of May 1808",
+    pd: true,
     wiki: "The Third of May 1808",
     artist: "Francisco Goya",
     year: "1814",
@@ -668,6 +692,7 @@ const ARTWORKS = [
   },
   {
     title: "Ophelia",
+    pd: true,
     wiki: "Ophelia (painting)",
     artist: "John Everett Millais",
     year: "1851–52",
@@ -680,6 +705,7 @@ const ARTWORKS = [
   },
   {
     title: "Sunflowers",
+    pd: true,
     wiki: "Sunflowers (Van Gogh series)",
     artist: "Vincent van Gogh",
     year: "1888",
