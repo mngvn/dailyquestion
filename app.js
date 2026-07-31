@@ -161,12 +161,15 @@
   // trivia slices additionally fill from the hub outward according to their
   // respective accuracy.
   const SLICES = [
-    { id: "puzzle",  frac: 0.32, c1: "#7c5cff", c2: "#b06bff", icon: "🧩", name: "Puzzle" },
-    { id: "trivia",  frac: 0.22, c1: "#ff5c9c", c2: "#ff8a5c", icon: "🎯", name: "Trivia" },
-    { id: "fact",    frac: 0.16, c1: "#ffd86b", c2: "#ff9a3c", icon: "💡", name: "Fun Fact" },
-    { id: "artwork", frac: 0.17, c1: "#47e0a0", c2: "#0fb5a5", icon: "🎨", name: "Artwork" },
-    { id: "history", frac: 0.13, c1: "#4aa8ff", c2: "#1f5fe0", icon: "📜", name: "On This Day" }
+    { id: "puzzle",  frac: 0.27, c1: "#7c5cff", c2: "#b06bff", icon: "🧩", name: "Puzzle" },
+    { id: "trivia",  frac: 0.19, c1: "#ff5c9c", c2: "#ff8a5c", icon: "🎯", name: "Trivia" },
+    { id: "duel",    frac: 0.14, c1: "#a3e635", c2: "#4d7c0f", icon: "⚖️", name: "App Duel" },
+    { id: "fact",    frac: 0.13, c1: "#ffd86b", c2: "#ff9a3c", icon: "💡", name: "Fun Fact" },
+    { id: "artwork", frac: 0.15, c1: "#47e0a0", c2: "#0fb5a5", icon: "🎨", name: "Artwork" },
+    { id: "history", frac: 0.12, c1: "#4aa8ff", c2: "#1f5fe0", icon: "📜", name: "On This Day" }
   ];
+
+  const DUEL_TARGET = 15;   // streak at which the duel slice fills completely
 
   const SVG_NS = "http://www.w3.org/2000/svg";
   const CX = 260, CY = 260, R = 244;
@@ -249,7 +252,7 @@
         stroke: s.c1
       }));
 
-      if (s.id === "puzzle" || s.id === "trivia") {
+      if (s.id === "puzzle" || s.id === "trivia" || s.id === "duel") {
         const fill = svgEl("path", {
           class: "slice-fill",
           d: "",
@@ -280,6 +283,8 @@
         sub.textContent = artwork.artist;
       } else if (s.id === "history") {
         sub.textContent = String(hist.year);
+      } else if (s.id === "duel") {
+        sub.textContent = "Which has more users?";
       }
 
       if (sliceFills[s.id]) {
@@ -326,6 +331,12 @@
     renderFill("trivia", tPct, stats.triviaAnswered
       ? `${Math.round(tPct * 100)}% correct (${stats.triviaCorrect}/${stats.triviaAnswered})`
       : "No answers yet");
+
+    // The duel has no accuracy, so the fill tracks the best streak instead,
+    // topping out at DUEL_TARGET.
+    const dBest = (typeof Duel !== "undefined") ? Duel.bestScore() : 0;
+    renderFill("duel", dBest / DUEL_TARGET,
+      dBest ? `Best streak: ${dBest}` : "No streak yet");
   }
 
   // Slice state that changes within the day (trivia played / new).
@@ -500,6 +511,21 @@
     }).catch(() => keepStudy(LOOKUP_FAILED));
   }
 
+  function buildDuel(body) {
+    const root = el("div", "pz-root duel-root");
+    body.append(root);
+    if (typeof Duel === "undefined") {
+      body.append(el("p", "modal-text", "The duel failed to load."));
+      return;
+    }
+    Duel.mount(root, {
+      onStart: registerPlay,
+      onGameOver: () => { renderFills(); refreshSlices(); }
+    });
+    body.append(el("div", "modal-note",
+      "Figures are the latest publicly reported numbers, and they don't all count the same thing — each card says which metric and which year it is. Discontinued apps are shown at their peak."));
+  }
+
   function buildHistory(body) {
     body.append(el("div", "history-year", String(hist.year)));
     body.append(el("p", "modal-text", hist.text));
@@ -578,6 +604,7 @@
     puzzle: { icon: "🧩", title: "Daily Puzzle", build: buildPuzzle },
     artwork: { icon: "🎨", title: "Artwork of the Day", build: buildArtwork },
     history: { icon: "📜", title: "On This Day", build: buildHistory },
+    duel: { icon: "⚖️", title: "App Duel", build: buildDuel },
     trivia: { icon: "🎯", title: "Trivia", build: buildTrivia }
   };
 
