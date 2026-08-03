@@ -446,17 +446,81 @@
     else body.append(el("p", "modal-text", "Puzzles failed to load."));
   }
 
+  // The artwork card never shows the generated study as a placeholder — that
+  // reads as "here is the painting" when it isn't. While the photograph is
+  // being fetched the frame shows an empty canvas drawing itself, and the real
+  // work is revealed into it. The study only ever appears as a final state,
+  // when there is no photograph to show, and it says so.
+  function buildArtworkLoader() {
+    const loader = el("div", "aw-loader");
+    loader.append(el("div", "aw-canvas"));
+
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("class", "aw-loader-svg");
+    svg.setAttribute("viewBox", "0 0 400 300");
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("aria-hidden", "true");
+    const defs = document.createElementNS(SVG_NS, "defs");
+    const grad = document.createElementNS(SVG_NS, "linearGradient");
+    grad.setAttribute("id", "awGold");
+    grad.setAttribute("x1", "0%"); grad.setAttribute("y1", "0%");
+    grad.setAttribute("x2", "100%"); grad.setAttribute("y2", "100%");
+    [["0%", "#f5d489"], ["45%", "#c9a227"], ["100%", "#8a6a1a"]].forEach(([o, c]) => {
+      const st = document.createElementNS(SVG_NS, "stop");
+      st.setAttribute("offset", o); st.setAttribute("stop-color", c);
+      grad.append(st);
+    });
+    defs.append(grad);
+    const rect = document.createElementNS(SVG_NS, "rect");
+    rect.setAttribute("class", "aw-loader-rect");
+    rect.setAttribute("x", "14"); rect.setAttribute("y", "14");
+    rect.setAttribute("width", "372"); rect.setAttribute("height", "272");
+    rect.setAttribute("rx", "3");
+    svg.append(defs, rect);
+    loader.append(svg);
+
+    loader.append(el("div", "aw-sweep"));
+    loader.append(el("span", "aw-loader-label", "Unveiling"));
+    return loader;
+  }
+
   function buildArtwork(body) {
     const a = artwork;
 
-    // The generated study shows immediately; if a freely licensed photograph
-    // of the actual work is available it replaces the study once it loads.
-    // See artwork.js for why only Commons-hosted images are ever used.
-    const frame = el("div", "aw-frame aw-loading");
-    const study = (typeof Artwork !== "undefined") ? Artwork.render(a) : null;
-    if (study) frame.append(study);
-    const tag = el("span", "aw-tag", a.faithful ? "Reconstruction" : "Colour study");
-    frame.append(tag);
+    const frame = el("div", "aw-frame");
+    const tag = el("span", "aw-tag");
+    const showTag = (text) => { tag.textContent = text; frame.append(tag); };
+
+    const showStudy = (why) => {
+      frame.classList.remove("is-loading");
+      const loader = frame.querySelector(".aw-loader");
+      if (loader) loader.remove();
+      if (typeof Artwork !== "undefined") frame.prepend(Artwork.render(a));
+      showTag(a.faithful ? "Reconstruction" : "Colour study");
+      note.textContent = why;
+    };
+
+    const showPhoto = (src) => {
+      const img = new Image();
+      img.className = "aw-photo";
+      img.alt = `${a.title} by ${a.artist}`;
+      img.referrerPolicy = "no-referrer";
+      img.addEventListener("load", () => {
+        const loader = frame.querySelector(".aw-loader");
+        if (loader) {
+          loader.classList.add("done");
+          setTimeout(() => loader.remove(), 500);
+        }
+        frame.classList.remove("is-loading");
+        frame.classList.add("has-photo");
+        frame.prepend(img);
+        showTag("Wikimedia Commons");
+        note.textContent = "Photograph of the original, via Wikimedia Commons.";
+      });
+      img.addEventListener("error", () => showStudy(LOOKUP_FAILED));
+      img.src = src;
+    };
+
     body.append(frame);
 
     const cap = el("div", "aw-caption");
@@ -480,44 +544,29 @@
     foot.append(link);
     body.append(foot);
 
-    const note = el("div", "modal-note", a.wiki
-      ? "Looking for a photograph of the original…"
-      : "No freely licensed photograph of this work is available, so the image above is generated from its palette and composition.");
+    const note = el("div", "modal-note", "");
     body.append(note);
-
-    const keepStudy = (why) => {
-      frame.classList.remove("aw-loading");
-      note.textContent = why;
-    };
-
-    if (!a.wiki || typeof Artwork === "undefined") {
-      frame.classList.remove("aw-loading");
-      return;
-    }
 
     const NO_FREE_IMAGE = "No freely licensed photograph of this work exists — it is almost certainly still in copyright — so the image above is generated from its palette and composition. Use the link to see the original.";
     const LOOKUP_FAILED = "Couldn't reach Wikipedia just now, so the image above is generated from this work's palette and composition.";
 
+    // Nothing to fetch: go straight to the study rather than flashing a loader.
+    if (!a.wiki || typeof Artwork === "undefined") {
+      showStudy(NO_FREE_IMAGE);
+      return;
+    }
+
+    frame.classList.add("is-loading");
+    frame.append(buildArtworkLoader());
+    note.textContent = "Unveiling today's work…";
+
     Artwork.findImage(a).then((res) => {
       if (!res || !res.src) {
-        keepStudy(res && res.status === "error" ? LOOKUP_FAILED : NO_FREE_IMAGE);
+        showStudy(res && res.status === "error" ? LOOKUP_FAILED : NO_FREE_IMAGE);
         return;
       }
-      const img = new Image();
-      img.className = "aw-photo";
-      img.alt = `${a.title} by ${a.artist}`;
-      img.referrerPolicy = "no-referrer";
-      img.addEventListener("load", () => {
-        if (study) study.remove();
-        frame.classList.remove("aw-loading");
-        frame.classList.add("has-photo");
-        frame.prepend(img);
-        tag.textContent = "Wikimedia Commons";
-        note.textContent = "Photograph of the original, via Wikimedia Commons.";
-      });
-      img.addEventListener("error", () => keepStudy(LOOKUP_FAILED));
-      img.src = res.src;
-    }).catch(() => keepStudy(LOOKUP_FAILED));
+      showPhoto(res.src);
+    }).catch(() => showStudy(LOOKUP_FAILED));
   }
 
   function buildDuel(body) {
@@ -684,6 +733,18 @@
 
   renderStreak(false);
   renderFooter();
+
+  // Warm the artwork lookup once the page is idle. Nothing is displayed here —
+  // it just means the reveal is instant when the slice is actually opened.
+  if (typeof Artwork !== "undefined" && artwork.wiki) {
+    const warm = () => {
+      Artwork.findImage(artwork).then((res) => {
+        if (res && res.src) { const pre = new Image(); pre.src = res.src; }
+      }).catch(() => { /* the card handles failure on open */ });
+    };
+    if (typeof requestIdleCallback === "function") requestIdleCallback(warm, { timeout: 3000 });
+    else setTimeout(warm, 1200);
+  }
 
   // Visiting counts as playing — register on first load of the day.
   registerPlay();
