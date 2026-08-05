@@ -68,15 +68,10 @@
     ? pick(artOther, 41)
     : pick(artPhoto.length ? artPhoto : ARTWORKS, 41);
   const hist = HISTORY_BY_DATE[mmdd] || pick(HISTORY_FALLBACK, 53);
-  const trivia = pick(TRIVIA, 67);
-  const keys = ["A", "B", "C", "D"];
 
-  // Deterministically shuffle trivia choices for the day, tracking the answer.
-  const order = trivia.choices.map((_, i) => i);
-  for (let i = order.length - 1; i > 0; i--) {
-    const j = (((dayNumber * 6364136223 + i * 97) >>> 0)) % (i + 1);
-    [order[i], order[j]] = [order[j], order[i]];
-  }
+  // Trivia is a three-question run built by trivia.js; the day's questions and
+  // their order are decided there so they stay identical across reloads.
+  const TRIVIA_ROUNDS = (typeof Trivia !== "undefined") ? Trivia.ROUNDS : 3;
 
   // ----- Stats store -----
   function loadStats() {
@@ -89,10 +84,10 @@
       streak: 0,
       bestStreak: 0,
       daysPlayed: 0,
-      triviaAnswered: 0,
+      triviaAnswered: 0,      // trivia questions answered, all time
       triviaCorrect: 0,
-      answeredToday: false,   // whether today's trivia is locked in
-      answeredKey: null,      // which dayKey the above flag refers to
+      triviaBest: 0,          // best score for a single day's run
+      run: null,              // today's trivia run, shape set just below
       puzzleAnswered: 0,      // daily puzzles finished (win or lose)
       puzzleCorrect: 0,       // daily puzzles solved
       puzzleKey: null         // dayKey of the last recorded puzzle result
@@ -103,15 +98,18 @@
   }
 
   const stats = loadStats();
-  // Older saves predate puzzle tracking.
+  // Older saves predate puzzle and trivia-run tracking.
   stats.puzzleAnswered = stats.puzzleAnswered || 0;
   stats.puzzleCorrect = stats.puzzleCorrect || 0;
+  stats.triviaBest = stats.triviaBest || 0;
 
-  // Reset the per-day "answered" flag when a new day starts.
-  if (stats.answeredKey !== dayKey) {
-    stats.answeredToday = false;
-    stats.answeredKey = dayKey;
+  // Today's run: which question we're on, what it has scored, whether the
+  // 50:50 has been spent, and the per-question results. Reset at midnight —
+  // trivia.js reads and mutates this object directly.
+  if (!stats.run || stats.run.key !== dayKey || !Array.isArray(stats.run.results)) {
+    stats.run = { key: dayKey, i: 0, score: 0, fifty: false, results: [] };
   }
+  const runDone = () => stats.run.i >= TRIVIA_ROUNDS;
 
   // Register a "play" for today (first interaction of the day updates the streak).
   function registerPlay() {
@@ -348,9 +346,15 @@
       dBest ? `Best streak: ${dBest}` : "No streak yet");
   }
 
-  // Slice state that changes within the day (trivia played / new).
+  // Slice state that changes within the day (how far into today's run you are).
   function refreshSlices() {
-    if (triviaSubEl) triviaSubEl.textContent = stats.answeredToday ? "✓ Played" : "New today";
+    if (!triviaSubEl) return;
+    const r = stats.run;
+    triviaSubEl.textContent = runDone()
+      ? `✓ ${r.score} pts today`
+      : r.i > 0
+        ? `Round ${r.i + 1} of ${TRIVIA_ROUNDS}`
+        : `${TRIVIA_ROUNDS} questions · new today`;
   }
 
   // Puzzles report their daily result here (true = solved). Only the first
@@ -592,69 +596,49 @@
     body.append(foot);
   }
 
-  function lockChoices(container, selectedDom, correctDom) {
-    [...container.children].forEach((c) => c.classList.add("disabled"));
-    if (correctDom) correctDom.classList.add("correct");
-    if (selectedDom && selectedDom !== correctDom) selectedDom.classList.add("wrong");
-  }
-
+  // The trivia run lives in trivia.js. It owns the questions, the clock and the
+  // scoring; this only hands it today's state and folds the results back into
+  // the lifetime stats. Returns the teardown so the clock stops with the modal.
   function buildTrivia(body) {
-    body.append(el("p", "modal-text trivia-q", trivia.q));
-
-    const choices = el("div", "choices");
-    const result = el("div", "trivia-result");
-
-    const findCorrect = () =>
-      [...choices.children].find((c, i) => order[i] === trivia.correct);
-
-    order.forEach((origIdx, slot) => {
-      const btn = el("div", "choice");
-      btn.setAttribute("role", "button");
-      btn.setAttribute("tabindex", "0");
-      btn.innerHTML = `<span class="key">${keys[slot]}</span><span>${trivia.choices[origIdx]}</span>`;
-
-      const answer = () => {
-        if (stats.answeredToday) return;
-        const correct = origIdx === trivia.correct;
-        lockChoices(choices, btn, findCorrect());
-
-        stats.answeredToday = true;
-        stats.answeredKey = dayKey;
-        stats.triviaAnswered += 1;
-        if (correct) stats.triviaCorrect += 1;
-        saveStats(stats);
-
-        result.classList.add("show", correct ? "good" : "bad");
-        result.textContent = correct
-          ? "Correct! Nicely done. 🎉"
-          : `Not quite — the answer is "${trivia.choices[trivia.correct]}".`;
-
-        registerPlay();
-        renderFooter();
-        refreshSlices();
-        if (correct) burstConfetti();
-      };
-
-      btn.addEventListener("click", answer);
-      btn.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); answer(); }
-      });
-      choices.append(btn);
-    });
-
-    // Already played today → show the locked state.
-    if (stats.answeredToday) {
-      lockChoices(choices, null, findCorrect());
-      result.classList.add("show", "good");
-      result.textContent = "You've already played today's trivia. Come back tomorrow!";
+    if (typeof Trivia === "undefined") {
+      body.append(el("p", "modal-text", "Trivia failed to load."));
+      return null;
     }
-
-    body.append(choices, result);
 
     const a = accuracyPct();
     if (a !== null) {
-      body.append(el("div", "modal-note", `Your accuracy: ${stats.triviaCorrect}/${stats.triviaAnswered} · ${a}%`));
+      body.append(el("div", "tv-lifetime",
+        `Lifetime ${stats.triviaCorrect}/${stats.triviaAnswered} · ${a}%` +
+        (stats.triviaBest ? ` · best run ${stats.triviaBest} pts` : "")));
     }
+
+    const root = el("div", "pz-root tv-root");
+    body.append(root);
+
+    return Trivia.mount(root, {
+      bank: TRIVIA,
+      dayNumber: dayNumber,
+      state: stats.run,
+      best: stats.triviaBest,
+      save: () => saveStats(stats),
+      onStart: registerPlay,
+      onAnswer: (res) => {
+        stats.triviaAnswered += 1;
+        if (res.correct) stats.triviaCorrect += 1;
+        saveStats(stats);
+        renderFooter();
+        renderFills();
+        refreshSlices();
+      },
+      onBest: (score) => {
+        stats.triviaBest = score;
+        saveStats(stats);
+      },
+      onComplete: (res) => {
+        refreshSlices();
+        if (!res.replay && res.perfect) burstConfetti();
+      }
+    });
   }
 
   const SECTIONS = {
@@ -663,7 +647,7 @@
     artwork: { icon: "🎨", title: "Artwork of the Day", build: buildArtwork },
     history: { icon: "📜", title: "On This Day", build: buildHistory },
     duel: { icon: "⚖️", title: "App Duel", build: buildDuel },
-    trivia: { icon: "🎯", title: "Trivia", build: buildTrivia }
+    trivia: { icon: "🎯", title: "Tech Trivia", build: buildTrivia }
   };
 
   // ----- Modal controller -----
@@ -674,6 +658,16 @@
   const modalTitle = document.getElementById("modalTitle");
   const modalBody = document.getElementById("modalBody");
   let lastFocused = null;
+  // Sections that keep something running (the trivia clock, its key handler)
+  // return a teardown from build(); it runs before the body is replaced.
+  let sectionTeardown = null;
+
+  function teardownSection() {
+    if (!sectionTeardown) return;
+    const fn = sectionTeardown;
+    sectionTeardown = null;
+    fn();
+  }
 
   function openModal(id) {
     const section = SECTIONS[id];
@@ -683,8 +677,9 @@
     modal.dataset.section = id;
     modalIcon.textContent = section.icon;
     modalTitle.textContent = section.title;
+    teardownSection();
     modalBody.innerHTML = "";
-    section.build(modalBody);
+    sectionTeardown = section.build(modalBody) || null;
     modalBody.scrollTop = 0;
 
     overlay.classList.add("open");
@@ -699,6 +694,7 @@
     overlay.classList.remove("open");
     overlay.setAttribute("aria-hidden", "true");
     document.body.classList.remove("modal-open");
+    teardownSection();
 
     // Persist any results gathered while the modal was open, then sync the UI.
     saveStats(stats);
