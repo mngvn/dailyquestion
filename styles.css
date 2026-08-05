@@ -585,27 +585,14 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* countdown: the bar drains, the number counts down, both go red near zero */
-.tv-clock {
-  position: relative; height: 6px; margin-bottom: 8px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.07); overflow: visible;
+/* the setup line above the question — sets the scene, gives nothing away */
+.tv-ctx {
+  font-size: 0.86rem; line-height: 1.55; color: var(--muted);
+  padding-left: 13px;
+  border-left: 2px solid var(--accent);
+  margin-bottom: -4px;
 }
-.tv-clock-bar {
-  display: block; height: 100%; width: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #ff5c9c, #ff8a5c);
-  transition: background 0.4s ease;
-}
-.tv-clock-num {
-  position: absolute; right: 0; top: 10px;
-  font-size: 0.72rem; color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-.tv-clock.low .tv-clock-bar { background: linear-gradient(90deg, #ff4d7d, #ff2e97); }
-.tv-clock.low .tv-clock-num { color: var(--bad); }
-.tv-clock.done { opacity: 0.25; }
-.tv-clock.done .tv-clock-num { visibility: hidden; }
+.trivia-q { font-size: 1.06rem; }
 
 /* a choice removed by the 50:50: fades, then collapses out of the flow so the
    two survivors close the gap instead of leaving holes */
@@ -1164,7 +1151,6 @@ body.light .ctrl-btn {
   background: rgba(28, 34, 80, 0.05);
 }
 body.light .tv-mult,
-body.light .tv-clock,
 body.light .tv-row { background: rgba(28, 34, 80, 0.05); }
 body.light .tv-chip { color: #c02a68; }
 body.light .controls { background: rgba(255, 255, 255, 0.7); }

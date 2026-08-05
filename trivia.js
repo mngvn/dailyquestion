@@ -6,10 +6,10 @@
 // difficulty tier so it escalates, drawn from a deck that only reshuffles once
 // every question in that tier has been used — so nothing repeats for months.
 //
-// Scoring rewards knowing it *and* knowing it fast:
+// There's no clock. The questions carry a line of context and an explanation
+// worth reading, and a countdown only pushes people to skim both. Scoring is
+// about what you knew, not how fast you clicked:
 //   base points per round      100 / 200 / 300
-//   speed                      full points at the buzzer's start, decaying to
-//                              half by the time the clock runs out
 //   streak multiplier          x1, then x1.5, then x2 for consecutive hits
 //   50:50                      one per day, drops two wrong answers and halves
 //                              what that question is worth
@@ -22,21 +22,19 @@ window.Trivia = (function () {
 
   const ROUNDS = 3;
   const BASE = [100, 200, 300];          // base points per round
-  const LIMIT = [25, 30, 35];            // seconds on the clock per round
-  const SPEED_FLOOR = 0.5;               // worst-case speed factor (at 0:00)
   const MAX_MULT = 2;                    // streak multiplier ceiling
   const TIER_NAME = ["Warm-up", "Middle round", "Boss round"];
   const KEYS = ["A", "B", "C", "D"];
 
-  // Score bands for the end-of-run title. Max is 1000 (three instant hits with
-  // the multiplier running), so these are deliberately generous at the bottom.
+  // Score bands for the end-of-run title. Without a speed component the reachable
+  // scores are a short list: 1000 is a clean sweep, 650 is missing only the
+  // warm-up, 400 is two of three, and a single hit is 100-300.
   const RANKS = [
-    [900, "🏆 Turing Award"],
-    [700, "🚀 10x Engineer"],
-    [500, "🧠 Principal Engineer"],
-    [300, "⚙️ Senior Dev"],
-    [120, "🌱 Junior Dev"],
-    [1, "📟 Script Kiddie"],
+    [1000, "🏆 Turing Award"],
+    [650, "🚀 10x Engineer"],
+    [400, "🧠 Senior Engineer"],
+    [200, "⚙️ Junior Dev"],
+    [1, "🌱 Script Kiddie"],
     [0, "💀 Null Pointer"]
   ];
 
@@ -130,7 +128,7 @@ window.Trivia = (function () {
    * opts.bank        the question array (TRIVIA)
    * opts.dayNumber   integer day index, used for the deterministic pick
    * opts.state       persisted run state, mutated in place as the run goes:
-   *                  { i, score, fifty, results: [{ c, p, t }], left }
+   *                  { i, score, fifty, results: [{ c, p }] }
    * opts.save        called after every state change
    * opts.onAnswer    ({ correct }) — per question, for lifetime accuracy
    * opts.onComplete  ({ score, results, best, perfect, replay }) — at the end,
@@ -139,8 +137,8 @@ window.Trivia = (function () {
    * opts.best        previous best score, shown on the scorecard
    * opts.onBest      (score) — called when today beats it
    *
-   * Returns a teardown function; call it when the modal closes so the clock
-   * and the key handler don't outlive the view.
+   * Returns a teardown function; call it when the modal closes so the key
+   * handler doesn't outlive the view.
    */
   function mount(root, opts) {
     const state = opts.state;
@@ -150,9 +148,6 @@ window.Trivia = (function () {
       return function () {};
     }
 
-    let raf = 0;              // clock frame handle
-    let deadline = 0;         // performance.now() at which the clock hits zero
-    let limitMs = 0;
     let locked = true;        // true whenever a click can't be an answer
     let fiftyOnThis = false;  // 50:50 used on the question being shown
     let killed = false;
@@ -168,11 +163,7 @@ window.Trivia = (function () {
     const scoreEl = el("span", "tv-score");
     hud.append(roundEl, catEl, multEl, scoreEl);
 
-    const clock = el("div", "tv-clock");
-    const clockBar = el("i", "tv-clock-bar");
-    const clockNum = el("span", "tv-clock-num");
-    clock.append(clockBar, clockNum);
-
+    const ctxEl = el("p", "tv-ctx");
     const qEl = el("p", "modal-text trivia-q");
     const choices = el("div", "choices");
 
@@ -187,28 +178,14 @@ window.Trivia = (function () {
     const why = el("div", "tv-why");
     const nextWrap = el("div", "tv-next-wrap");
 
-    wrap.append(hud, clock, qEl, choices, tools, result, why, nextWrap);
+    wrap.append(hud, ctxEl, qEl, choices, tools, result, why, nextWrap);
     root.append(wrap);
 
-    // ----- clock -----
-    function stopClock() {
-      if (raf) cancelAnimationFrame(raf);
-      raf = 0;
-    }
-
-    // Fraction of the clock already spent, 0 → 1.
-    function spent() {
-      if (!limitMs) return 0;
-      return Math.min(1, Math.max(0, 1 - (deadline - performance.now()) / limitMs));
-    }
-
-    // What the current question would pay if answered right now.
+    // What the current question pays: base for the round, times the streak
+    // multiplier, halved if the 50:50 has been spent on it.
     function worth() {
-      const round = state.i;
-      const speed = 1 - (1 - SPEED_FLOOR) * spent();
-      const mult = multFor(currentStreak());
       const half = fiftyOnThis ? 0.5 : 1;
-      return Math.max(1, Math.round(BASE[round] * speed * mult * half));
+      return Math.round(BASE[state.i] * multFor(currentStreak()) * half);
     }
 
     // Consecutive correct answers so far this run.
@@ -218,37 +195,6 @@ window.Trivia = (function () {
         if (r.c) n++; else n = 0;
       }
       return n;
-    }
-
-    function tick() {
-      if (killed) return;
-      const p = spent();
-      clockBar.style.width = (100 - p * 100).toFixed(2) + "%";
-      const left = Math.max(0, (deadline - performance.now()) / 1000);
-      clockNum.textContent = left.toFixed(1) + "s";
-      clock.classList.toggle("low", left <= 5);
-      worthEl.textContent = `Worth ${worth()} pts`;
-      if (p >= 1) { answer(null); return; }
-      raf = requestAnimationFrame(tick);
-    }
-
-    // `leftMs` resumes a question that was already on the clock when the modal
-    // was closed — the clock pauses rather than restarting, so reopening isn't
-    // a way to buy back speed points.
-    function startClock(round, leftMs) {
-      limitMs = LIMIT[round] * 1000;
-      deadline = performance.now() + (leftMs == null ? limitMs : Math.max(0, leftMs));
-      clock.classList.remove("done");
-      stopClock();
-      raf = requestAnimationFrame(tick);
-    }
-
-    // Store what's left on the clock so a close (or a tab dismissal) resumes
-    // where it stopped.
-    function parkClock() {
-      if (locked || !limitMs) return;
-      state.left = { r: state.i, ms: Math.max(0, deadline - performance.now()) };
-      if (opts.save) opts.save();
     }
 
     // ----- rendering -----
@@ -270,6 +216,8 @@ window.Trivia = (function () {
       const order = choiceOrder(q, opts.dayNumber, round);
 
       renderHud();
+      ctxEl.textContent = q.ctx || "";
+      ctxEl.style.display = q.ctx ? "" : "none";
       qEl.textContent = q.q;
       choices.innerHTML = "";
       result.className = "trivia-result";
@@ -295,13 +243,11 @@ window.Trivia = (function () {
         choices.append(btn);
       });
 
-      const parked = (state.left && state.left.r === round) ? state.left.ms : null;
-      state.left = null;
-      startClock(round, parked);
+      worthEl.textContent = `Worth ${worth()} pts`;
     }
 
     // Reveal the outcome of the question just answered.
-    function reveal(round, chosen, points, timedOut) {
+    function reveal(round, chosen, points) {
       const q = run[round];
       const correct = chosen === q.correct;
 
@@ -315,16 +261,13 @@ window.Trivia = (function () {
       result.className = "trivia-result show " + (correct ? "good" : "bad");
       result.textContent = correct
         ? `Correct — +${points} pts`
-        : timedOut
-          ? `Out of time — the answer was “${q.choices[q.correct]}”.`
-          : `Not quite — the answer is “${q.choices[q.correct]}”.`;
+        : `Not quite — the answer is “${q.choices[q.correct]}”.`;
 
       why.className = "tv-why show";
       why.innerHTML = "";
       why.append(el("span", "tv-why-tag", q.cat), el("p", "tv-why-text", q.why));
 
       tools.style.display = "none";
-      clock.classList.add("done");
       scoreEl.textContent = `${state.score} pts`;
 
       const last = round === ROUNDS - 1;
@@ -342,24 +285,20 @@ window.Trivia = (function () {
     function answer(chosen) {
       if (locked) return;
       locked = true;
-      stopClock();
 
       const round = state.i;
-      const q = run[round];
-      const timedOut = chosen === null;
-      const correct = !timedOut && chosen === q.correct;
+      const correct = chosen === run[round].correct;
       const points = correct ? worth() : 0;
 
-      state.results.push({ c: correct, p: points, t: timedOut });
+      state.results.push({ c: correct, p: points });
       state.score += points;
       state.i = round + 1;
-      state.left = null;
       if (opts.save) opts.save();
 
       if (round === 0 && typeof opts.onStart === "function") opts.onStart();
       if (typeof opts.onAnswer === "function") opts.onAnswer({ correct: correct });
 
-      reveal(round, timedOut ? -1 : chosen, points, timedOut);
+      reveal(round, chosen, points);
     }
 
     function useFifty() {
@@ -382,6 +321,7 @@ window.Trivia = (function () {
 
       fiftyBtn.disabled = true;
       fiftyBtn.textContent = "50:50 used";
+      worthEl.textContent = `Worth ${worth()} pts`;   // now halved
     }
 
     fiftyBtn.addEventListener("click", useFifty);
@@ -390,7 +330,6 @@ window.Trivia = (function () {
     // `replay` is true when the modal is reopened on a run that already
     // finished, so the caller can skip the celebration the second time.
     function scorecard(replay) {
-      stopClock();
       const perfect = state.results.every((r) => r.c);
       const best = Math.max(opts.best || 0, state.score);
       if (state.score > (opts.best || 0) && typeof opts.onBest === "function") {
@@ -411,7 +350,7 @@ window.Trivia = (function () {
         row.append(
           el("span", "tv-row-mark", r.c ? "✓" : "✗"),
           el("span", "tv-row-name", `R${i + 1} · ${run[i].cat}`),
-          el("span", "tv-row-pts", r.c ? `+${r.p}` : (r.t ? "timed out" : "0"))
+          el("span", "tv-row-pts", r.c ? `+${r.p}` : "0")
         );
         rows.append(row);
       });
@@ -477,25 +416,19 @@ window.Trivia = (function () {
       answer(Number(btn.dataset.idx));
     };
     document.addEventListener("keydown", keyHandler);
-    window.addEventListener("pagehide", parkClock);
 
     // ----- resume -----
     if (state.i >= ROUNDS) {
       scorecard(true);
     } else if (state.i > 0) {
-      // Mid-run: the clock restarts for the unanswered question, which is the
-      // honest reading of "you closed it and came back".
-      question(state.i);
+      question(state.i);          // mid-run: pick up at the unanswered question
     } else {
       question(0);
     }
 
     return function teardown() {
-      parkClock();
       killed = true;
-      stopClock();
       if (keyHandler) document.removeEventListener("keydown", keyHandler);
-      window.removeEventListener("pagehide", parkClock);
     };
   }
 
