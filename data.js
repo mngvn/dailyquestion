@@ -308,6 +308,47 @@ const TRIVIA = [
     choices: ["Draw the user interface", "Manage hardware and share it between programs", "Compile programs", "Store files in the cloud"], correct: 1, cat: "Hardware", diff: 1,
     why: "It owns memory, CPU time and devices, so nothing else has to. When it hits a state it can't recover from, Linux calls it a kernel panic and Windows shows the blue screen." },
 
+  // LeetCode tier 1 — the interview warm-ups
+  { q: "Two Sum: what does a hash map do to the brute-force O(n²) scan?",
+    choices: ["Drops it to O(n)", "Drops it to O(log n)", "Leaves it at O(n²)", "Drops it to O(n log n)"], correct: 0, cat: "LeetCode", diff: 1,
+    why: "One pass: for each number, look up target − number in the map before storing it. It's problem #1 on LeetCode and the reason 'just use a hash map' is the single most useful reflex in interviews." },
+
+  { q: "Valid Parentheses — which data structure solves it cleanly?",
+    choices: ["A stack", "A queue", "A heap", "A hash set"], correct: 0, cat: "LeetCode", diff: 1,
+    why: "Push every opening bracket, pop and match on every closing one, and the string is valid if the stack ends empty. Nested-anything problems are almost always a stack in disguise — which is exactly how parsers work." },
+
+  { q: "Given an array where every number appears twice except one, what one-liner finds the loner?",
+    choices: ["XOR everything together", "Sum everything", "Sort and scan", "Multiply everything"], correct: 0, cat: "LeetCode", diff: 1,
+    why: "x ^ x is 0 and x ^ 0 is x, so every pair cancels and the odd one out drops out of the end. O(n) time, O(1) space, no extra structures at all." },
+
+  { q: "Best Time to Buy and Sell Stock (one transaction) is solved by tracking what?",
+    choices: ["The lowest price seen so far", "Every possible pair", "A sorted copy of the prices", "The median price"], correct: 0, cat: "LeetCode", diff: 1,
+    why: "One pass: keep the minimum so far, and at each step check what selling today would earn. It's the classic lesson that a nested loop over pairs usually collapses into a single running value." },
+
+  { q: "Reversing a string in place uses which pattern?",
+    choices: ["Two pointers", "A stack", "Recursion", "A sliding window"], correct: 0, cat: "LeetCode", diff: 1,
+    why: "One index from each end, swap, walk inwards. The same two-pointer move solves palindrome checks, sorted two-sum, and removing duplicates from a sorted array." },
+
+  { q: "Climbing Stairs — with 1 or 2 steps at a time, the count of ways for n stairs is which sequence?",
+    choices: ["Fibonacci", "Powers of two", "Triangular numbers", "Factorials"], correct: 0, cat: "LeetCode", diff: 1,
+    why: "You reach step n from n−1 or n−2, so ways(n) = ways(n−1) + ways(n−2). It's most people's first dynamic-programming problem — and it needs two variables, not an array." },
+
+  { q: "Maximum Subarray (the largest sum of a contiguous run) is solved in O(n) by which algorithm?",
+    choices: ["Kadane's", "Dijkstra's", "Floyd's", "Kruskal's"], correct: 0, cat: "LeetCode", diff: 1,
+    why: "At each element, either extend the current run or start fresh from here — whichever is larger. Jay Kadane reportedly came up with it in under a minute after seeing the problem in a 1977 seminar." },
+
+  { q: "Checking whether two strings are anagrams is easiest with what?",
+    choices: ["A count of each character", "A regular expression", "A recursive permutation check", "A binary search"], correct: 0, cat: "LeetCode", diff: 1,
+    why: "Count up on the first string, count down on the second, and everything should land on zero — O(n) beats the O(n log n) of sorting both. The permutation approach is the trap: 10 characters is already 3.6 million orderings." },
+
+  { q: "Finding the missing number from 0..n in an array of n numbers can be done with what?",
+    choices: ["The sum formula n(n+1)/2", "A binary search", "A sorted scan only", "A recursive split"], correct: 0, cat: "LeetCode", diff: 1,
+    why: "Subtract the actual sum from the expected one and the gap is your answer, in O(n) time and O(1) space. XOR-ing every index and value works just as well, and doesn't risk overflow." },
+
+  { q: "FizzBuzz is famous in hiring for what reason?",
+    choices: ["It filters candidates who can't write basic loops", "It's NP-hard", "It requires recursion", "It has no O(n) solution"], correct: 0, cat: "LeetCode", diff: 1,
+    why: "Imran Ghory wrote in 2007 that most applicants to programming jobs couldn't write it, and Jeff Atwood's post about it made it an industry ritual. The whole problem is a loop and two modulo checks." },
+
   // ---------------- Tier 2 — middle round ----------------
   { q: "Which sorting algorithm does Python's built-in sort use?",
     choices: ["Quicksort", "Timsort", "Heapsort", "Merge sort"], correct: 1, cat: "Algorithms", diff: 2,
@@ -489,6 +530,47 @@ const TRIVIA = [
     choices: ["It deletes old branches", "It replays commits onto a new base, creating new commit hashes", "It squashes all commits into one", "It edits commit messages"], correct: 1, cat: "Open Source", diff: 2,
     why: "A commit's hash covers its parent, so changing the parent necessarily makes a different commit. That's the whole reason for the rule: don't rebase anything you've already pushed for others to build on." },
 
+  // LeetCode tier 2 — the ones that actually get asked
+  { q: "How do you detect a cycle in a linked list using O(1) extra space?",
+    choices: ["Two pointers at different speeds", "A hash set of visited nodes", "Reversing the list", "Sorting the nodes"], correct: 0, cat: "LeetCode", diff: 2,
+    why: "Floyd's tortoise and hare: one pointer steps once, the other twice, and inside a loop the fast one always laps the slow one. Restart one pointer at the head afterwards and they meet exactly at the cycle's entrance." },
+
+  { q: "An LRU cache with O(1) get and put is built from which pair of structures?",
+    choices: ["A hash map plus a doubly linked list", "A heap plus an array", "A balanced BST", "A ring buffer plus a set"], correct: 0, cat: "LeetCode", diff: 2,
+    why: "The map finds the node instantly; the list keeps recency order so the least recently used is always at the tail. Every eviction is an O(1) unlink — which is exactly how real caches are built, not just interview ones." },
+
+  { q: "Longest substring without repeating characters is O(n) using what?",
+    choices: ["A sliding window", "Sorting the string", "A trie", "Backtracking"], correct: 0, cat: "LeetCode", diff: 2,
+    why: "Expand the right edge, and when a repeat appears drag the left edge past its previous position. Each character enters and leaves the window once, so the two nested-looking loops are still linear." },
+
+  { q: "Product of Array Except Self forbids division. What replaces it?",
+    choices: ["Prefix and suffix products", "Sorting first", "Logarithms", "A hash map of counts"], correct: 0, cat: "LeetCode", diff: 2,
+    why: "Sweep left building the product of everything before each index, then sweep right multiplying in everything after. The division shortcut is banned because a single zero in the array destroys it." },
+
+  { q: "Number of Islands on a grid is solved by which technique?",
+    choices: ["Flood fill with BFS or DFS", "Binary search", "Dynamic programming", "A sliding window"], correct: 0, cat: "LeetCode", diff: 2,
+    why: "Scan for unvisited land, then flood the whole connected blob and count one island. It's the same algorithm as the paint bucket tool — and union-find solves it too, which is how you'd handle land appearing over time." },
+
+  { q: "Course Schedule asks whether prerequisites can be completed. What is it really testing?",
+    choices: ["Cycle detection in a directed graph", "Shortest path", "Minimum spanning tree", "Bipartite matching"], correct: 0, cat: "LeetCode", diff: 2,
+    why: "A valid order exists exactly when the graph has no cycle, which a topological sort tells you for free. Kahn's algorithm just peels off nodes with no remaining prerequisites — the same thing your package manager does." },
+
+  { q: "Rotating an n×n matrix 90° in place is done by which two steps?",
+    choices: ["Transpose, then reverse each row", "Reverse each row, then sort", "Rotate ring by ring only", "Reverse both diagonals"], correct: 0, cat: "LeetCode", diff: 2,
+    why: "Flip it over the main diagonal, then mirror each row horizontally. It's the sort of thing that looks like index gymnastics until you see it as two operations you already know." },
+
+  { q: "Merge Intervals starts with which step?",
+    choices: ["Sorting by start time", "Building a heap", "A sweep with a hash map", "Sorting by length"], correct: 0, cat: "LeetCode", diff: 2,
+    why: "Once starts are in order, a new interval either overlaps the last one — extend its end — or it doesn't. Almost every interval problem is 'sort first, then one pass'." },
+
+  { q: "Top K Frequent Elements can beat O(n log n) using what?",
+    choices: ["Bucketing by frequency", "Sorting the whole array", "A binary search on values", "A trie"], correct: 0, cat: "LeetCode", diff: 2,
+    why: "A count can't exceed n, so use frequency as an array index and read buckets from the top — O(n). A heap of size k is the other answer at O(n log k), which is what you want when k is tiny." },
+
+  { q: "Trapping Rain Water in O(1) space uses which approach?",
+    choices: ["Two pointers moving inward", "A monotonic stack only", "Prefix sums", "Divide and conquer"], correct: 0, cat: "LeetCode", diff: 2,
+    why: "Move whichever side has the shorter wall, because that side alone decides how much water is held there. It's the rare problem where the O(1) solution is shorter than the DP one people write first." },
+
   // ---------------- Tier 3 — boss round ----------------
   { q: "What destroyed Ariane 5's maiden flight 37 seconds after launch in 1996?",
     choices: ["A fuel leak", "A 64-bit float converted into a 16-bit integer", "A guidance antenna failure", "An uncaught null reference"], correct: 1, cat: "Bugs", diff: 3,
@@ -668,7 +750,48 @@ const TRIVIA = [
 
   { q: "What does 'Halt and Catch Fire' (HCF) refer to?",
     choices: ["An undocumented instruction that locks up the CPU", "A thermal shutdown signal", "A kernel panic handler", "A watchdog reset"], correct: 0, cat: "Hardware", diff: 3,
-    why: "A joke mnemonic for real undocumented opcodes that put a processor into a state only a reset could exit — on some early chips by driving the buses so hard the hardware could genuinely overheat." }
+    why: "A joke mnemonic for real undocumented opcodes that put a processor into a state only a reset could exit — on some early chips by driving the buses so hard the hardware could genuinely overheat." },
+
+  // LeetCode tier 3 — the whiteboard boss fights
+  { q: "Median of Two Sorted Arrays can be solved in what time?",
+    choices: ["O(log(min(m, n)))", "O(m + n)", "O(log(m + n))", "O(m log n)"], correct: 0, cat: "LeetCode", diff: 3,
+    why: "Binary search the partition point of the shorter array so that everything left of both cuts is ≤ everything right. Merging is the obvious O(m+n) answer, and the reason this one is rated hard is that almost nobody gets the edge cases right first time." },
+
+  { q: "Boyer–Moore voting finds a majority element in O(1) space by doing what?",
+    choices: ["Keeping one candidate and a counter", "Sorting and taking the middle", "Hashing every count", "Binary searching the value range"], correct: 0, cat: "LeetCode", diff: 3,
+    why: "Every non-matching element cancels one vote for the current candidate; a true majority can't be cancelled out. One pass, two variables — and a second pass to verify, since it returns garbage if no majority exists." },
+
+  { q: "Finding the longest palindromic substring in O(n) requires which algorithm?",
+    choices: ["Manacher's", "Kadane's", "Knuth–Morris–Pratt", "Rabin–Karp"], correct: 0, cat: "LeetCode", diff: 3,
+    why: "It reuses the palindrome radii already computed inside a known palindrome, so no centre is expanded twice. Expand-around-centre at O(n²) is what almost everyone writes — and what almost every interviewer accepts." },
+
+  { q: "Sliding Window Maximum is O(n) using which structure?",
+    choices: ["A monotonic deque", "A max heap", "A balanced BST", "A prefix array"], correct: 0, cat: "LeetCode", diff: 3,
+    why: "Keep indices in a deque whose values decrease, dropping anything smaller than the incoming element — it can never be the max again. The heap answer is O(n log n) and the deque is the reason this is a hard-rated problem." },
+
+  { q: "Sort Colors (the Dutch national flag problem) partitions three values with how many pointers?",
+    choices: ["Three, in a single pass", "Two, in two passes", "One, with counting", "Four, one per boundary"], correct: 0, cat: "LeetCode", diff: 3,
+    why: "Low, mid and high walk the array once, swapping each element into its region. Dijkstra posed it in the 1970s, and it's the same three-way partition that makes quicksort survive arrays full of duplicates." },
+
+  { q: "Union-Find with path compression and union by rank runs in what amortised time?",
+    choices: ["Effectively constant (inverse Ackermann)", "O(log n)", "O(n)", "O(log* n) exactly"], correct: 0, cat: "LeetCode", diff: 3,
+    why: "α(n), the inverse of the Ackermann function, is below 5 for any n you could store in this universe. That's why Kruskal's algorithm and every 'are these connected' problem lean on it." },
+
+  { q: "Edit distance between two strings is computed by which method?",
+    choices: ["A 2D dynamic-programming table", "Greedy character matching", "Binary search", "A suffix trie walk"], correct: 0, cat: "LeetCode", diff: 3,
+    why: "Each cell asks: insert, delete or substitute, whichever is cheapest — O(mn). Vladimir Levenshtein defined it in 1965, and it's what powers spell-check suggestions and 'did you mean' searches." },
+
+  { q: "Traversing a binary tree in order with O(1) space uses what?",
+    choices: ["Morris traversal", "An explicit stack", "Recursion", "A parent-pointer scan"], correct: 0, cat: "LeetCode", diff: 3,
+    why: "It temporarily rewires each node's empty right pointer back to its in-order successor, walks through, then undoes the threading. No stack, no recursion — the tree itself is the bookkeeping." },
+
+  { q: "Picking a random element from a stream of unknown length uses what?",
+    choices: ["Reservoir sampling", "Rejection sampling", "A shuffle then take", "A hash of the values"], correct: 0, cat: "LeetCode", diff: 3,
+    why: "Keep the nth item with probability 1/n and every item ends up equally likely, in O(1) space and one pass. It's how you sample logs you can't fit in memory, not just how you answer the interview question." },
+
+  { q: "Word Search II — finding many words in a letter grid — is made fast by what?",
+    choices: ["A trie shared across the search", "Sorting the word list", "Memoising each cell", "A bitmask over the alphabet"], correct: 0, cat: "LeetCode", diff: 3,
+    why: "Walk the grid once and the trie prunes every path that can't spell any remaining word, instead of restarting a search per word. Pruning a dead branch early is what separates a passing solution from a timeout." }
 ];
 
 // Artwork of the day. Each entry carries its catalogue details, a blurb
