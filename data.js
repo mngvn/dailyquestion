@@ -116,6 +116,8 @@ const RIDDLES = [
 // the section is the `why`, not the guess.
 //
 // q        the question
+// ctx      one line of setup shown above it — the scene, the year, the
+//          constraint. It frames the question without giving the answer away
 // choices  four options; the wrong ones are meant to be plausible
 // correct  index into choices
 // cat      category chip shown above the question
@@ -125,671 +127,837 @@ const RIDDLES = [
 const TRIVIA = [
   // ---------------- Tier 1 — warm-up ----------------
   { q: "Which programming language is named after a British comedy troupe?",
+    ctx: "Christmas 1989, Amsterdam: a researcher with two weeks off decides to write a language for fun.",
     choices: ["Ruby", "Python", "Perl", "Rust"], correct: 1, cat: "Origins", diff: 1,
     why: "Guido van Rossum was reading Monty Python's Flying Circus scripts over Christmas 1989 and wanted a name that was 'short, unique and slightly mysterious'. The snake came later, from publishers who needed a cover animal." },
 
   { q: "In 1947, operators taped what into the Harvard Mark II logbook?",
+    ctx: "The Harvard Mark II was a 25-ton relay machine. One day in September it started returning wrong answers.",
     choices: ["A moth", "A blown fuse", "A punch card", "A spider"], correct: 0, cat: "Bugs", diff: 1,
     why: "The log reads 'First actual case of bug being found.' The joke only lands because engineers had already been calling faults 'bugs' since Edison's day — this was the first time one had wings." },
 
   { q: "Who is credited with writing the first algorithm meant to be run by a machine?",
+    ctx: "In 1843 she was asked to translate an Italian engineer's paper. Her own footnotes ended up three times longer than it.",
     choices: ["Alan Turing", "Charles Babbage", "Ada Lovelace", "John von Neumann"], correct: 2, cat: "Origins", diff: 1,
     why: "Her 1843 Note G — an appendix to a paper she was only supposed to be translating — laid out how Babbage's Analytical Engine could compute Bernoulli numbers. The machine was never built, so the program went unrun for a century." },
 
   { q: "In most languages, what does 0.1 + 0.2 evaluate to?",
+    ctx: "Open your browser console and type it in before you answer.",
     choices: ["0.3", "0.30000000000000004", "0.29999999999999", "0.3000001"], correct: 1, cat: "Data", diff: 1,
     why: "Binary floating point (IEEE 754) can't represent 0.1 or 0.2 exactly, so the error survives the addition. It trips up so many people that someone registered the website 0.30000000000000004.com to explain it." },
 
   { q: "Roughly how long did it take Brendan Eich to build the first JavaScript prototype?",
+    ctx: "Netscape wanted a scripting language inside the browser, and wanted it in the next release.",
     choices: ["10 days", "10 weeks", "10 months", "3 years"], correct: 0, cat: "Languages", diff: 1,
     why: "Ten days, at Netscape in May 1995. It shipped as Mocha, was renamed LiveScript, then renamed again to JavaScript purely to ride Java's hype — the two languages are unrelated." },
 
   { q: "What does 'K8s', the nickname for Kubernetes, actually abbreviate?",
+    ctx: "Google open-sourced its container orchestrator in 2014, and everyone immediately got tired of typing the name.",
     choices: ["Kubernetes 8 services", "K plus 8 letters plus s", "Kernel 8 stack", "8 Kubernetes clusters"], correct: 1, cat: "Jargon", diff: 1,
     why: "It's a numeronym: K, the eight letters 'ubernete', then s. The same trick gives us i18n for internationalization and a11y for accessibility." },
 
   { q: "Why is unwanted bulk email called 'spam'?",
+    ctx: "The word was already in use on bulletin boards and MUDs years before the first junk email.",
     choices: ["It's an acronym", "From a Monty Python sketch", "After a 1980s virus", "From radio slang"], correct: 1, cat: "Jargon", diff: 1,
     why: "In the sketch, a cafe menu features Spam in every dish while Vikings drown out conversation by chanting 'Spam, Spam, Spam'. Early net users borrowed it for anything that buried the signal." },
 
   { q: "What was Google called when it ran on Stanford's network in 1996?",
+    ctx: "Two PhD students were burning so much university bandwidth that Stanford's network staff noticed.",
     choices: ["BackRub", "PageRank", "Searchly", "Googol"], correct: 0, cat: "Origins", diff: 1,
     why: "BackRub — because it ranked pages by their back links. The rename came from 'googol', 10^100, and the story goes that the misspelling stuck because it was the version that was still available as a domain." },
 
   { q: "What does 'GNU' stand for?",
+    ctx: "The project's founder has a long-standing taste for jokes that fold back on themselves.",
     choices: ["General Network Utility", "Grand Native Unix", "GNU's Not Unix", "Generic New Userland"], correct: 2, cat: "Open Source", diff: 1,
     why: "It's a recursive acronym: expand it and you're back where you started. Richard Stallman started the project in 1983 to build a free Unix; the kernel never quite landed, which is why Linux slotted into the gap." },
 
   { q: "What does 'Wi-Fi' officially stand for?",
+    ctx: "The standard's real name is IEEE 802.11, which was never going to fit on the side of a box.",
     choices: ["Wireless Fidelity", "Wireless Frequency", "Nothing — it's invented", "Wide Field"], correct: 2, cat: "Jargon", diff: 1,
     why: "A branding agency coined it in 1999 as a play on Hi-Fi because '802.11b Direct Sequence' was not going to sell routers. 'Wireless Fidelity' was back-formed afterwards, and the alliance eventually dropped it." },
 
   { q: "Bluetooth is named after a 10th-century king of where?",
+    ctx: "It started as a 1997 codename, meant to last only until marketing found something better.",
     choices: ["Denmark", "Scotland", "Portugal", "Poland"], correct: 0, cat: "Origins", diff: 1,
     why: "Harald 'Bluetooth' Gormsson united Denmark and Norway, and the wireless standard was meant to unite phones and computers. The logo is his initials, the runes Hagall and Bjarkan, laid on top of each other." },
 
   { q: "What does 'CAPTCHA' stand for?",
+    ctx: "Carnegie Mellon researchers named it in 2003, and worked a famous computer scientist into the acronym.",
     choices: ["Coded Access Protocol", "Completely Automated Public Turing test to tell Computers and Humans Apart", "Cryptographic Page Check", "Computerized Anti-Phishing Test"], correct: 1, cat: "Security", diff: 1,
     why: "Yes, really — the acronym has Alan Turing baked into it. Later, reCAPTCHA quietly used the millions of answers to digitize old books and street numbers, turning the annoyance into free labour." },
 
   { q: "What is a 'pixel' short for?",
+    ctx: "A contraction, coined by imaging engineers working on spacecraft photographs.",
     choices: ["Pixel point", "Picture element", "Pigment cell", "Pico element"], correct: 1, cat: "Jargon", diff: 1,
     why: "Picture element, coined in the 1960s in imaging work at JPL. Its 3D cousin, the voxel, is a volume element — and yes, texel and luxel exist too." },
 
   { q: "Which of these did Nintendo make for its first ~70 years?",
+    ctx: "The company was founded in Kyoto in 1889 — decades before consumer electronics existed.",
     choices: ["Radios", "Playing cards", "Sewing machines", "Bicycles"], correct: 1, cat: "Gaming", diff: 1,
     why: "Founded in 1889 to sell hand-painted hanafuda cards. Before landing on games it also tried instant rice, taxis and a chain of love hotels — the Famicom was several careers into the company's life." },
 
   { q: "What was the first item ever sold on eBay?",
+    ctx: "Pierre Omidyar built AuctionWeb over a long weekend in 1995 to test an idea about markets.",
     choices: ["A broken laser pointer", "A comic book", "A used car", "A Beanie Baby"], correct: 0, cat: "Internet", diff: 1,
     why: "It went for $14.83 in 1995. Founder Pierre Omidyar emailed the buyer to check he understood it was broken; the reply was that he collected broken laser pointers." },
 
   { q: "Who invented the World Wide Web?",
+    ctx: "It was built inside a particle-physics lab, to solve the problem of scientists sharing documents.",
     choices: ["Vint Cerf", "Tim Berners-Lee", "Marc Andreessen", "Robert Kahn"], correct: 1, cat: "Internet", diff: 1,
     why: "He proposed it at CERN in 1989 — his boss's note on the memo read 'Vague but exciting'. In 1993 CERN put the technology in the public domain royalty-free, which is the reason the web isn't a licensed product." },
 
   { q: "Emoji were created in the late 1990s for mobile users in which country?",
+    ctx: "Phone screens were tiny and every byte cost money, so a carrier commissioned a set of 12×12 pixel icons.",
     choices: ["South Korea", "Finland", "Japan", "United States"], correct: 2, cat: "Origins", diff: 1,
     why: "Shigetaka Kurita drew a set of 176 tiny 12x12 pixel icons for NTT DoCoMo's pager and phone service. That original set is now in the permanent collection of New York's Museum of Modern Art." },
 
   { q: "The word 'algorithm' comes from the name of a 9th-century mathematician from where?",
+    ctx: "The word reached Latin through a scholar's name, by way of the House of Wisdom in Baghdad.",
     choices: ["Persia", "Greece", "Egypt", "Italy"], correct: 0, cat: "Origins", diff: 1,
     why: "Muhammad ibn Musa al-Khwarizmi, working in Baghdad. His name became 'algorism' in Latin, and the title of another of his books gave us the word 'algebra'." },
 
   { q: "Who wrote Ctrl+Alt+Delete?",
+    ctx: "Designed in the early 1980s so a developer could restart a machine without reaching for the power switch.",
     choices: ["Bill Gates", "An IBM engineer", "A Compaq intern", "Gary Kildall"], correct: 1, cat: "Hardware", diff: 1,
     why: "IBM's David Bradley added it as a quick reboot for developers, deliberately using three awkwardly placed keys so nobody would hit it by accident. His line about it: 'I may have invented it, but Bill made it famous.'" },
 
   { q: "What does a Unix 'daemon' get its name from?",
+    ctx: "Unix has called its background processes this since the 1960s, and the name is not about the underworld.",
     choices: ["A demon in folklore", "Maxwell's demon", "The DAEMON language", "Disk And Execution MONitor"], correct: 1, cat: "Jargon", diff: 1,
     why: "MIT's Project MAC borrowed the physics thought experiment of an unseen agent quietly sorting molecules. The backronym 'Disk And Execution MONitor' was invented later to make it sound respectable." },
 
   { q: "What is the largest value an unsigned 8-bit integer can hold?",
+    ctx: "Eight bits, every one of them available, none spent on a sign.",
     choices: ["127", "128", "255", "256"], correct: 2, cat: "Data", diff: 1,
     why: "Eight bits give 256 distinct values, 0 through 255. Every gamer who has seen an item count or a stat stick at 255 has met the same ceiling." },
 
   { q: "In HTTP, what does a 404 status code mean?",
+    ctx: "The number every web user has met, and the only status code with its own genre of joke pages.",
     choices: ["Server error", "Not Found", "Forbidden", "Request timed out"], correct: 1, cat: "Internet", diff: 1,
     why: "4xx blames the client, 5xx blames the server. The family also includes 418 'I'm a teapot', an April Fools' joke from 1998 that servers still implement out of affection." },
 
   { q: "Who wrote the first version of Git?",
+    ctx: "In 2005 the Linux kernel abruptly lost the version-control system it had been relying on.",
     choices: ["Linus Torvalds", "Junio Hamano", "Richard Stallman", "Ken Thompson"], correct: 0, cat: "Open Source", diff: 1,
     why: "He built it in about ten days in 2005 after the Linux kernel lost free use of BitKeeper. On the name: 'I'm an egotistical bastard, and I name all my projects after myself.'" },
 
   { q: "What does the 'S' in HTTPS add?",
+    ctx: "The padlock in the address bar is the visible half of what it does.",
     choices: ["Speed", "Encryption via TLS", "Compression", "Session cookies"], correct: 1, cat: "Security", diff: 1,
     why: "It wraps ordinary HTTP in TLS, so the network can see who you're talking to but not what you said. Most of the web only flipped over after Let's Encrypt made certificates free in 2015." },
 
   { q: "What does DNS do?",
+    ctx: "You type a name; a machine somewhere has a number. Something has to bridge the two.",
     choices: ["Encrypts traffic", "Turns names into IP addresses", "Routes packets", "Assigns MAC addresses"], correct: 1, cat: "Internet", diff: 1,
     why: "Before it existed, every machine kept a HOSTS.TXT file listing the whole network, updated by hand. DNS replaced that with a distributed lookup — and 'it's always DNS' became an outage in-joke for a reason." },
 
   { q: "What is the 'GPT' in a GPT model short for?",
+    ctx: "Three words describing how the model is built, trained and shaped.",
     choices: ["General Purpose Transformer", "Generative Pre-trained Transformer", "Guided Probability Tree", "Generalized Parsing Tool"], correct: 1, cat: "AI", diff: 1,
     why: "Generative, because it produces text; Pre-trained, because the expensive learning happens once up front; Transformer, after the 2017 architecture that made the whole thing practical." },
 
   { q: "What does 'RAID' stand for in storage?",
+    ctx: "A 1988 Berkeley paper argued that a pile of cheap disks could beat one very expensive one.",
     choices: ["Rapid Array of Internal Disks", "Redundant Array of Independent Disks", "Random Access In Drives", "Replicated Archive In Depth"], correct: 1, cat: "Hardware", diff: 1,
     why: "The 1988 Berkeley paper actually said 'Inexpensive' — the pitch was that cheap consumer drives in a group could beat one expensive mainframe disk. The industry swapped in 'Independent' once it started charging enterprise prices." },
 
   { q: "In binary, what decimal number is 1010?",
+    ctx: "Four bits, read as 8, 4, 2 and 1.",
     choices: ["8", "10", "12", "20"], correct: 1, cat: "Data", diff: 1,
     why: "8 + 0 + 2 + 0. It's also the setup for the oldest joke in the field: there are 10 kinds of people, those who understand binary and those who don't." },
 
   { q: "What does the 'divide and conquer' strategy mean in algorithms?",
+    ctx: "The strategy underneath merge sort, quicksort and binary search alike.",
     choices: ["Splitting a problem into smaller copies of itself", "Sorting in place", "Trading memory for speed", "Running steps in parallel"], correct: 0, cat: "Algorithms", diff: 1,
     why: "Break the problem down, solve the small pieces, combine. It's why merge sort and quicksort reach O(n log n) while bubble sort grinds away at O(n^2)." },
 
   { q: "What does 'open source' most precisely mean?",
+    ctx: "The term was coined deliberately in 1998 to replace a phrase people kept misreading as 'free of charge'.",
     choices: ["Free of charge", "The source code can be read, modified and shared", "Written by volunteers", "No copyright"], correct: 1, cat: "Open Source", diff: 1,
     why: "It's about rights, not price — hence 'free as in speech, not as in beer'. Plenty of open-source software is sold, and plenty of free software is completely closed." },
 
   { q: "Which command lists the files in a directory on Unix systems?",
+    ctx: "Two letters, typed more often than almost any other command on earth.",
     choices: ["dir", "ls", "cat", "cd"], correct: 1, cat: "Jargon", diff: 1,
     why: "Two letters, because early Unix ran over teletypes where every character was physically printed. That's also why we have cp, mv, rm and the famously terse ed." },
 
   { q: "What is 'phishing'?",
+    ctx: "Most breaches don't begin with broken cryptography. They begin with a convincing message.",
     choices: ["Scanning for open ports", "Tricking someone into handing over credentials", "Flooding a server", "Cracking password hashes"], correct: 1, cat: "Security", diff: 1,
     why: "The spelling comes from 1970s 'phreaking', the art of whistling tones at the phone network. It remains the way most breaches actually start — the weak link is rarely the cryptography." },
 
   { q: "Roughly how many bytes are in a kibibyte (KiB)?",
+    ctx: "The unit that exists because two industries disagreed about what 'kilo' means.",
     choices: ["1000", "1024", "1048", "512"], correct: 1, cat: "Data", diff: 1,
     why: "1024 — 2^10. The KiB/MiB units were invented in 1998 precisely because drive makers sold 'megabytes' of 1,000,000 bytes while operating systems counted 1,048,576, which is why a '1 TB' disk shows up as about 931 GB." },
 
   { q: "What is a browser cookie?",
+    ctx: "Invented at Netscape in 1994 so a website could remember you from one page to the next.",
     choices: ["A cached image", "A small piece of data a site stores in your browser", "A tracking pixel", "A compiled script"], correct: 1, cat: "Internet", diff: 1,
     why: "Lou Montulli invented them at Netscape in 1994 so a shopping cart could survive between pages. The name comes from 'magic cookie', an old Unix term for an opaque token passed around unchanged." },
 
   { q: "What was the first widely successful arcade video game?",
+    ctx: "1972: two paddles and a square ball, in a cabinet built by a company barely a year old.",
     choices: ["Pong", "Space Invaders", "Pac-Man", "Asteroids"], correct: 0, cat: "Gaming", diff: 1,
     why: "Atari's Pong, 1972. The first test cabinet in a California bar broke down within days — because it was jammed to the top with quarters." },
 
   { q: "What does 'USB' stand for?",
+    ctx: "Before it, every peripheral arrived with its own connector and its own driver disk.",
     choices: ["Universal System Bus", "Universal Serial Bus", "United Serial Buffer", "Unified Storage Bridge"], correct: 1, cat: "Hardware", diff: 1,
     why: "Its designer, Intel's Ajay Bhatt, has said the one thing he'd change is making the connector reversible — the flip-it-twice ritual was a cost decision, and USB-C finally fixed it." },
 
   { q: "In programming, what is 'recursion'?",
+    ctx: "A technique that feels like cheating the first time it works.",
     choices: ["A loop that never ends", "A function that calls itself", "Running code in parallel", "Caching a result"], correct: 1, cat: "Algorithms", diff: 1,
     why: "Every recursive function needs a base case, or it runs until the call stack overflows. Search Google for 'recursion' and it still asks 'Did you mean: recursion'." },
 
   { q: "What is the name of the Linux mascot?",
+    ctx: "Chosen by Linus Torvalds personally, over objections that it wasn't serious enough for an operating system.",
     choices: ["Tux", "Beastie", "Gnu", "Duke"], correct: 0, cat: "Open Source", diff: 1,
     why: "A penguin, chosen by Linus Torvalds — who has said he was once bitten by one at a zoo in Canberra. Larry Ewing drew the official version in 1996 using GIMP." },
 
   { q: "What does 'SQL' stand for?",
+    ctx: "IBM's 1970s research language for asking questions of a relational database.",
     choices: ["Standard Query Layer", "Structured Query Language", "Sequential Query Logic", "System Query Language"], correct: 1, cat: "Data", diff: 1,
     why: "It started at IBM as SEQUEL — Structured English Query Language — and had to be shortened because SEQUEL was someone else's trademark. That's why half the field still pronounces it 'sequel'." },
 
   { q: "What does a compiler do?",
+    ctx: "The step between the code you write and something the processor can actually run.",
     choices: ["Runs code line by line", "Translates source code into another language, usually machine code", "Formats source code", "Packages code for release"], correct: 1, cat: "Languages", diff: 1,
     why: "Grace Hopper had to argue that this was even possible — she wrote the first compiler, A-0, in 1952, and was told computers could only do arithmetic, not write their own programs." },
 
   { q: "In version control, what is a 'commit'?",
+    ctx: "The unit of work that every version-control system is built around.",
     choices: ["A saved snapshot of changes", "A merge of two branches", "A code review", "A release build"], correct: 0, cat: "Open Source", diff: 1,
     why: "Each commit records a snapshot plus its parent, which is why history forms a graph. Git names each one by the SHA hash of its content, so a hash pins the entire history behind it." },
 
   { q: "What is 'latency' in a network?",
+    ctx: "Two different numbers describe a network's speed, and people confuse them constantly.",
     choices: ["How much data can flow per second", "The delay before data starts arriving", "The number of hops", "The packet loss rate"], correct: 1, cat: "Internet", diff: 1,
     why: "Bandwidth you can buy; latency is bounded by physics. Light needs about 67 ms to cross the Pacific and back, which is why trading firms pay millions for slightly straighter cable." },
 
   { q: "What is an 'IP address'?",
+    ctx: "Every packet crossing the internet carries one at each end.",
     choices: ["A hardware serial number", "A numeric address for a device on a network", "A website's name", "An encryption key"], correct: 1, cat: "Internet", diff: 1,
     why: "IPv4 gives every address 32 bits, so roughly 4.3 billion exist — fewer than there are people. The world officially ran out in the 2010s, which is why IPv6 has 128 bits, enough for every atom of a small planet." },
 
   { q: "What does 'debugging' most literally describe?",
+    ctx: "The other half of the job — and usually the longer half.",
     choices: ["Removing faults from a system", "Testing before release", "Profiling performance", "Rewriting legacy code"], correct: 0, cat: "Bugs", diff: 1,
     why: "Kernighan's law is the reason it's hard: 'Debugging is twice as hard as writing the code in the first place. Therefore, if you write the code as cleverly as possible, you are not smart enough to debug it.'" },
 
   { q: "What is 'open beta' software?",
+    ctx: "The stage where the software is nearly finished and the users quietly become the test team.",
     choices: ["A finished release", "A public test version before final release", "An internal prototype", "A security patch"], correct: 1, cat: "Jargon", diff: 1,
     why: "IBM's testing vocabulary gave us alpha and beta in the 1950s. Gmail then stretched the joke to breaking point by staying in 'beta' for over five years with millions of users." },
 
   { q: "What is the main job of an operating system kernel?",
+    ctx: "The part of the operating system that everything else has to go through.",
     choices: ["Draw the user interface", "Manage hardware and share it between programs", "Compile programs", "Store files in the cloud"], correct: 1, cat: "Hardware", diff: 1,
     why: "It owns memory, CPU time and devices, so nothing else has to. When it hits a state it can't recover from, Linux calls it a kernel panic and Windows shows the blue screen." },
 
   // LeetCode tier 1 — the interview warm-ups
   { q: "Two Sum: what does a hash map do to the brute-force O(n²) scan?",
+    ctx: "LeetCode problem #1, and the first thing most people ever solve on the site.",
     choices: ["Drops it to O(n)", "Drops it to O(log n)", "Leaves it at O(n²)", "Drops it to O(n log n)"], correct: 0, cat: "LeetCode", diff: 1,
     why: "One pass: for each number, look up target − number in the map before storing it. It's problem #1 on LeetCode and the reason 'just use a hash map' is the single most useful reflex in interviews." },
 
   { q: "Valid Parentheses — which data structure solves it cleanly?",
+    ctx: "Given a string of brackets, decide whether every one of them is properly closed.",
     choices: ["A stack", "A queue", "A heap", "A hash set"], correct: 0, cat: "LeetCode", diff: 1,
     why: "Push every opening bracket, pop and match on every closing one, and the string is valid if the stack ends empty. Nested-anything problems are almost always a stack in disguise — which is exactly how parsers work." },
 
   { q: "Given an array where every number appears twice except one, what one-liner finds the loner?",
+    ctx: "One pass over the array, and no extra memory allowed.",
     choices: ["XOR everything together", "Sum everything", "Sort and scan", "Multiply everything"], correct: 0, cat: "LeetCode", diff: 1,
     why: "x ^ x is 0 and x ^ 0 is x, so every pair cancels and the odd one out drops out of the end. O(n) time, O(1) space, no extra structures at all." },
 
   { q: "Best Time to Buy and Sell Stock (one transaction) is solved by tracking what?",
+    ctx: "One array of daily prices. Buy once, sell once, and the sale has to come after the purchase.",
     choices: ["The lowest price seen so far", "Every possible pair", "A sorted copy of the prices", "The median price"], correct: 0, cat: "LeetCode", diff: 1,
     why: "One pass: keep the minimum so far, and at each step check what selling today would earn. It's the classic lesson that a nested loop over pairs usually collapses into a single running value." },
 
   { q: "Reversing a string in place uses which pattern?",
+    ctx: "No second array allowed — the characters have to move within the one you were handed.",
     choices: ["Two pointers", "A stack", "Recursion", "A sliding window"], correct: 0, cat: "LeetCode", diff: 1,
     why: "One index from each end, swap, walk inwards. The same two-pointer move solves palindrome checks, sorted two-sum, and removing duplicates from a sorted array." },
 
   { q: "Climbing Stairs — with 1 or 2 steps at a time, the count of ways for n stairs is which sequence?",
+    ctx: "n steps, and you can take one or two at a time. Count the distinct routes to the top.",
     choices: ["Fibonacci", "Powers of two", "Triangular numbers", "Factorials"], correct: 0, cat: "LeetCode", diff: 1,
     why: "You reach step n from n−1 or n−2, so ways(n) = ways(n−1) + ways(n−2). It's most people's first dynamic-programming problem — and it needs two variables, not an array." },
 
   { q: "Maximum Subarray (the largest sum of a contiguous run) is solved in O(n) by which algorithm?",
+    ctx: "Negative numbers are allowed, which is the whole reason it isn't trivial.",
     choices: ["Kadane's", "Dijkstra's", "Floyd's", "Kruskal's"], correct: 0, cat: "LeetCode", diff: 1,
     why: "At each element, either extend the current run or start fresh from here — whichever is larger. Jay Kadane reportedly came up with it in under a minute after seeing the problem in a 1977 seminar." },
 
   { q: "Checking whether two strings are anagrams is easiest with what?",
+    ctx: "Same letters, same counts, different order.",
     choices: ["A count of each character", "A regular expression", "A recursive permutation check", "A binary search"], correct: 0, cat: "LeetCode", diff: 1,
     why: "Count up on the first string, count down on the second, and everything should land on zero — O(n) beats the O(n log n) of sorting both. The permutation approach is the trap: 10 characters is already 3.6 million orderings." },
 
   { q: "Finding the missing number from 0..n in an array of n numbers can be done with what?",
+    ctx: "n numbers, drawn from n+1 possible values, with exactly one absent.",
     choices: ["The sum formula n(n+1)/2", "A binary search", "A sorted scan only", "A recursive split"], correct: 0, cat: "LeetCode", diff: 1,
     why: "Subtract the actual sum from the expected one and the gap is your answer, in O(n) time and O(1) space. XOR-ing every index and value works just as well, and doesn't risk overflow." },
 
   { q: "FizzBuzz is famous in hiring for what reason?",
+    ctx: "Print 1 to 100, substituting words for multiples of three and five.",
     choices: ["It filters candidates who can't write basic loops", "It's NP-hard", "It requires recursion", "It has no O(n) solution"], correct: 0, cat: "LeetCode", diff: 1,
     why: "Imran Ghory wrote in 2007 that most applicants to programming jobs couldn't write it, and Jeff Atwood's post about it made it an industry ritual. The whole problem is a loop and two modulo checks." },
 
   // ---------------- Tier 2 — middle round ----------------
   { q: "Which sorting algorithm does Python's built-in sort use?",
+    ctx: "sorted() has to be quick on real-world data, not just on random arrays.",
     choices: ["Quicksort", "Timsort", "Heapsort", "Merge sort"], correct: 1, cat: "Algorithms", diff: 2,
     why: "Tim Peters wrote it in 2002 by noticing that real data arrives in already-sorted runs. It's now the default sort in Java, Android, Swift and V8 too — a hybrid of merge and insertion sort, stable and O(n log n) worst case." },
 
   { q: "Tony Hoare called which invention his 'billion-dollar mistake'?",
+    ctx: "He won a Turing Award — and spent part of a 2009 conference talk apologising for one decision.",
     choices: ["The null reference", "The goto statement", "Global variables", "Pointer arithmetic"], correct: 0, cat: "Languages", diff: 2,
     why: "He added it to ALGOL W in 1965 'simply because it was so easy to implement', and apologised publicly in 2009 for the crashes and vulnerabilities that followed. Modern languages answer him with option types." },
 
   { q: "Where were the two designers of UTF-8 when they sketched it out?",
+    ctx: "By 1992 the existing Unicode encodings broke every C program that expected null-terminated strings.",
     choices: ["A Bell Labs whiteboard", "A New Jersey diner", "An IETF meeting", "A flight to Tokyo"], correct: 1, cat: "Data", diff: 2,
     why: "Ken Thompson and Rob Pike designed it on a diner placemat in 1992 and had it running in days. Its trick is that ASCII stays byte-for-byte identical, which is why it swallowed the web without breaking it." },
 
   { q: "What does the CAP theorem say a distributed system must give up during a network partition?",
+    ctx: "Eric Brewer offered it as a conjecture in 2000; it was formally proved two years later.",
     choices: ["Speed or storage", "Consistency or availability", "Durability or isolation", "Latency or throughput"], correct: 1, cat: "Distributed", diff: 2,
     why: "When the network splits, you either refuse to answer (consistency) or answer with possibly stale data (availability). Eric Brewer's own follow-up point: partitions are rare, so the interesting design work is what you do the rest of the time." },
 
   { q: "What does Conway's Law state?",
+    ctx: "An observation about org charts that keeps resurfacing in architecture reviews.",
     choices: ["Systems mirror the communication structure of the organizations that build them", "Adding people to a late project makes it later", "Every abstraction leaks", "Software expands to fill available memory"], correct: 0, cat: "Culture", diff: 2,
     why: "Melvin Conway, 1967. Four teams writing a compiler will produce a four-pass compiler. It's why 'reverse Conway' — reshaping teams to get the architecture you want — is a real management move." },
 
   { q: "'Big-endian' and 'little-endian' byte orders are named after a dispute in which book?",
+    ctx: "Two ways to lay a multi-byte number into memory, and decades of argument about which is correct.",
     choices: ["Gulliver's Travels", "Alice in Wonderland", "Don Quixote", "Moby-Dick"], correct: 0, cat: "Origins", diff: 2,
     why: "Swift's Lilliputians went to war over which end of a boiled egg to crack. Danny Cohen borrowed it in a 1980 paper, 'On Holy Wars and a Plea for Peace', to mock an equally unwinnable argument." },
 
   { q: "The 1968 'Mother of All Demos' introduced the mouse, hypertext and video conferencing. Who led it?",
+    ctx: "San Francisco, December 1968, in front of a thousand engineers.",
     choices: ["Alan Kay", "Douglas Engelbart", "Ivan Sutherland", "Vint Cerf"], correct: 1, cat: "Origins", diff: 2,
     why: "Engelbart's team at SRI showed the entire future of personal computing in 90 minutes — windows, live collaborative editing, a mouse — while the rest of the field was still feeding in punch cards." },
 
   { q: "Who led the team that wrote the onboard flight software for Apollo 11?",
+    ctx: "The code ran in 72 KB of rope memory, woven by hand, and could not be patched in flight.",
     choices: ["Katherine Johnson", "Margaret Hamilton", "Grace Hopper", "Frances Allen"], correct: 1, cat: "Origins", diff: 2,
     why: "Hamilton, at MIT — and she coined the term 'software engineering' partly to get the work taken seriously. Her priority-scheduling design is why the 1202 alarms during landing dropped low-priority work instead of crashing." },
 
   { q: "Which everyday concept did Roy Fielding define in his 2000 doctoral dissertation?",
+    ctx: "He had helped write the HTTP spec, then set out to describe the architecture behind it.",
     choices: ["REST", "SOAP", "GraphQL", "RPC"], correct: 0, cat: "Internet", diff: 2,
     why: "REST — Representational State Transfer — described the architecture the web already had, rather than proposing a new one. Fielding has spent years since pointing out that most 'REST APIs' aren't." },
 
   { q: "What was the name of the first web browser, written in 1990?",
+    ctx: "It ran on a NeXT machine at CERN, and it was an editor as much as a viewer.",
     choices: ["Mosaic", "WorldWideWeb", "Lynx", "Erwise"], correct: 1, cat: "Internet", diff: 2,
     why: "Tim Berners-Lee's WorldWideWeb, later renamed Nexus to stop people confusing it with the web itself. It was also an editor — the original web was meant to be written in as easily as read." },
 
   { q: "What did the 1988 Morris Worm accidentally do?",
+    ctx: "A Cornell graduate student released it from an MIT machine to disguise where it came from.",
     choices: ["Deleted university records", "Crippled thousands of machines by reinfecting them", "Leaked military email", "Erased ARPANET routing tables"], correct: 1, cat: "Security", diff: 2,
     why: "Robert Morris meant to measure the internet's size, but his copy-anyway-sometimes rule made machines reinfect themselves into paralysis. It produced the first CFAA conviction and led directly to the creation of CERT." },
 
   { q: "Which programming language, first released in 1957, is still used for heavy numerical computing?",
+    ctx: "It still sits underneath a great deal of climate modelling, wind-tunnel work and linear algebra.",
     choices: ["COBOL", "Fortran", "LISP", "ALGOL"], correct: 1, cat: "Languages", diff: 2,
     why: "IBM's Fortran was the first widely used high-level language, and it survives because decades of tuned numerical libraries live there. Plenty of Python's fastest math still calls down into Fortran code." },
 
   { q: "Why did Ray Tomlinson choose @ for email addresses in 1971?",
+    ctx: "He was working on ARPANET mail at BBN and needed to separate the user from the machine.",
     choices: ["It was the only preposition on the keyboard", "It was easiest to type", "It came from ledger notation", "It marked machine code"], correct: 0, cat: "Internet", diff: 2,
     why: "He needed a character that could never appear in a user's name, and @ was sitting unused meaning 'at'. He couldn't remember the first message he sent, guessing it was probably 'QWERTYUIOP'." },
 
   { q: "What was the first message sent over ARPANET in 1969?",
+    ctx: "UCLA to Stanford, 29 October 1969, over a 50 kbit link.",
     choices: ["'HELLO'", "'LO'", "'TEST'", "'ARPA'"], correct: 1, cat: "Internet", diff: 2,
     why: "UCLA was typing LOGIN to Stanford when the system crashed after two characters. The ancestor of the internet's first transmission was, appropriately, 'lo' — followed by an outage." },
 
   { q: "What does Moore's Law actually claim?",
+    ctx: "Everyone quotes it. Most people quote it wrong.",
     choices: ["Chips get twice as fast every year", "Transistor count per chip roughly doubles every two years", "Memory prices halve annually", "Bandwidth doubles every 18 months"], correct: 1, cat: "Hardware", diff: 2,
     why: "Gordon Moore's 1965 observation was about economics — the transistor count at minimum cost per component — not speed. It was never a law of physics, which is why it could slow down and eventually stop." },
 
   { q: "What did Alan Turing prove in 1936 about the halting problem?",
+    ctx: "He asked whether a program could decide, in general, whether another program ever stops.",
     choices: ["It's slow to solve", "No general algorithm can solve it", "It needs infinite memory", "It's solvable only for small programs"], correct: 1, cat: "Theory", diff: 2,
     why: "Assume a perfect halt-checker exists, then build a program that asks about itself and does the opposite — contradiction. It's the reason your compiler can never promise your loop terminates." },
 
   { q: "Which system beat Lee Sedol at Go in 2016?",
+    ctx: "Seoul, March 2016 — a 4–1 result that arrived about a decade earlier than experts expected.",
     choices: ["Deep Blue", "AlphaGo", "Watson", "Libratus"], correct: 1, cat: "AI", diff: 2,
     why: "Its move 37 in game two was so unlike human play that commentators assumed a misclick; it's now studied as a genuinely new idea in a 2,500-year-old game. Lee's game-four 'divine move' remains the only human win against it in the match." },
 
   { q: "Which format's original license famously said 'The Software shall be used for Good, not Evil'?",
+    ctx: "Its author added a clause that made corporate lawyers deeply unhappy.",
     choices: ["JSON", "XML", "YAML", "Protocol Buffers"], correct: 0, cat: "Open Source", diff: 2,
     why: "Douglas Crockford's JSON license. The clause makes it non-free by most definitions, so lawyers hated it — and IBM once formally asked him for permission to use it for evil. He granted it." },
 
   { q: "Wikis are named after what?",
+    ctx: "The first one launched in 1995 as a place for programmers to swap design patterns.",
     choices: ["A Hawaiian airport shuttle", "An acronym for 'What I Know Is'", "A Finnish word for notebook", "The inventor's dog"], correct: 0, cat: "Internet", diff: 2,
     why: "Ward Cunningham built the first wiki in 1995 and named it after Honolulu airport's 'Wiki Wiki' buses — wiki is Hawaiian for quick. The 'What I Know Is' expansion is a backronym invented later." },
 
   { q: "Why was Twitter's original post limit 140 characters?",
+    ctx: "The service began life as something you could post to by text message from any phone.",
     choices: ["A database column limit", "It fit an SMS message with room for a username", "A screen size constraint", "It was chosen at random"], correct: 1, cat: "Internet", diff: 2,
     why: "SMS allowed 160 characters, so 140 left 20 for the sender's name. A protocol constraint from the 1980s ended up shaping how a generation wrote in public." },
 
   { q: "What does the Unix philosophy's best-known rule say?",
+    ctx: "Bell Labs, 1978, summarising how the whole toolchain was meant to fit together.",
     choices: ["Optimize last", "Write programs that do one thing and do it well", "Never trust user input", "Prefer libraries to frameworks"], correct: 1, cat: "Culture", diff: 2,
     why: "Doug McIlroy's summary — and its other half matters just as much: write programs that work together, using text streams as a universal interface. That's the whole argument for the pipe, which McIlroy also invented." },
 
   { q: "What is Brooks's Law?",
+    ctx: "Drawn from running IBM's OS/360, one of the largest software projects attempted at the time.",
     choices: ["Adding people to a late software project makes it later", "Every feature doubles complexity", "Estimates are always half the true cost", "Bugs cluster in new code"], correct: 0, cat: "Culture", diff: 2,
     why: "From The Mythical Man-Month, 1975. New people need training and every extra person multiplies the communication paths — which is where 'nine women can't make a baby in one month' comes from." },
 
   { q: "A correct proof that P = NP would earn a prize worth how much?",
+    ctx: "One of seven problems singled out in 2000 as the century's great open questions.",
     choices: ["$100,000", "$1 million", "$10 million", "There is no prize"], correct: 1, cat: "Theory", diff: 2,
     why: "It's one of the Clay Institute's seven Millennium Prize Problems. Proving P = NP would also break most cryptography in use — the million dollars might be the least valuable thing about it." },
 
   { q: "The Turing Award is often called the Nobel Prize of computing. What is its cash prize today?",
+    ctx: "The ACM has awarded it every year since 1966, and the sponsorship has changed hands a few times.",
     choices: ["$100,000", "$250,000", "$1 million", "It carries no prize"], correct: 2, cat: "Culture", diff: 2,
     why: "Google funds the $1M award. The first went to Alan Perlis in 1966, and Frances Allen was the first woman to receive one — in 2006, forty years in." },
 
   { q: "What product category did Amazon deliberately start with in 1995?",
+    ctx: "Bezos drew up a list of twenty things he could sell online, then picked one on purpose.",
     choices: ["Books", "Electronics", "Music", "Toys"], correct: 0, cat: "Culture", diff: 2,
     why: "Bezos picked books because there were millions of titles — far more than any physical store could stock — so an online catalogue had an unbeatable advantage. The name came from the world's largest river." },
 
   { q: "What is a 'race condition'?",
+    ctx: "The bug that passes every test on your machine and fails in production about once a week.",
     choices: ["A slow database query", "Behaviour that depends on the unpredictable timing of concurrent operations", "A CPU throttling state", "A deadlocked thread pair"], correct: 1, cat: "Bugs", diff: 2,
     why: "The bug that only appears on the customer's machine, once a month. They're brutal because adding logging changes the timing — the classic Heisenbug that disappears when observed." },
 
   { q: "Which weakness does Rust's borrow checker eliminate at compile time?",
+    ctx: "No garbage collector, and still no dangling pointers — enforced before the program ever runs.",
     choices: ["Integer overflow", "Use-after-free and data races", "Infinite loops", "SQL injection"], correct: 1, cat: "Languages", diff: 2,
     why: "Ownership rules mean memory errors become compile errors instead of exploits. Microsoft and Google have both reported that around 70% of their serious security bugs were memory-safety issues — which is why Rust is now in both Windows and the Linux kernel." },
 
   { q: "Where did the phrase 'Hello, World!' come from?",
+    ctx: "Two words that open almost every programming tutorial ever written.",
     choices: ["An IBM training manual", "Brian Kernighan's 1970s tutorials at Bell Labs", "A Xerox PARC demo", "The first Basic manual"], correct: 1, cat: "Culture", diff: 2,
     why: "It appears in his 1972 tutorial for the B language and became famous through the 1978 C book by Kernighan and Ritchie. He has said he thinks he took it from a cartoon of a hatching chick." },
 
   { q: "What does ACID guarantee in a database?",
+    ctx: "Four letters describing what a transaction still promises when the power goes out mid-write.",
     choices: ["Atomicity, Consistency, Isolation, Durability", "Availability, Caching, Indexing, Durability", "Atomicity, Concurrency, Integrity, Delivery", "Access, Control, Identity, Delegation"], correct: 0, cat: "Data", diff: 2,
     why: "The point is that a half-finished transfer can never be observed — money either moves or it doesn't. NoSQL's counter-acronym BASE (Basically Available, Soft state, Eventual consistency) is a chemistry joke at ACID's expense." },
 
   { q: "What was the actual cause of the Y2K problem?",
+    ctx: "Billions were spent through the late 1990s to prevent something that then didn't happen.",
     choices: ["Clocks resetting to 1970", "Years stored as two digits", "32-bit timestamps overflowing", "Leap year miscalculation"], correct: 1, cat: "Bugs", diff: 2,
     why: "Storing '99' instead of '1999' saved real money when memory cost a fortune. An estimated $300+ billion of remediation meant almost nothing broke — and the reward for that was decades of people saying it had been a hoax." },
 
   { q: "What does TCP provide that UDP does not?",
+    ctx: "Two transport protocols sit directly on IP, and they promise very different things.",
     choices: ["Encryption", "Reliable, ordered delivery", "Lower latency", "Broadcast support"], correct: 1, cat: "Internet", diff: 2,
     why: "TCP retransmits and reorders; UDP just fires packets and hopes. That's why live video and games prefer UDP — a late frame is worse than a lost one — and why HTTP/3 is built on UDP." },
 
   { q: "What is the average time complexity of a hash table lookup?",
+    ctx: "The structure behind Python dicts, Java HashMaps and JavaScript objects.",
     choices: ["O(1)", "O(log n)", "O(n)", "O(n log n)"], correct: 0, cat: "Algorithms", diff: 2,
     why: "Constant on average, but O(n) in the worst case when everything collides into one bucket. Attackers have used that on purpose — feeding colliding keys to a web server to stall it, the hash-flooding attack of 2011." },
 
   { q: "In 1966, ELIZA convinced people they were talking to a therapist. What was it doing?",
+    ctx: "A few hundred lines of MIT code, scripted to answer like a Rogerian therapist.",
     choices: ["Statistical language modelling", "Pattern-matching and reflecting phrases back", "Searching a knowledge base", "A hand-built decision tree"], correct: 1, cat: "AI", diff: 2,
     why: "A couple of hundred lines of pattern rules. Joseph Weizenbaum was disturbed by how quickly people confided in it — including his own secretary, who asked him to leave the room." },
 
   { q: "What is 'technical debt' a metaphor for?",
+    ctx: "A financial metaphor, coined to explain to non-programmers why the next feature got slower.",
     choices: ["Unpaid software licences", "The future cost of a shortcut taken now", "Under-resourced teams", "Legacy hardware costs"], correct: 1, cat: "Culture", diff: 2,
     why: "Ward Cunningham coined it — and his original point is usually lost: the debt was about shipping to learn, then refactoring as understanding improves. Not, as it's often used, an excuse for messy code." },
 
   { q: "What does Wirth's Law observe?",
+    ctx: "Written by the creator of Pascal, watching hardware gains vanish into software.",
     choices: ["Software gets slower faster than hardware gets faster", "Compilers double in size every decade", "Bugs grow with team size", "Abstraction always costs 10%"], correct: 0, cat: "Culture", diff: 2,
     why: "Niklaus Wirth, 1995. It's why a modern chat app can feel slower than software that ran in 4 MB — the hardware gains got spent on layers rather than handed to the user." },
 
   { q: "Which technique lets a CPU start work on instructions before it knows if they're needed?",
+    ctx: "A modern CPU runs so far ahead of memory that waiting for an answer wastes hundreds of cycles.",
     choices: ["Pipelining", "Speculative execution", "Branch caching", "Hyperthreading"], correct: 1, cat: "Hardware", diff: 2,
     why: "The processor guesses the branch and throws the work away if wrong. In 2018 Spectre and Meltdown showed the discarded work still leaves traces in the cache — leaking secrets from computations that officially never happened." },
 
   { q: "What is 'dogfooding'?",
+    ctx: "The practice is named after a dog food commercial the company's own president appeared in.",
     choices: ["Testing on low-end hardware", "Using your own product internally", "Shipping to a small beta group", "Running tests in production"], correct: 1, cat: "Culture", diff: 2,
     why: "From 'eating your own dog food', popularised inside Microsoft in 1988. The logic is blunt: nothing surfaces a bad workflow faster than being forced to live in it every day." },
 
   { q: "What is the default port for SSH?",
+    ctx: "Its author wrote it in 1995 after a password sniffer was found on his university's network.",
     choices: ["21", "22", "80", "443"], correct: 1, cat: "Security", diff: 2,
     why: "Tatu Ylonen wrote SSH in 1995 after a password-sniffing attack on his university network, and asked for port 22 because it sat neatly between telnet (23) and FTP (21). It was assigned the next day." },
 
   { q: "What does a 'stack' data structure do?",
+    ctx: "The structure your program's function calls already use, whether you think about it or not.",
     choices: ["First in, first out", "Last in, first out", "Random access", "Sorted insertion"], correct: 1, cat: "Algorithms", diff: 2,
     why: "LIFO — which is exactly how function calls nest, and why the error is called a stack overflow. A queue is the FIFO counterpart." },
 
   { q: "What made the first version of Google Search rank pages differently from its rivals?",
+    ctx: "In 1998 most search engines ranked a page by how often your word appeared on it.",
     choices: ["Keyword density", "Counting links from other pages as votes", "Manual directories", "Click tracking"], correct: 1, cat: "Internet", diff: 2,
     why: "PageRank treated a link as an endorsement, weighted by the linking page's own rank — a recursive definition solved by iteration. It worked because it used a signal spammers didn't yet control." },
 
   { q: "What is 'eventual consistency'?",
+    ctx: "The promise you make when you would rather answer now than answer perfectly.",
     choices: ["All replicas agree instantly", "Replicas converge on the same value if updates stop", "Data is consistent after a nightly job", "Writes are rejected during conflicts"], correct: 1, cat: "Distributed", diff: 2,
     why: "It's the CAP trade-off made concrete: stay available now, agree shortly. Amazon's Dynamo paper (2007) made it mainstream — a shopping cart that's briefly wrong beats one that's briefly unavailable." },
 
   { q: "What does 'idempotent' mean for an API request?",
+    ctx: "The property that decides whether it is safe to press retry.",
     choices: ["It can be cached", "Repeating it has the same effect as doing it once", "It never fails", "It runs asynchronously"], correct: 1, cat: "Distributed", diff: 2,
     why: "It's what makes retries safe over an unreliable network. DELETE and PUT are idempotent by design; POST isn't, which is why payment APIs make you send an idempotency key." },
 
   { q: "What is a 'memory leak'?",
+    ctx: "Nothing escapes the process. The number in the task manager just keeps climbing.",
     choices: ["Data written outside its buffer", "Memory that is allocated but never released", "Data readable by other processes", "Corrupted RAM cells"], correct: 1, cat: "Bugs", diff: 2,
     why: "Nothing escapes — the program just never gives it back, so usage climbs until something dies. Garbage collectors help but don't cure it: a forgotten reference in a cache leaks just as effectively." },
 
   { q: "What is the point of a 'hash function' in security?",
+    ctx: "The reason a website can check your password without ever storing it.",
     choices: ["Encrypting data reversibly", "Producing a fixed-size fingerprint that's hard to reverse", "Compressing data", "Signing certificates"], correct: 1, cat: "Security", diff: 2,
     why: "That's why sites store hashes of passwords, not passwords. It's also why they add salt — without it, identical passwords hash identically, and precomputed rainbow tables crack them in bulk." },
 
   { q: "Why does a 'git rebase' rewrite history?",
+    ctx: "The command that carries the strongest warning in almost every team's guidelines.",
     choices: ["It deletes old branches", "It replays commits onto a new base, creating new commit hashes", "It squashes all commits into one", "It edits commit messages"], correct: 1, cat: "Open Source", diff: 2,
     why: "A commit's hash covers its parent, so changing the parent necessarily makes a different commit. That's the whole reason for the rule: don't rebase anything you've already pushed for others to build on." },
 
   // LeetCode tier 2 — the ones that actually get asked
   { q: "How do you detect a cycle in a linked list using O(1) extra space?",
+    ctx: "You may not store the nodes you've visited, and the list may or may not loop back on itself.",
     choices: ["Two pointers at different speeds", "A hash set of visited nodes", "Reversing the list", "Sorting the nodes"], correct: 0, cat: "LeetCode", diff: 2,
     why: "Floyd's tortoise and hare: one pointer steps once, the other twice, and inside a loop the fast one always laps the slow one. Restart one pointer at the head afterwards and they meet exactly at the cycle's entrance." },
 
   { q: "An LRU cache with O(1) get and put is built from which pair of structures?",
+    ctx: "Fixed capacity: when it fills up, the least recently used entry has to go.",
     choices: ["A hash map plus a doubly linked list", "A heap plus an array", "A balanced BST", "A ring buffer plus a set"], correct: 0, cat: "LeetCode", diff: 2,
     why: "The map finds the node instantly; the list keeps recency order so the least recently used is always at the tail. Every eviction is an O(1) unlink — which is exactly how real caches are built, not just interview ones." },
 
   { q: "Longest substring without repeating characters is O(n) using what?",
+    ctx: "Walk through the string and find the longest stretch with no character repeated.",
     choices: ["A sliding window", "Sorting the string", "A trie", "Backtracking"], correct: 0, cat: "LeetCode", diff: 2,
     why: "Expand the right edge, and when a repeat appears drag the left edge past its previous position. Each character enters and leaves the window once, so the two nested-looking loops are still linear." },
 
   { q: "Product of Array Except Self forbids division. What replaces it?",
+    ctx: "Each output element is the product of every other element in the array.",
     choices: ["Prefix and suffix products", "Sorting first", "Logarithms", "A hash map of counts"], correct: 0, cat: "LeetCode", diff: 2,
     why: "Sweep left building the product of everything before each index, then sweep right multiplying in everything after. The division shortcut is banned because a single zero in the array destroys it." },
 
   { q: "Number of Islands on a grid is solved by which technique?",
+    ctx: "A grid of land and water. Count the connected landmasses.",
     choices: ["Flood fill with BFS or DFS", "Binary search", "Dynamic programming", "A sliding window"], correct: 0, cat: "LeetCode", diff: 2,
     why: "Scan for unvisited land, then flood the whole connected blob and count one island. It's the same algorithm as the paint bucket tool — and union-find solves it too, which is how you'd handle land appearing over time." },
 
   { q: "Course Schedule asks whether prerequisites can be completed. What is it really testing?",
+    ctx: "A list of courses with prerequisites; decide whether you could ever finish them all.",
     choices: ["Cycle detection in a directed graph", "Shortest path", "Minimum spanning tree", "Bipartite matching"], correct: 0, cat: "LeetCode", diff: 2,
     why: "A valid order exists exactly when the graph has no cycle, which a topological sort tells you for free. Kahn's algorithm just peels off nodes with no remaining prerequisites — the same thing your package manager does." },
 
   { q: "Rotating an n×n matrix 90° in place is done by which two steps?",
+    ctx: "No second matrix allowed — the values have to move within the one you have.",
     choices: ["Transpose, then reverse each row", "Reverse each row, then sort", "Rotate ring by ring only", "Reverse both diagonals"], correct: 0, cat: "LeetCode", diff: 2,
     why: "Flip it over the main diagonal, then mirror each row horizontally. It's the sort of thing that looks like index gymnastics until you see it as two operations you already know." },
 
   { q: "Merge Intervals starts with which step?",
+    ctx: "A pile of start/end pairs, some overlapping, to be collapsed into the fewest ranges.",
     choices: ["Sorting by start time", "Building a heap", "A sweep with a hash map", "Sorting by length"], correct: 0, cat: "LeetCode", diff: 2,
     why: "Once starts are in order, a new interval either overlaps the last one — extend its end — or it doesn't. Almost every interval problem is 'sort first, then one pass'." },
 
   { q: "Top K Frequent Elements can beat O(n log n) using what?",
+    ctx: "Return the k most common values out of an array of n numbers.",
     choices: ["Bucketing by frequency", "Sorting the whole array", "A binary search on values", "A trie"], correct: 0, cat: "LeetCode", diff: 2,
     why: "A count can't exceed n, so use frequency as an array index and read buckets from the top — O(n). A heap of size k is the other answer at O(n log k), which is what you want when k is tiny." },
 
   { q: "Trapping Rain Water in O(1) space uses which approach?",
+    ctx: "A bar chart of heights. Work out how much water sits in the dips after rain.",
     choices: ["Two pointers moving inward", "A monotonic stack only", "Prefix sums", "Divide and conquer"], correct: 0, cat: "LeetCode", diff: 2,
     why: "Move whichever side has the shorter wall, because that side alone decides how much water is held there. It's the rare problem where the O(1) solution is shorter than the DP one people write first." },
 
   // ---------------- Tier 3 — boss round ----------------
   { q: "What destroyed Ariane 5's maiden flight 37 seconds after launch in 1996?",
+    ctx: "Kourou, June 1996: Europe's new heavy-lift rocket cleared the tower and then tore itself apart.",
     choices: ["A fuel leak", "A 64-bit float converted into a 16-bit integer", "A guidance antenna failure", "An uncaught null reference"], correct: 1, cat: "Bugs", diff: 3,
     why: "Inertial reference code reused from Ariane 4 overflowed on the faster rocket's horizontal velocity. The failing routine wasn't even needed after liftoff — it was still running only for convenience, and it cost about $370 million." },
 
   { q: "Why did the Mars Climate Orbiter burn up in 1999?",
+    ctx: "After a nine-month cruise, the probe met the atmosphere roughly 100 km lower than planned.",
     choices: ["A units mismatch between two teams", "A stuck thruster valve", "A leap-second bug", "Corrupt uplink data"], correct: 0, cat: "Bugs", diff: 3,
     why: "One team's software produced pound-force seconds while the other expected newton-seconds, so the trajectory drifted by a factor of about 4.45. A $327M mission lost to a missing unit conversion." },
 
   { q: "What was the magic constant in Quake III's fast inverse square root?",
+    ctx: "Lighting maths needs 1/√x constantly, and in 1999 doing it properly was far too slow.",
     choices: ["0x5F3759DF", "0xDEADBEEF", "0x7FFFFFFF", "0x1F800000"], correct: 0, cat: "Algorithms", diff: 3,
     why: "It reinterprets a float's bits as an integer, subtracts from that constant, and gets an estimate good enough after one Newton step — roughly four times faster than the standard routine. The source comment next to it reads 'what the fuck?', and nobody is quite sure who derived the number." },
 
   { q: "What did Ken Thompson describe in his 1984 Turing Award lecture?",
+    ctx: "He had co-created Unix. The lecture asked whether you can trust software you didn't build yourself.",
     choices: ["The first buffer overflow", "A compiler backdoor that reinserts itself into the compiler", "A password-hashing flaw in Unix", "A self-replicating worm"], correct: 1, cat: "Security", diff: 3,
     why: "'Reflections on Trusting Trust': he backdoored the compiler so it would insert a login backdoor, and also insert the backdoor-inserting code whenever it compiled a clean compiler. Auditing the source proves nothing when you didn't build the toolchain." },
 
   { q: "Where does the name 'grep' come from?",
+    ctx: "The name came straight out of a command people were already typing in a line editor.",
     choices: ["Global Regular Expression Parser", "The ed command g/re/p", "Generalized REPort", "Grab and Report"], correct: 1, cat: "Jargon", diff: 3,
     why: "In the ed editor, g/re/p meant: globally search for a regular expression and print the matches. Ken Thompson pulled it out into its own tool, and now 'grep' is a verb in general English." },
 
   { q: "How much did Knight Capital lose in about 45 minutes in 2012?",
+    ctx: "1 August 2012: a market maker's new deployment went live at the opening bell.",
     choices: ["$4 million", "$44 million", "$440 million", "$4.4 billion"], correct: 2, cat: "Bugs", diff: 3,
     why: "A deploy reached seven of eight servers, and a repurposed flag switched dead 'Power Peg' code back on — which bought high and sold low, millions of times. The firm lost roughly four times its annual profit and was sold within days." },
 
   { q: "What did the removal of 'left-pad' from npm break in 2016?",
+    ctx: "Eleven lines of JavaScript that thousands of projects depended on without knowing it.",
     choices: ["React's build server", "Thousands of builds worldwide", "The npm registry itself", "Node's core library"], correct: 1, cat: "Open Source", diff: 3,
     why: "Eleven lines that padded a string. Its author unpublished all his packages in a naming dispute and the transitive dependency graph took the industry with it — npm changed its unpublish policy days later." },
 
   { q: "What kind of flaw was Heartbleed (2014)?",
+    ctx: "March 2014: a flaw in the library securing roughly two-thirds of the web's servers.",
     choices: ["A buffer over-read in OpenSSL's TLS heartbeat", "A weak random number generator", "A certificate validation bypass", "A padding oracle"], correct: 0, cat: "Security", diff: 3,
     why: "You asked for a 64 KB reply to a 1-byte message and the server sent back whatever was next in memory — private keys, passwords, anything. It left no trace in logs, so nobody could prove what had been taken." },
 
   { q: "What does Rice's theorem prove?",
+    ctx: "A 1951 result that generalises Turing's bad news considerably.",
     choices: ["All non-trivial semantic properties of programs are undecidable", "Sorting requires n log n comparisons", "Any regular language has a finite automaton", "P is contained in PSPACE"], correct: 0, cat: "Theory", diff: 3,
     why: "It generalises the halting problem to everything about behaviour: 'does this ever print anything', 'is this equivalent to that'. It's the formal reason static analysers must approximate rather than answer." },
 
   { q: "The busy beaver value BB(5) was finally pinned down in 2024. What is it?",
+    ctx: "A decades-old open problem, closed by an internet collaboration of amateurs and mathematicians.",
     choices: ["4,098", "47,176,870", "1,024,000", "It remains unknown"], correct: 1, cat: "Theory", diff: 3,
     why: "That's the most steps any 5-state Turing machine can run before halting, proven by a distributed group of amateurs and academics using the Coq proof assistant. BB(6) is already known to be astronomically beyond reach — the function grows faster than anything computable." },
 
   { q: "What guarantee does a Bloom filter make?",
+    ctx: "A small bit array standing in for a set far too large to keep in memory.",
     choices: ["No false positives", "No false negatives", "Exact membership", "Sorted iteration"], correct: 1, cat: "Data", diff: 3,
     why: "'Definitely not present' or 'probably present' — never a miss for something you inserted. That one-sided error buys enormous space savings, which is why databases use them to skip disk reads for keys that can't be there." },
 
   { q: "What problem do Paxos and Raft both solve?",
+    ctx: "Machines fail and messages vanish, yet the cluster still has to behave as one.",
     choices: ["Distributed consensus", "Leader election only", "Clock synchronisation", "Conflict-free merging"], correct: 0, cat: "Distributed", diff: 3,
     why: "Getting unreliable machines to agree on one value. Paxos was notoriously hard to follow — Lamport first wrote it as a parable about a Greek parliament — and Raft's stated design goal in 2013 was simply 'understandability'." },
 
   { q: "What does the Two Generals Problem prove?",
+    ctx: "Two armies on opposite hills, and every messenger has to cross the valley between them.",
     choices: ["Consensus over an unreliable channel can't be guaranteed", "Two nodes can always agree with enough retries", "Acknowledgements must be encrypted", "Clocks can't be synchronised"], correct: 0, cat: "Distributed", diff: 3,
     why: "Every message needs an acknowledgement, and that acknowledgement needs one too, forever. It's why 'exactly once' delivery is a fiction — real systems get 'at least once' plus idempotency." },
 
   { q: "What does Amdahl's Law limit?",
+    ctx: "You've parallelised the hot loop. Now add more cores and watch what happens.",
     choices: ["Speedup from parallelism, bounded by the serial fraction", "Memory bandwidth per core", "Cache hit rates", "Network throughput"], correct: 0, cat: "Theory", diff: 3,
     why: "If 5% of a job must run in sequence, infinite processors still only get you a 20x speedup. It's the reason more cores stopped feeling like faster computers." },
 
   { q: "What is a 'quine'?",
+    ctx: "A programming puzzle that sounds impossible until you've seen one work.",
     choices: ["A program that prints its own source code", "A self-modifying loop", "A recursive data type", "A compiler that compiles itself"], correct: 0, cat: "Culture", diff: 3,
     why: "Named by Douglas Hofstadter after the philosopher Willard Van Orman Quine. People have built quine relays that cycle through 100+ languages before printing the original program again." },
 
   { q: "What does Hyrum's Law say?",
+    ctx: "The reason you can't 'just' change an internal implementation detail.",
     choices: ["Every API has exactly one correct use", "With enough users, every observable behaviour will be depended on", "Versioning solves compatibility", "Deprecation takes two releases"], correct: 1, cat: "Culture", diff: 3,
     why: "It doesn't matter what you promised in the contract — someone depends on your hash map's iteration order. Google's Hyrum Wright formulated it, and it's why the Linux kernel treats breaking user space as unforgivable." },
 
   { q: "Dijkstra's famous 1968 letter argued against what?",
+    ctx: "A short letter to Communications of the ACM that started a decade of argument.",
     choices: ["The goto statement", "Object orientation", "Recursion", "Dynamic typing"], correct: 0, cat: "Culture", diff: 3,
     why: "He titled it 'A Case Against the Go To Statement'; editor Niklaus Wirth renamed it 'Go To Statement Considered Harmful' and accidentally invented a headline format the field has abused ever since." },
 
   { q: "What is 'Linus's Law', as named in The Cathedral and the Bazaar?",
+    ctx: "Named in the 1997 essay that gave the open-source movement its manifesto.",
     choices: ["Given enough eyeballs, all bugs are shallow", "Release early, release often", "Every patch needs a maintainer", "Forks strengthen a project"], correct: 0, cat: "Open Source", diff: 3,
     why: "Eric Raymond's 1997 essay named it after Torvalds. Heartbleed later became the standard counter-example: OpenSSL was read by everyone and audited by almost nobody." },
 
   { q: "What was the Therac-25's fatal flaw?",
+    ctx: "A radiation therapy machine from the mid-1980s, and the case study every safety course opens with.",
     choices: ["A race condition in the control software", "A miscalibrated sensor", "A power supply fault", "An incorrect dosage table"], correct: 0, cat: "Bugs", diff: 3,
     why: "Fast, practised operators could edit the screen quicker than the software updated its state, letting the machine fire an unshielded electron beam at full power. Hardware interlocks had been removed in favour of trusting the software; at least six patients received massive radiation overdoses." },
 
   { q: "What was the Pentium FDIV bug (1994)?",
+    ctx: "A mathematics professor checking prime-number results found his new PC disagreed with his old one.",
     choices: ["Missing entries in a division lookup table", "An overheating floating-point unit", "A cache coherency fault", "A rounding mode error"], correct: 0, cat: "Hardware", diff: 3,
     why: "Five missing table entries made certain divisions wrong in the fifth decimal place. Intel first offered replacements only to users who could prove they needed accuracy — the backlash forced a full recall costing about $475 million." },
 
   { q: "The joke definition of a monad is 'a monoid in the category of what'?",
+    ctx: "A line quoted by Haskell programmers whenever a newcomer asks the obvious question.",
     choices: ["Functors", "Endofunctors", "Morphisms", "Groupoids"], correct: 1, cat: "Theory", diff: 3,
     why: "'A monad is just a monoid in the category of endofunctors, what's the problem?' — a line from Haskell folklore that perfectly captures why the concept is hard to teach. In practice it's a pattern for chaining computations that carry context." },
 
   { q: "What was Creeper, written in 1971?",
+    ctx: "Written at BBN as an experiment in programs that could move between machines on their own.",
     choices: ["The first self-replicating program on ARPANET", "The first compiler bug", "The first packet sniffer", "The first email client"], correct: 0, cat: "Security", diff: 3,
     why: "It hopped between machines printing 'I'M THE CREEPER : CATCH ME IF YOU CAN'. The response, Reaper, went around deleting it — making the first antivirus itself a worm." },
 
   { q: "What is the 'ABA problem' in lock-free programming?",
+    ctx: "You read a pointer, do some work, then compare-and-swap it back. What could go wrong?",
     choices: ["A value changes to B and back to A, so a compare-and-swap wrongly succeeds", "Two threads deadlock on the same address", "An atomic write tears across cache lines", "A queue drains out of order"], correct: 0, cat: "Distributed", diff: 3,
     why: "Compare-and-swap only sees that the value matches, not that the world stood still. The usual fix is a version counter, so you swap on the pair rather than the pointer alone." },
 
   { q: "Shor's algorithm threatens today's cryptography because it efficiently does what?",
+    ctx: "A 1994 result that only matters once the hardware catches up — and it is catching up.",
     choices: ["Factors large integers on a quantum computer", "Reverses hash functions", "Breaks one-time pads", "Searches unsorted data instantly"], correct: 0, cat: "Security", diff: 3,
     why: "RSA rests on factoring being hard; Shor makes it polynomial-time given a big enough quantum machine. That threat is why 'harvest now, decrypt later' is a real worry and why post-quantum standards were finalised in 2024." },
 
   { q: "What is Parkinson's Law of Triviality better known as?",
+    ctx: "Named for a committee that waved through a reactor and then argued about a shed.",
     choices: ["Bikeshedding", "Yak shaving", "Scope creep", "Gold plating"], correct: 0, cat: "Culture", diff: 3,
     why: "A committee waves through a nuclear reactor and then argues for hours about the bike shed, because everyone has an opinion on bike sheds. In software it's the two-day debate about a variable name inside a review of a distributed system." },
 
   { q: "What did the first-generation Zune do on 31 December 2008?",
+    ctx: "Every 30GB unit of the device did the same thing at the same moment, worldwide.",
     choices: ["Wiped its library", "Froze in an infinite loop", "Reset to factory settings", "Lost all DRM licences"], correct: 1, cat: "Bugs", diff: 3,
     why: "A leap-year date routine looped forever on day 366, so every 30GB Zune on the planet hung at once. The official fix: let the battery die, then turn it on after midnight." },
 
   { q: "What is the 'year 2038 problem'?",
+    ctx: "The reason 'we already survived Y2K' isn't the end of the story.",
     choices: ["Signed 32-bit Unix timestamps overflow", "IPv4 addresses fully exhaust", "SSL certificates expire en masse", "Leap seconds are abolished"], correct: 0, cat: "Bugs", diff: 3,
     why: "At 03:14:07 UTC on 19 January 2038, a signed 32-bit seconds counter rolls over to 1901. Modern systems use 64-bit time, but embedded devices and old file formats will still be out there — the next Y2K already has a date." },
 
   { q: "The Ackermann function is famous for being what?",
+    ctx: "A function built in the 1920s to settle an argument about what 'computable' really covers.",
     choices: ["Computable but not primitive recursive", "Uncomputable", "The fastest sorting bound", "The first proven NP-complete problem"], correct: 0, cat: "Theory", diff: 3,
     why: "It proved that 'primitive recursive' didn't capture everything computable. It grows so violently that A(4,2) has almost 20,000 digits — and its inverse, which grows almost imperceptibly, is why union-find is called 'effectively constant time'." },
 
   { q: "What complexity did Strassen's 1969 algorithm beat for matrix multiplication?",
+    ctx: "Multiplying two n×n matrices the obvious way costs n³ multiplications. In 1969 someone did better.",
     choices: ["O(n^3)", "O(n^2)", "O(n log n)", "O(2^n)"], correct: 0, cat: "Algorithms", diff: 3,
     why: "He got O(n^2.807) by doing 7 multiplications instead of 8 in the 2x2 case, and the mere fact that n^3 wasn't optimal opened a race that is still running below n^2.372." },
 
   { q: "What does 'CRDT' stand for?",
+    ctx: "Two people edit the same document offline, then both come back online.",
     choices: ["Conflict-free Replicated Data Type", "Concurrent Remote Data Transfer", "Consistent Replica Distribution Tree", "Cached Read Distributed Table"], correct: 0, cat: "Distributed", diff: 3,
     why: "Data structures whose merge is commutative, associative and idempotent, so replicas converge no matter what order updates arrive in. It's how collaborative editors let two people type offline and still agree afterwards." },
 
   { q: "What was Dijkstra's Dining Philosophers problem designed to illustrate?",
+    ctx: "Five philosophers, five forks, one round table, and a great deal of thinking.",
     choices: ["Deadlock and resource contention", "Cache invalidation", "Priority inversion only", "Network partitions"], correct: 0, cat: "Distributed", diff: 3,
     why: "Five philosophers, five forks, and a need for two forks to eat: if everyone grabs left first, everyone starves holding one fork. Dijkstra set it in 1965 as an exam question about competing for shared resources." },
 
   { q: "Who received the first Turing Award, in 1966?",
+    ctx: "The ACM's highest honour, handed out for the first time the year it was created.",
     choices: ["Alan Perlis", "Maurice Wilkes", "Marvin Minsky", "John McCarthy"], correct: 0, cat: "Culture", diff: 3,
     why: "Perlis, for his work on compilers — and later the author of the 'Epigrams on Programming', including 'A language that doesn't affect the way you think about programming is not worth knowing'." },
 
   { q: "What is 'Duff's device'?",
+    ctx: "A 1983 trick for copying data quickly, found while optimising animation code at Lucasfilm.",
     choices: ["A loop unrolled using switch fall-through in C", "A hardware debugger", "A cache prefetch instruction", "A pointer-tagging trick"], correct: 0, cat: "Languages", diff: 3,
     why: "Tom Duff interleaved a switch statement with a do-while loop to handle the leftover iterations — legal C that looks like a syntax error. His own verdict: 'I feel a combination of pride and revulsion at this discovery.'" },
 
   { q: "What is the 'thundering herd' problem?",
+    ctx: "A popular cache entry expires at exactly the same instant for everybody.",
     choices: ["Many waiting processes all wake at once and contend for one resource", "A cache filling faster than it drains", "Retries amplifying across services", "Requests arriving out of order"], correct: 0, cat: "Distributed", diff: 3,
     why: "A cache entry expires and ten thousand requests hit the database simultaneously to rebuild the same value. Fixes: wake one waiter, jitter the expiry, or let a single request repopulate while the rest serve stale." },
 
   { q: "What does a zero-knowledge proof let you do?",
+    ctx: "Convince someone that you know a secret without handing over any part of it.",
     choices: ["Prove a statement is true while revealing nothing else", "Encrypt without a key exchange", "Verify a hash without computing it", "Sign a message anonymously"], correct: 0, cat: "Security", diff: 3,
     why: "The textbook example: prove you can tell red from green marbles to a colour-blind friend, without ever saying which is which. Modern zk-SNARKs turn this into practical blockchain privacy and succinct verification." },
 
   { q: "Which extra vote count in a 2003 Belgian election was blamed on a single bit flip?",
+    ctx: "A 2003 count in Schaerbeek gave one candidate more votes than were physically possible.",
     choices: ["1,024", "2,048", "4,096", "8,192"], correct: 2, cat: "Hardware", diff: 3,
     why: "A candidate received exactly 4,096 too many votes — 2^12, one bit in the wrong position, widely attributed to a cosmic-ray strike on unprotected memory. It's the most cited real-world case for why servers use ECC RAM." },
 
   { q: "What does a B-tree optimise for?",
+    ctx: "A disk read is thousands of times slower than a memory read, and the structure is designed around that.",
     choices: ["Minimising disk or page reads by keeping many keys per node", "Constant-time lookup", "Lock-free concurrency", "In-memory sorting"], correct: 0, cat: "Data", diff: 3,
     why: "Wide, shallow nodes sized to a disk page mean a billion rows sit three or four reads away. Nearly every relational database index and filesystem is a B-tree variant — and Rudolf Bayer never said what the B stands for." },
 
   { q: "What is 'tail call optimization'?",
+    ctx: "Recursion is elegant, but every call costs a stack frame — unless it doesn't have to.",
     choices: ["Reusing the current stack frame when a call is the last action", "Inlining short functions", "Caching recursive results", "Unrolling the final loop iteration"], correct: 0, cat: "Languages", diff: 3,
     why: "It turns recursion into iteration, so a properly tail-recursive loop runs forever without growing the stack. Scheme requires it; JavaScript specified it in ES6 and then almost no engine shipped it." },
 
   { q: "What is 'priority inversion', which nearly ended the Mars Pathfinder mission?",
+    ctx: "July 1997: the rover was on Mars, and the lander kept resetting itself.",
     choices: ["A high-priority task blocked by a low-priority one holding a lock", "Interrupts firing out of order", "A scheduler ignoring deadlines", "Threads starving on a spinlock"], correct: 0, cat: "Bugs", diff: 3,
     why: "In 1997 Pathfinder kept resetting on Mars because a low-priority task held a mutex a high-priority task needed. JPL diagnosed it remotely and uploaded a patch that turned on priority inheritance — from 190 million km away." },
 
   { q: "What does 'SIMD' describe?",
+    ctx: "One of the four categories in Flynn's 1966 taxonomy of computer architectures.",
     choices: ["One instruction applied to many data elements at once", "Many instructions on one data stream", "Simultaneous multithreading", "Speculative instruction dispatch"], correct: 0, cat: "Hardware", diff: 3,
     why: "Single Instruction, Multiple Data — add eight pairs of numbers with one instruction. It's the basis of MMX, SSE, AVX and NEON, and the reason a CPU can decode video without melting." },
 
   { q: "What made the Byzantine Generals Problem different from ordinary consensus?",
+    ctx: "A 1982 paper that assumes some of your own nodes are actively working against you.",
     choices: ["Some participants may lie or act arbitrarily", "Messages may be delayed", "Nodes may crash", "The network may partition"], correct: 0, cat: "Distributed", diff: 3,
     why: "Lamport, Shostak and Pease showed in 1982 that you can tolerate f traitors only with more than 3f participants. It's the exact problem Bitcoin's proof-of-work sidesteps by making lying expensive rather than detectable." },
 
   { q: "What is 'cache invalidation' famous for?",
+    ctx: "Half of a very famous joke about the hardest parts of the job.",
     choices: ["Being one of the two hard things in computer science", "Being solved by LRU", "Requiring a distributed lock", "Being impossible in Redis"], correct: 0, cat: "Culture", diff: 3,
     why: "Phil Karlton's line: 'There are only two hard things in computer science: cache invalidation and naming things.' The best-known variant adds a third item as an off-by-one joke." },
 
   { q: "What does 'homomorphic encryption' allow?",
+    ctx: "Sending your data to a cloud you don't trust, and getting a useful answer back.",
     choices: ["Computing directly on encrypted data", "Encrypting with the same key twice", "Sharing a key over an open channel", "Compressing before encrypting"], correct: 0, cat: "Security", diff: 3,
     why: "A server can add and multiply values it can never read, and the decrypted result is still correct. Craig Gentry's 2009 breakthrough made a fully homomorphic scheme possible — it was millions of times too slow, and the gap has been closing ever since." },
 
   { q: "Why is the Unix epoch set to 1 January 1970?",
+    ctx: "Every Unix timestamp counts seconds from one specific, slightly arbitrary moment.",
     choices: ["It predates all computers", "A convenient recent date when 32-bit counters were designed", "It marks the first ARPANET link", "It aligns with the Gregorian calendar cycle"], correct: 1, cat: "Origins", diff: 3,
     why: "Early Unix counted in 60ths of a second, which overflowed a 32-bit integer in a couple of years, so the team moved to whole seconds and picked a round nearby year. That arbitrary choice is now baked into most software on Earth." },
 
   { q: "What does 'Halt and Catch Fire' (HCF) refer to?",
+    ctx: "An instruction that never appeared in any official manual.",
     choices: ["An undocumented instruction that locks up the CPU", "A thermal shutdown signal", "A kernel panic handler", "A watchdog reset"], correct: 0, cat: "Hardware", diff: 3,
     why: "A joke mnemonic for real undocumented opcodes that put a processor into a state only a reset could exit — on some early chips by driving the buses so hard the hardware could genuinely overheat." },
 
   // LeetCode tier 3 — the whiteboard boss fights
   { q: "Median of Two Sorted Arrays can be solved in what time?",
+    ctx: "Two sorted arrays, one median, and an interviewer watching your index arithmetic.",
     choices: ["O(log(min(m, n)))", "O(m + n)", "O(log(m + n))", "O(m log n)"], correct: 0, cat: "LeetCode", diff: 3,
     why: "Binary search the partition point of the shorter array so that everything left of both cuts is ≤ everything right. Merging is the obvious O(m+n) answer, and the reason this one is rated hard is that almost nobody gets the edge cases right first time." },
 
   { q: "Boyer–Moore voting finds a majority element in O(1) space by doing what?",
+    ctx: "One element appears more than n/2 times. Find it without a hash map.",
     choices: ["Keeping one candidate and a counter", "Sorting and taking the middle", "Hashing every count", "Binary searching the value range"], correct: 0, cat: "LeetCode", diff: 3,
     why: "Every non-matching element cancels one vote for the current candidate; a true majority can't be cancelled out. One pass, two variables — and a second pass to verify, since it returns garbage if no majority exists." },
 
   { q: "Finding the longest palindromic substring in O(n) requires which algorithm?",
+    ctx: "Expanding around every centre is O(n²), which is what nearly everyone writes.",
     choices: ["Manacher's", "Kadane's", "Knuth–Morris–Pratt", "Rabin–Karp"], correct: 0, cat: "LeetCode", diff: 3,
     why: "It reuses the palindrome radii already computed inside a known palindrome, so no centre is expanded twice. Expand-around-centre at O(n²) is what almost everyone writes — and what almost every interviewer accepts." },
 
   { q: "Sliding Window Maximum is O(n) using which structure?",
+    ctx: "Report the maximum of every window of size k as it slides along the array.",
     choices: ["A monotonic deque", "A max heap", "A balanced BST", "A prefix array"], correct: 0, cat: "LeetCode", diff: 3,
     why: "Keep indices in a deque whose values decrease, dropping anything smaller than the incoming element — it can never be the max again. The heap answer is O(n log n) and the deque is the reason this is a hard-rated problem." },
 
   { q: "Sort Colors (the Dutch national flag problem) partitions three values with how many pointers?",
+    ctx: "An array of 0s, 1s and 2s, sorted in a single pass without counting them first.",
     choices: ["Three, in a single pass", "Two, in two passes", "One, with counting", "Four, one per boundary"], correct: 0, cat: "LeetCode", diff: 3,
     why: "Low, mid and high walk the array once, swapping each element into its region. Dijkstra posed it in the 1970s, and it's the same three-way partition that makes quicksort survive arrays full of duplicates." },
 
   { q: "Union-Find with path compression and union by rank runs in what amortised time?",
+    ctx: "The structure behind 'are these two things in the same group', asked millions of times over.",
     choices: ["Effectively constant (inverse Ackermann)", "O(log n)", "O(n)", "O(log* n) exactly"], correct: 0, cat: "LeetCode", diff: 3,
     why: "α(n), the inverse of the Ackermann function, is below 5 for any n you could store in this universe. That's why Kruskal's algorithm and every 'are these connected' problem lean on it." },
 
   { q: "Edit distance between two strings is computed by which method?",
+    ctx: "The fewest single-character edits that turn one word into another.",
     choices: ["A 2D dynamic-programming table", "Greedy character matching", "Binary search", "A suffix trie walk"], correct: 0, cat: "LeetCode", diff: 3,
     why: "Each cell asks: insert, delete or substitute, whichever is cheapest — O(mn). Vladimir Levenshtein defined it in 1965, and it's what powers spell-check suggestions and 'did you mean' searches." },
 
   { q: "Traversing a binary tree in order with O(1) space uses what?",
+    ctx: "No stack, no recursion — and the tree has to be left exactly as you found it.",
     choices: ["Morris traversal", "An explicit stack", "Recursion", "A parent-pointer scan"], correct: 0, cat: "LeetCode", diff: 3,
     why: "It temporarily rewires each node's empty right pointer back to its in-order successor, walks through, then undoes the threading. No stack, no recursion — the tree itself is the bookkeeping." },
 
   { q: "Picking a random element from a stream of unknown length uses what?",
+    ctx: "One pass, unknown length, and every element has to end up equally likely.",
     choices: ["Reservoir sampling", "Rejection sampling", "A shuffle then take", "A hash of the values"], correct: 0, cat: "LeetCode", diff: 3,
     why: "Keep the nth item with probability 1/n and every item ends up equally likely, in O(1) space and one pass. It's how you sample logs you can't fit in memory, not just how you answer the interview question." },
 
   { q: "Word Search II — finding many words in a letter grid — is made fast by what?",
+    ctx: "Thousands of words, one grid of letters, and a naive search that times out immediately.",
     choices: ["A trie shared across the search", "Sorting the word list", "Memoising each cell", "A bitmask over the alphabet"], correct: 0, cat: "LeetCode", diff: 3,
     why: "Walk the grid once and the trie prunes every path that can't spell any remaining word, instead of restarting a search per word. Pruning a dead branch early is what separates a passing solution from a timeout." }
 ];
