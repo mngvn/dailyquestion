@@ -56,7 +56,13 @@
 
   // ----- Today's content (computed once) -----
   const todaysGame = (typeof Puzzles !== "undefined") ? Puzzles.todaysGame() : null;
-  const fact = pick(FUN_FACTS, 11);
+
+  // Four facts a day, one per category, each dealt off its own deck so a fact
+  // is only seen again once its whole category has been used (see deck.js).
+  const FACT_CATS = ["Tech", "Art", "History", "Misc"];
+  const facts = FACT_CATS
+    .map((cat, i) => Deck.deal(FUN_FACTS.filter((f) => f.cat === cat), 11 + i, dayNumber))
+    .filter(Boolean);
   // Most of the modern pieces are still in copyright, so no photograph of them
   // can be shown and the card falls back to a generated study. Weight the daily
   // pick toward works we can actually display: six days in seven come from the
@@ -285,7 +291,8 @@
       } else if (s.id === "trivia") {
         triviaSubEl = sub;
       } else if (s.id === "fact") {
-        sub.textContent = "Tap to reveal";
+        // Kept short: the slice is narrow and SVG text doesn't wrap.
+        sub.textContent = `${facts.length} facts, ${facts.length} categories`;
       } else if (s.id === "artwork") {
         sub.textContent = artwork.artist;
       } else if (s.id === "history") {
@@ -436,10 +443,27 @@
     return btn;
   }
 
+  // Four cards, one per category. The chips carry their own colour so the set
+  // reads as four different things at a glance rather than one long list.
   function buildFact(body) {
-    body.append(el("p", "modal-text", fact));
+    if (!facts.length) {
+      body.append(el("p", "modal-text", "Today's facts failed to load."));
+      return;
+    }
+
+    const list = el("div", "ff-list");
+    facts.forEach((f, i) => {
+      const card = el("article", "ff-card");
+      card.dataset.cat = f.cat;
+      card.style.setProperty("--i", i);
+      card.append(el("span", "ff-chip", f.cat), el("p", "ff-text", f.text));
+      list.append(card);
+    });
+    body.append(list);
+
     const foot = el("div", "modal-foot");
-    foot.append(copyBtn(() => fact));
+    foot.append(copyBtn(() => facts.map((f) => `${f.cat}: ${f.text}`).join("\n\n"),
+      facts.length > 1 ? "Copy all four" : "Copy"));
     body.append(foot);
   }
 
@@ -642,7 +666,7 @@
   }
 
   const SECTIONS = {
-    fact: { icon: "💡", title: "Fun Fact", build: buildFact },
+    fact: { icon: "💡", title: "Four Fun Facts", build: buildFact },
     puzzle: { icon: "🧩", title: "Daily Puzzle", build: buildPuzzle },
     artwork: { icon: "🎨", title: "Artwork of the Day", build: buildArtwork },
     history: { icon: "📜", title: "On This Day", build: buildHistory },
