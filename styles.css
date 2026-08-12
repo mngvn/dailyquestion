@@ -485,6 +485,35 @@ body {
 .aw-foot .ghost-btn { text-decoration: none; display: inline-block; }
 .copy-btn.copied { border-color: var(--good); color: var(--good); }
 
+/* Four Fun Facts — one card per category */
+.ff-list { display: flex; flex-direction: column; gap: 12px; }
+.ff-card {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--card-border);
+  border-left: 3px solid var(--ff-c, var(--accent));
+  animation: ffIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 0.07s);
+}
+@keyframes ffIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+/* each category gets its own accent, so four cards read as four subjects */
+.ff-card[data-cat="Tech"]    { --ff-c: #19e3ff; }
+.ff-card[data-cat="Art"]     { --ff-c: #ff5c9c; }
+.ff-card[data-cat="History"] { --ff-c: #ffd86b; }
+.ff-card[data-cat="Misc"]    { --ff-c: #47e0a0; }
+
+.ff-chip {
+  display: inline-block; margin-bottom: 7px;
+  font-size: 0.66rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--ff-c);
+}
+.ff-text { font-size: 0.94rem; line-height: 1.62; color: var(--text); }
+
 /* On This Day */
 .history-year {
   font-family: "Space Grotesk", sans-serif;
@@ -1151,7 +1180,13 @@ body.light .ctrl-btn {
   background: rgba(28, 34, 80, 0.05);
 }
 body.light .tv-mult,
-body.light .tv-row { background: rgba(28, 34, 80, 0.05); }
+body.light .tv-row,
+body.light .ff-card { background: rgba(28, 34, 80, 0.05); }
+/* the neon category accents need darkening to stay legible on white */
+body.light .ff-card[data-cat="Tech"]    { --ff-c: #0a7f96; }
+body.light .ff-card[data-cat="Art"]     { --ff-c: #c02a68; }
+body.light .ff-card[data-cat="History"] { --ff-c: #9a6b00; }
+body.light .ff-card[data-cat="Misc"]    { --ff-c: #0b8459; }
 body.light .tv-chip { color: #c02a68; }
 body.light .controls { background: rgba(255, 255, 255, 0.7); }
 body.light .modal { border-color: rgba(28, 34, 70, 0.16); }

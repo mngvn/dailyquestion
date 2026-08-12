@@ -45,59 +45,17 @@ window.Trivia = (function () {
     return n;
   }
 
-  // ----- Deterministic randomness -----
-  // mulberry32: small, fast, and identical in every browser, which matters
-  // because everybody has to get the same questions on the same day.
-  function rng(seed) {
-    let a = seed >>> 0;
-    return function () {
-      a = (a + 0x6D2B79F5) >>> 0;
-      let t = a;
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
+  // Deterministic dealing lives in deck.js: every question in a tier is used
+  // once before any of them repeats. The tier number is the deck's lane, so the
+  // three tiers don't rotate in lockstep.
+  const permute = Deck.permute;
 
-  // A seeded permutation of 0..n-1 (Fisher-Yates).
-  function permute(n, seed) {
-    const r = rng(seed);
-    const a = Array.from({ length: n }, (_, i) => i);
-    for (let i = n - 1; i > 0; i--) {
-      const j = Math.floor(r() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
-
-  // A tier's deck for one cycle through its whole pool.
-  //
-  // Reshuffling the whole pool every cycle would still let a question land at
-  // the end of one deck and the start of the next — a repeat two days apart,
-  // which is exactly the complaint. So the pool is split into two fixed halves
-  // (by a permutation that never changes) and each cycle only shuffles *within*
-  // each half, always dealing the first half before the second. Every question
-  // still comes up exactly once per cycle, and because it can never cross into
-  // the other half, two sightings are always more than half a cycle apart.
-  function tierDeck(n, tier, cycle) {
-    const half = Math.ceil(n / 2);
-    const base = permute(n, tier * 2246822519 + 1013904223);
-    const a = base.slice(0, half);
-    const b = base.slice(half);
-    const da = permute(a.length, cycle * 7919 + tier * 104729).map((i) => a[i]);
-    const db = permute(b.length, cycle * 6151 + tier * 92821 + 7).map((i) => b[i]);
-    return da.concat(db);
-  }
-
-  // Today's three questions: one per tier, dealt off that deck.
+  // Today's three questions, one per tier.
   function todaysRun(bank, dayNumber) {
     const out = [];
     for (let tier = 1; tier <= ROUNDS; tier++) {
-      const pool = bank.filter((q) => q.diff === tier);
-      if (!pool.length) continue;
-      const cycle = Math.floor(dayNumber / pool.length);
-      const pos = ((dayNumber % pool.length) + pool.length) % pool.length;
-      out.push(pool[tierDeck(pool.length, tier, cycle)[pos]]);
+      const q = Deck.deal(bank.filter((x) => x.diff === tier), tier, dayNumber);
+      if (q) out.push(q);
     }
     return out;
   }
