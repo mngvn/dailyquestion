@@ -73,7 +73,11 @@
   const artwork = (dayNumber % 7 === 3 && artOther.length)
     ? pick(artOther, 41)
     : pick(artPhoto.length ? artPhoto : ARTWORKS, 41);
-  const hist = HISTORY_BY_DATE[mmdd] || pick(HISTORY_FALLBACK, 53);
+  // Every date of the year has an entry, so there is no fallback pool to fall
+  // through to — that fallback was picked by hashing the day number, which is
+  // what used to repeat entries within a week or two.
+  const hist = HISTORY_BY_DATE[mmdd] || null;
+  const histDate = `${months[now.getMonth()]} ${ord(now.getDate())}`;
 
   // Trivia is a three-question run built by trivia.js; the day's questions and
   // their order are decided there so they stay identical across reloads.
@@ -296,7 +300,9 @@
       } else if (s.id === "artwork") {
         sub.textContent = artwork.artist;
       } else if (s.id === "history") {
-        sub.textContent = String(hist.year);
+        // Just the year: the full date is in the header and inside the
+        // section, and a long date string overflows this wedge.
+        sub.textContent = hist ? String(hist.year) : "—";
       } else if (s.id === "duel") {
         sub.textContent = "Which has more users?";
       }
@@ -612,11 +618,25 @@
       "Figures are the latest publicly reported numbers, and they don't all count the same thing — each card says which metric and which year it is. Discontinued apps are shown at their peak."));
   }
 
+  // The date is stated in full above the entry — the section is about *this*
+  // day, and the year alone never said which day that was.
   function buildHistory(body) {
-    body.append(el("div", "history-year", String(hist.year)));
+    if (!hist) {
+      body.append(el("p", "modal-text", `No entry for ${histDate} yet.`));
+      return;
+    }
+
+    const line = el("div", "history-date");
+    line.append(
+      el("span", "history-on", "On "),
+      el("span", "history-day", histDate + ", "),
+      el("span", "history-year", String(hist.year))
+    );
+    body.append(line);
     body.append(el("p", "modal-text", hist.text));
+
     const foot = el("div", "modal-foot");
-    foot.append(copyBtn(() => `${hist.year} — ${hist.text}`));
+    foot.append(copyBtn(() => `On ${histDate}, ${hist.year} — ${hist.text}`));
     body.append(foot);
   }
 
