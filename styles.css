@@ -506,12 +506,27 @@ body {
 .ff-card[data-cat="History"] { --ff-c: #ffd86b; }
 .ff-card[data-cat="Misc"]    { --ff-c: #47e0a0; }
 
+.ff-head {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 7px; min-height: 24px;
+}
 .ff-chip {
-  display: inline-block; margin-bottom: 7px;
   font-size: 0.66rem; font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.12em;
   color: var(--ff-c);
 }
+/* sits quietly at the end of the chip row until the card is hovered or the
+   button is focused — on touch there's no hover, so it never fully fades */
+.ff-copy {
+  margin-left: auto;
+  padding: 4px 12px;
+  font-size: 0.7rem;
+  opacity: 0.55;
+  transition: opacity 0.25s ease, background 0.25s ease, border-color 0.25s ease;
+}
+.ff-card:hover .ff-copy,
+.ff-copy:focus-visible { opacity: 1; }
+.ff-copy.copied { opacity: 1; }
 .ff-text { font-size: 0.94rem; line-height: 1.62; color: var(--text); }
 
 /* On This Day — the full date leads, so the entry reads as a statement about
