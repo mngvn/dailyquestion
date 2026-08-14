@@ -462,15 +462,20 @@
       const card = el("article", "ff-card");
       card.dataset.cat = f.cat;
       card.style.setProperty("--i", i);
-      card.append(el("span", "ff-chip", f.cat), el("p", "ff-text", f.text));
+
+      // Each card copies its own fact — you usually want to pass on one of
+      // them, not the whole set.
+      const btn = copyBtn(() => f.text, "Copy");
+      btn.classList.add("ff-copy");
+      btn.setAttribute("aria-label", `Copy the ${f.cat} fact`);
+
+      const head = el("div", "ff-head");
+      head.append(el("span", "ff-chip", f.cat), btn);
+
+      card.append(head, el("p", "ff-text", f.text));
       list.append(card);
     });
     body.append(list);
-
-    const foot = el("div", "modal-foot");
-    foot.append(copyBtn(() => facts.map((f) => `${f.cat}: ${f.text}`).join("\n\n"),
-      facts.length > 1 ? "Copy all four" : "Copy"));
-    body.append(foot);
   }
 
   function buildPuzzle(body) {
