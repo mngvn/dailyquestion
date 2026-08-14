@@ -514,15 +514,21 @@ body {
 }
 .ff-text { font-size: 0.94rem; line-height: 1.62; color: var(--text); }
 
-/* On This Day */
-.history-year {
+/* On This Day — the full date leads, so the entry reads as a statement about
+   today rather than a year floating above a paragraph */
+.history-date {
   font-family: "Space Grotesk", sans-serif;
-  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  font-size: clamp(1.5rem, 3.6vw, 2.3rem);
   font-weight: 700;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+.history-on { color: var(--muted); font-weight: 500; }
+.history-day { color: var(--text); }
+.history-year {
   background: linear-gradient(120deg, #4aa8ff, #1f5fe0);
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent;
-  line-height: 1;
 }
 
 /* Trivia */
