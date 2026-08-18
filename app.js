@@ -476,6 +476,17 @@
       list.append(card);
     });
     body.append(list);
+
+    // …and one for the whole set. Here the category labels are worth keeping,
+    // since four facts pasted in a row need something to separate them.
+    if (facts.length > 1) {
+      const foot = el("div", "modal-foot");
+      foot.append(copyBtn(
+        () => facts.map((f) => `${f.cat}: ${f.text}`).join("\n\n"),
+        `Copy all ${facts.length}`
+      ));
+      body.append(foot);
+    }
   }
 
   function buildPuzzle(body) {
