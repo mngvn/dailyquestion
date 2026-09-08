@@ -1208,9 +1208,11 @@ body.light .loc-clue { background: rgba(28, 34, 80, 0.05); }
 body.light .loc-clue { border-left-color: #0d9488; }
 body.light .loc-clue-tag { color: #0b7c72; }
 body.light .loc-map-path { fill: rgba(13, 148, 136, 0.14); stroke: #0d9488; }
-body.light .loc-globe-edge { fill: rgba(13, 148, 136, 0.07); stroke: rgba(13, 148, 136, 0.5); }
-body.light .loc-globe-eq { stroke: rgba(13, 148, 136, 0.5); }
-body.light .loc-globe-tropic { stroke: rgba(13, 148, 136, 0.28); }
+body.light .loc-input { background: rgba(28, 34, 80, 0.05); }
+body.light .loc-input:focus { background: rgba(13, 148, 136, 0.08); border-color: #0d9488; }
+body.light .loc-tried-chip { background: rgba(28, 34, 80, 0.05); }
+body.light .loc-dot { background: rgba(13, 148, 136, 0.7); }
+body.light .loc-dot.used { background: rgba(28, 34, 80, 0.16); }
 body.light .loc-stage,
 body.light .loc-stage-up { color: #0b7c72; background: rgba(13, 148, 136, 0.12); border-color: rgba(13, 148, 136, 0.32); }
 /* the neon category accents need darkening to stay legible on white */
@@ -1310,14 +1312,8 @@ body.light.pointer-active .pointer-glow { opacity: 0.45; }
 }
 .loc-clue-text { font-size: 0.94rem; line-height: 1.6; color: var(--text); }
 
-/* the two pieces of art sit side by side, outline and latitude */
-.loc-art { display: grid; grid-template-columns: 1.9fr 1fr; gap: 10px; }
-.loc-clue-map, .loc-clue-globe { display: flex; flex-direction: column; }
-.loc-map, .loc-globe {
-  flex: 1;
-  display: flex; align-items: center; justify-content: center;
-  padding: 2px 0;
-}
+/* the country outline */
+.loc-map { display: flex; align-items: center; justify-content: center; padding: 2px 0; }
 .loc-map-svg { width: 100%; max-width: 280px; height: auto; }
 .loc-map-path {
   fill: rgba(94, 234, 212, 0.13);
@@ -1326,16 +1322,49 @@ body.light.pointer-active .pointer-glow { opacity: 0.45; }
   stroke-linejoin: round;
 }
 
-/* the globe edge-on, with the city's parallel drawn across it */
-.loc-globe-svg { width: 100%; max-width: 130px; height: auto; }
-.loc-globe-edge { fill: rgba(94, 234, 212, 0.06); stroke: rgba(94, 234, 212, 0.45); stroke-width: 1; }
-.loc-globe-eq { stroke: rgba(94, 234, 212, 0.4); stroke-width: 0.8; }
-.loc-globe-tropic { stroke: rgba(94, 234, 212, 0.2); stroke-width: 0.7; stroke-dasharray: 3 3; }
-.loc-globe-lat { stroke: var(--accent-3); stroke-width: 1.8; }
-.loc-globe-label {
-  fill: var(--accent-3);
+/* a card bought with a wrong guess reads warmer than the opening dossier */
+.loc-clue.loc-hint { border-left-color: var(--accent-3); }
+.loc-clue.loc-hint .loc-clue-tag { color: var(--accent-3); }
+
+/* typing the answer */
+.loc-guess { display: flex; gap: 10px; }
+.loc-input {
+  flex: 1; min-width: 0;
   font-family: "Inter", sans-serif;
-  font-size: 9px; font-weight: 700;
+  font-size: 0.98rem; color: var(--text);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 11px 16px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.loc-input::placeholder { color: var(--muted); }
+.loc-input:focus {
+  outline: none;
+  border-color: #5eead4;
+  background: rgba(94, 234, 212, 0.07);
+}
+.loc-submit { flex-shrink: 0; }
+
+/* guesses left, and what the round is still worth */
+.loc-meter { display: flex; align-items: center; gap: 12px; }
+.loc-dots { display: flex; gap: 6px; }
+.loc-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: rgba(94, 234, 212, 0.65);
+  transition: background 0.3s ease, transform 0.3s ease;
+}
+.loc-dot.used { background: rgba(255,255,255,0.14); transform: scale(0.8); }
+
+/* what has already been tried, so nobody repeats themselves */
+.loc-tried { display: flex; flex-wrap: wrap; gap: 6px; }
+.loc-tried-chip {
+  padding: 3px 10px; border-radius: 999px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--card-border);
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-decoration: line-through;
 }
 
 /* the one-line facts */
@@ -1363,11 +1392,12 @@ body.light.pointer-active .pointer-glow { opacity: 0.45; }
 .loc-result.show { opacity: 1; transform: none; }
 .loc-result.good { color: var(--good); }
 .loc-result.bad { color: var(--bad); }
+.loc-result.warn { color: var(--muted); }
 
 .loc-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .loc-final { font-size: 0.85rem; color: var(--muted); }
 
 @media (max-width: 520px) {
-  .loc-art { grid-template-columns: 1fr; }
-  .loc-globe-svg { max-width: 110px; }
+  .loc-guess { flex-direction: column; }
+  .loc-submit { width: 100%; }
 }
