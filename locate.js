@@ -2,20 +2,24 @@
 // you name it; the sooner you commit, the more it pays.
 //
 // Clues escalate deliberately: region and population barely narrow it down, the
-// local dish narrows it a lot, the country outline with the city marked on it
-// is close to an answer, and the landmark gives it away. Guessing on the first
-// clue is worth four times guessing on the last.
+// country outline gets you a country, the local dish often gets you the city,
+// and the landmark gives it away. Guessing on the first clue is worth four
+// times guessing on the last.
 //
 //   clue 1  region + population        100 pts
-//   clue 2  what people eat there       75 pts
-//   clue 3  country outline + marker    50 pts
-//   clue 4  a landmark                  25 pts
+//   clue 2  the country's outline        75 pts
+//   clue 3  what people eat there        50 pts
+//   clue 4  a landmark                   25 pts
+//
+// The outline is not marked with the city. A pin answered the question, and
+// the outline only narrows things to a country anyway — often less than the
+// local dish gives away, which is why the dish comes after it.
 //
 // A wrong answer ends the run, so the score is really "how far can you get
 // before you get greedy". Best score is kept in localStorage.
 //
-// The outlines and city markers live in places.js, generated from Natural
-// Earth's public-domain 110m dataset — see the header there.
+// The outlines live in places.js, generated from Natural Earth's public-domain
+// 110m dataset — see the header there.
 
 window.Locate = (function () {
   "use strict";
@@ -117,13 +121,12 @@ window.Locate = (function () {
       return card;
     }
 
+    // The outline only — marking the city on it gave the answer away.
     function mapClue(p) {
       const box = el("div", "loc-map");
       const s = svg("svg", { viewBox: "0 0 200 140", class: "loc-map-svg", role: "img" });
-      s.setAttribute("aria-label", "Outline of the country, with the city marked");
+      s.setAttribute("aria-label", "Outline of the country the city is in");
       s.append(svg("path", { class: "loc-map-path", d: OUTLINES[p.country] || "" }));
-      s.append(svg("circle", { class: "loc-map-halo", cx: p.dot[0], cy: p.dot[1], r: 7 }));
-      s.append(svg("circle", { class: "loc-map-dot", cx: p.dot[0], cy: p.dot[1], r: 3.4 }));
       box.append(s);
       return box;
     }
@@ -132,8 +135,8 @@ window.Locate = (function () {
       clueList.innerHTML = "";
       const p = place;
       if (clues >= 1) clueList.append(clueCard("Where and how big", el("p", "loc-clue-text", `${p.region} · Population ${p.pop}.`)));
-      if (clues >= 2) clueList.append(clueCard("On the table", el("p", "loc-clue-text", p.food + ".")));
-      if (clues >= 3) clueList.append(clueCard("The country, with the city marked", mapClue(p)));
+      if (clues >= 2) clueList.append(clueCard("Somewhere in this country", mapClue(p)));
+      if (clues >= 3) clueList.append(clueCard("On the table", el("p", "loc-clue-text", p.food + ".")));
       if (clues >= 4) clueList.append(clueCard("Look for", el("p", "loc-clue-text", p.landmark + ".")));
     }
 
