@@ -1,22 +1,15 @@
-// locate.js — Where in the World. A city is described one clue at a time and
-// you name it; the sooner you commit, the more it pays.
+// locate.js — Where in the World. A city is laid out as a dossier and you name
+// it from four options.
 //
-// Clues escalate deliberately: region and population barely narrow it down, the
-// country outline gets you a country, the local dish often gets you the city,
-// and the landmark gives it away. Guessing on the first clue is worth four
-// times guessing on the last.
+// Everything is on the table from the start: vitals, the country's outline, the
+// latitude it sits on, its climate, what people eat, and one detail of everyday
+// life. There is no drip-feed and nothing to buy — the difficulty is in the
+// clues themselves, which are written to be specific without naming the place.
+// The country outline is deliberately unmarked, so it gets you a country and
+// leaves the city to you.
 //
-//   clue 1  region + population        100 pts
-//   clue 2  the country's outline        75 pts
-//   clue 3  what people eat there        50 pts
-//   clue 4  a landmark                   25 pts
-//
-// The outline is not marked with the city. A pin answered the question, and
-// the outline only narrows things to a country anyway — often less than the
-// local dish gives away, which is why the dish comes after it.
-//
-// A wrong answer ends the run, so the score is really "how far can you get
-// before you get greedy". Best score is kept in localStorage.
+// Each correct answer is worth 100 points and a wrong one ends the run, so the
+// score is how far you can get in one sitting. Best score lives in localStorage.
 //
 // The outlines live in places.js, generated from Natural Earth's public-domain
 // 110m dataset — see the header there.
@@ -25,7 +18,7 @@ window.Locate = (function () {
   "use strict";
 
   const BEST_KEY = "daily.locate.v1";
-  const POINTS = [100, 75, 50, 25];
+  const PER_ROUND = 100;
   const KEYS = ["A", "B", "C", "D"];
   const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -58,6 +51,15 @@ window.Locate = (function () {
     try { localStorage.setItem(BEST_KEY, String(n)); } catch (e) { /* ignore */ }
   }
 
+  function fmtLat(lat) {
+    return `${Math.abs(lat).toFixed(1)}° ${lat >= 0 ? "N" : "S"}`;
+  }
+  function fmtElev(m) {
+    if (m < 0) return `${Math.abs(m)} m below sea level`;
+    if (m < 10) return "at sea level";
+    return `${m.toLocaleString("en-US")} m above sea level`;
+  }
+
   // Three decoys, drawn from the same region where possible so the answer can't
   // be reached by elimination on continent alone.
   function optionsFor(place, pool) {
@@ -82,7 +84,6 @@ window.Locate = (function () {
 
     let deck = [];
     let place = null;
-    let clues = 1;        // how many clues are showing
     let score = 0;
     let round = 0;
     let locked = true;
@@ -98,31 +99,39 @@ window.Locate = (function () {
     const bestEl = el("span", "loc-best");
     hud.append(roundEl, scoreEl, bestEl);
 
-    const clueList = el("div", "loc-clues");
-
-    const tools = el("div", "loc-tools");
-    const moreBtn = el("button", "ghost-btn loc-more");
-    moreBtn.type = "button";
-    const worthEl = el("span", "loc-worth");
-    tools.append(moreBtn, worthEl);
-
+    const dossier = el("div", "loc-clues");
     const choices = el("div", "choices loc-choices");
     const result = el("div", "loc-result");
     const controls = el("div", "loc-controls");
 
-    wrap.append(hud, clueList, tools, choices, result, controls);
+    wrap.append(hud, dossier, choices, result, controls);
     root.append(wrap);
 
-    // ----- clue cards -----
-    function clueCard(tag, body) {
-      const card = el("div", "loc-clue");
-      card.append(el("span", "loc-clue-tag", tag));
-      card.append(body);
-      return card;
+    // ----- the dossier -----
+    function card(tag, body, cls) {
+      const c = el("div", "loc-clue" + (cls ? " " + cls : ""));
+      c.append(el("span", "loc-clue-tag", tag));
+      c.append(body);
+      return c;
     }
 
-    // The outline only — marking the city on it gave the answer away.
-    function mapClue(p) {
+    // Facts that fit on one line each, as a labelled grid.
+    function vitals(p) {
+      const grid = el("dl", "loc-vitals");
+      // Latitude is left out — the globe alongside already shows it.
+      [
+        ["Region", p.region],
+        ["Population", p.pop.replace(/^about /, "~")],
+        ["Elevation", fmtElev(p.elev)],
+        ["Clocks", p.tz]
+      ].forEach(([k, v]) => {
+        grid.append(el("dt", "loc-vk", k), el("dd", "loc-vv", v));
+      });
+      return grid;
+    }
+
+    // The country, unmarked. Recognising the shape gets you a country, not a city.
+    function mapArt(p) {
       const box = el("div", "loc-map");
       const s = svg("svg", { viewBox: "0 0 200 140", class: "loc-map-svg", role: "img" });
       s.setAttribute("aria-label", "Outline of the country the city is in");
@@ -131,13 +140,44 @@ window.Locate = (function () {
       return box;
     }
 
-    function renderClues() {
-      clueList.innerHTML = "";
-      const p = place;
-      if (clues >= 1) clueList.append(clueCard("Where and how big", el("p", "loc-clue-text", `${p.region} · Population ${p.pop}.`)));
-      if (clues >= 2) clueList.append(clueCard("Somewhere in this country", mapClue(p)));
-      if (clues >= 3) clueList.append(clueCard("On the table", el("p", "loc-clue-text", p.food + ".")));
-      if (clues >= 4) clueList.append(clueCard("Look for", el("p", "loc-clue-text", p.landmark + ".")));
+    // A globe seen edge-on with the city's parallel drawn across it. Plenty of
+    // cities share a latitude, so it narrows the band without giving the answer.
+    function latArt(p) {
+      const box = el("div", "loc-globe");
+      const s = svg("svg", { viewBox: "0 0 120 120", class: "loc-globe-svg", role: "img" });
+      s.setAttribute("aria-label", `The city's latitude, ${fmtLat(p.lat)}`);
+      const R = 52, CX = 60, CY = 60;
+      s.append(svg("circle", { class: "loc-globe-edge", cx: CX, cy: CY, r: R }));
+      // tropics and equator for reference
+      [23.44, -23.44].forEach((t) => {
+        const y = CY - (t / 90) * R;
+        const half = R * Math.cos((t * Math.PI) / 180);
+        s.append(svg("line", { class: "loc-globe-tropic", x1: CX - half, y1: y, x2: CX + half, y2: y }));
+      });
+      s.append(svg("line", { class: "loc-globe-eq", x1: CX - R, y1: CY, x2: CX + R, y2: CY }));
+
+      const y = CY - (p.lat / 90) * R;
+      const half = R * Math.cos((p.lat * Math.PI) / 180);
+      s.append(svg("line", { class: "loc-globe-lat", x1: CX - half, y1: y, x2: CX + half, y2: y }));
+      const label = svg("text", { class: "loc-globe-label", x: CX, y: y - 6, "text-anchor": "middle" });
+      label.textContent = fmtLat(p.lat);
+      s.append(label);
+      box.append(s);
+      return box;
+    }
+
+    function renderDossier(p) {
+      dossier.innerHTML = "";
+
+      const art = el("div", "loc-art");
+      art.append(card("The country it's in", mapArt(p), "loc-clue-map"),
+                 card("Latitude", latArt(p), "loc-clue-globe"));
+      dossier.append(art);
+
+      dossier.append(card("Vitals", vitals(p)));
+      dossier.append(card("Weather", el("p", "loc-clue-text", p.climate)));
+      dossier.append(card("On the table", el("p", "loc-clue-text", p.food + ".")));
+      dossier.append(card("Everyday life", el("p", "loc-clue-text", p.life)));
     }
 
     function renderHud() {
@@ -146,19 +186,10 @@ window.Locate = (function () {
       bestEl.textContent = best ? `Best ${best}` : "No score yet";
     }
 
-    function renderTools() {
-      const last = clues >= POINTS.length;
-      moreBtn.disabled = last;
-      moreBtn.textContent = last ? "No clues left" : `Another clue (−${POINTS[clues - 1] - POINTS[clues]})`;
-      worthEl.textContent = `Worth ${POINTS[clues - 1]} pts`;
-      tools.style.display = "";
-    }
-
     // ----- a round -----
     function nextRound() {
       if (!deck.length) deck = shuffled(pool);
       place = deck.pop();
-      clues = 1;
       locked = false;
       round += 1;
 
@@ -166,8 +197,7 @@ window.Locate = (function () {
       result.textContent = "";
       controls.innerHTML = "";
       renderHud();
-      renderClues();
-      renderTools();
+      renderDossier(place);
 
       choices.innerHTML = "";
       optionsFor(place, pool).forEach((opt, i) => {
@@ -188,20 +218,11 @@ window.Locate = (function () {
       });
     }
 
-    function moreClue() {
-      if (locked || clues >= POINTS.length) return;
-      clues += 1;
-      renderClues();
-      renderTools();
-    }
-    moreBtn.addEventListener("click", moreClue);
-
     function guess(opt, btn) {
       if (locked) return;
       locked = true;
 
       const right = opt.city === place.city;
-      const points = right ? POINTS[clues - 1] : 0;
 
       [...choices.children].forEach((c) => {
         c.classList.add("disabled");
@@ -209,22 +230,17 @@ window.Locate = (function () {
         else if (c === btn) c.classList.add("wrong");
       });
 
-      // Everything they didn't ask for, now that the round is over.
-      clues = POINTS.length;
-      renderClues();
-      tools.style.display = "none";
-
       if (!started) {
         started = true;
         if (typeof opts.onStart === "function") opts.onStart();
       }
 
       if (right) {
-        score += points;
+        score += PER_ROUND;
         if (score > best) { best = score; saveBest(best); }
         renderHud();
         result.className = "loc-result show good";
-        result.textContent = `${place.city} it is — +${points} pts`;
+        result.textContent = `${place.city} it is — +${PER_ROUND} pts`;
         const next = el("button", "pz-btn", "Next city →");
         next.type = "button";
         next.addEventListener("click", nextRound);
@@ -243,13 +259,11 @@ window.Locate = (function () {
       }
     }
 
-    // ----- keyboard: A-D guess, C for another clue -----
+    // ----- keyboard: A-D guess -----
     const keyHandler = function (e) {
       if (killed || locked) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const k = e.key.toUpperCase();
-      if (k === "C") { e.preventDefault(); moreClue(); return; }
-      const i = KEYS.indexOf(k);
+      const i = KEYS.indexOf(e.key.toUpperCase());
       if (i < 0) return;
       const btn = choices.children[i];
       if (!btn) return;

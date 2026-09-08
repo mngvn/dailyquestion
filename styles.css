@@ -1208,6 +1208,9 @@ body.light .loc-clue { background: rgba(28, 34, 80, 0.05); }
 body.light .loc-clue { border-left-color: #0d9488; }
 body.light .loc-clue-tag { color: #0b7c72; }
 body.light .loc-map-path { fill: rgba(13, 148, 136, 0.14); stroke: #0d9488; }
+body.light .loc-globe-edge { fill: rgba(13, 148, 136, 0.07); stroke: rgba(13, 148, 136, 0.5); }
+body.light .loc-globe-eq { stroke: rgba(13, 148, 136, 0.5); }
+body.light .loc-globe-tropic { stroke: rgba(13, 148, 136, 0.28); }
 /* the neon category accents need darkening to stay legible on white */
 body.light .ff-card[data-cat="Tech"]    { --ff-c: #0a7f96; }
 body.light .ff-card[data-cat="Art"]     { --ff-c: #c02a68; }
@@ -1285,9 +1288,15 @@ body.light.pointer-active .pointer-glow { opacity: 0.45; }
 }
 .loc-clue-text { font-size: 0.94rem; line-height: 1.6; color: var(--text); }
 
-/* the country outline, with the city marked */
-.loc-map { display: flex; justify-content: center; padding: 2px 0; }
-.loc-map-svg { width: 100%; max-width: 300px; height: auto; }
+/* the two pieces of art sit side by side, outline and latitude */
+.loc-art { display: grid; grid-template-columns: 1.9fr 1fr; gap: 10px; }
+.loc-clue-map, .loc-clue-globe { display: flex; flex-direction: column; }
+.loc-map, .loc-globe {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  padding: 2px 0;
+}
+.loc-map-svg { width: 100%; max-width: 280px; height: auto; }
 .loc-map-path {
   fill: rgba(94, 234, 212, 0.13);
   stroke: #5eead4;
@@ -1295,13 +1304,31 @@ body.light.pointer-active .pointer-glow { opacity: 0.45; }
   stroke-linejoin: round;
 }
 
-.loc-tools { display: flex; align-items: center; gap: 12px; }
-.loc-more { font-size: 0.82rem; padding: 7px 14px; }
-.loc-more:disabled { opacity: 0.4; cursor: default; }
-.loc-worth {
-  margin-left: auto; font-size: 0.78rem; color: var(--muted);
-  font-variant-numeric: tabular-nums;
+/* the globe edge-on, with the city's parallel drawn across it */
+.loc-globe-svg { width: 100%; max-width: 130px; height: auto; }
+.loc-globe-edge { fill: rgba(94, 234, 212, 0.06); stroke: rgba(94, 234, 212, 0.45); stroke-width: 1; }
+.loc-globe-eq { stroke: rgba(94, 234, 212, 0.4); stroke-width: 0.8; }
+.loc-globe-tropic { stroke: rgba(94, 234, 212, 0.2); stroke-width: 0.7; stroke-dasharray: 3 3; }
+.loc-globe-lat { stroke: var(--accent-3); stroke-width: 1.8; }
+.loc-globe-label {
+  fill: var(--accent-3);
+  font-family: "Inter", sans-serif;
+  font-size: 9px; font-weight: 700;
 }
+
+/* the one-line facts */
+.loc-vitals {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 14px;
+  font-size: 0.88rem;
+}
+.loc-vk {
+  color: var(--muted); font-size: 0.7rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  align-self: center;
+}
+.loc-vv { color: var(--text); line-height: 1.45; }
 
 .loc-choices .choice { font-size: 0.94rem; }
 .loc-opt { line-height: 1.35; }
@@ -1317,3 +1344,8 @@ body.light.pointer-active .pointer-glow { opacity: 0.45; }
 
 .loc-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .loc-final { font-size: 0.85rem; color: var(--muted); }
+
+@media (max-width: 520px) {
+  .loc-art { grid-template-columns: 1fr; }
+  .loc-globe-svg { max-width: 110px; }
+}
