@@ -1,30 +1,29 @@
-// locate.js — Where in the World. A city is laid out as a dossier and you name
-// it from four options.
+// locate.js — Where in the World. A city is described and you type its name.
 //
-// Everything is on the table from the start: vitals, the country's outline, the
-// latitude it sits on, its climate, what people eat, and one detail of everyday
-// life. There is no drip-feed and nothing to buy — the difficulty is in the
-// clues themselves, which are written to be specific without naming the place.
-// The country outline is deliberately unmarked, so it gets you a country and
-// leaves the city to you.
+// The round opens with the vague material: region, population, elevation, the
+// time zone and the climate. That is rarely enough, and it isn't meant to be.
+// Every wrong guess buys you a hint and costs you points:
 //
-// It is an endless run that tightens as you go. Nothing is ever taken away —
-// the dossier stays complete — but the cities get more obscure, the decoys get
-// harder to separate, there are more of them, and each round pays more:
+//   attempt 1   the opening dossier                          full points
+//   attempt 2   + the country's outline, unmarked            75%
+//   attempt 3   + what people eat there                      50%
+//   attempt 4   + a detail of everyday life                  30%
+//   attempt 5   + the country named and the first letter     15%
 //
-//   rounds 1-3    Warm-up      well-known cities, 4 options, decoys from anywhere   100 pts
-//   rounds 4-7    Stepping up  + mid cities,      4 options, decoys from the region 150 pts
-//   rounds 8-12   Hard         mid and obscure,   5 options, decoys from the region 200 pts
-//   round 13+     Expert       obscure only,      6 options, decoys as close as the  300 pts
-//                                                            pool allows
+// Miss all five and the run ends, so the hints are a lifeline with a real
+// price rather than a free reveal.
 //
-// "As close as the pool allows" is doing real work in the last stage: it asks
-// for decoys from the answer's own country first, but most obscure cities here
-// are the only one from theirs, so in practice it usually falls back to the
-// region. The difficulty there comes from the tier and the six options.
+// It is an endless run that climbs as you go: the cities get more obscure and
+// the rounds pay more.
 //
-// A wrong answer ends the run, so the score is how deep you got. Best score
-// lives in localStorage.
+//   rounds 1-3    Warm-up      well-known cities    100 pts
+//   rounds 4-7    Stepping up  + mid cities         150 pts
+//   rounds 8-12   Hard         mid and obscure      200 pts
+//   round 13+     Expert       obscure only         300 pts
+//
+// Answers are matched loosely — accents, case and punctuation are ignored, a
+// single typo is forgiven on longer names, and historical or common alternative
+// names are accepted. Best score lives in localStorage.
 //
 // The outlines live in places.js, generated from Natural Earth's public-domain
 // 110m dataset — see the header there.
@@ -33,22 +32,44 @@ window.Locate = (function () {
   "use strict";
 
   const BEST_KEY = "daily.locate.v1";
-  const KEYS = ["A", "B", "C", "D", "E", "F"];
+  const MAX_ATTEMPTS = 5;
+  const SVG_NS = "http://www.w3.org/2000/svg";
 
-  // The difficulty ramp. `from` is the first round of the stage, `tiers` the
-  // city pools it draws on, `decoy` how close the wrong answers sit.
+  // What a round pays, by the attempt you get it on.
+  const VALUE = [1, 0.75, 0.5, 0.3, 0.15];
+
+  // The ramp. `tiers` are the city pools the stage draws on.
   const STAGES = [
-    { from: 1,  name: "Warm-up",     tiers: [1],    opts: 4, points: 100, decoy: "any" },
-    { from: 4,  name: "Stepping up", tiers: [1, 2], opts: 4, points: 150, decoy: "region" },
-    { from: 8,  name: "Hard",        tiers: [2, 3], opts: 5, points: 200, decoy: "region" },
-    { from: 13, name: "Expert",      tiers: [3],    opts: 6, points: 300, decoy: "country" }
+    { from: 1,  name: "Warm-up",     tiers: [1],    points: 100 },
+    { from: 4,  name: "Stepping up", tiers: [1, 2], points: 150 },
+    { from: 8,  name: "Hard",        tiers: [2, 3], points: 200 },
+    { from: 13, name: "Expert",      tiers: [3],    points: 300 }
   ];
   function stageFor(round) {
     let s = STAGES[0];
     for (const st of STAGES) if (round >= st.from) s = st;
     return s;
   }
-  const SVG_NS = "http://www.w3.org/2000/svg";
+
+  // Alternative spellings and older names people reasonably type.
+  const ALIASES = {
+    "New York": ["new york city", "nyc"],
+    "Mexico City": ["ciudad de mexico", "cdmx"],
+    "Hong Kong": ["hongkong"],
+    "Kuala Lumpur": ["kl"],
+    "Beijing": ["peking"],
+    "Mumbai": ["bombay"],
+    "Kyiv": ["kiev"],
+    "Marrakesh": ["marrakech"],
+    "São Paulo": ["sao paulo"],
+    "Bogotá": ["bogota"],
+    "Reykjavik": ["reykjavík"],
+    "Istanbul": ["constantinople"],
+    "Addis Ababa": ["addis"],
+    "Rio de Janeiro": ["rio"],
+    "Buenos Aires": ["ba"],
+    "Cape Town": ["capetown"]
+  };
 
   function el(tag, cls, text) {
     const n = document.createElement(tag);
@@ -79,33 +100,52 @@ window.Locate = (function () {
     try { localStorage.setItem(BEST_KEY, String(n)); } catch (e) { /* ignore */ }
   }
 
-  function fmtLat(lat) {
-    return `${Math.abs(lat).toFixed(1)}° ${lat >= 0 ? "N" : "S"}`;
-  }
   function fmtElev(m) {
     if (m < 0) return `${Math.abs(m)} m below sea level`;
     if (m < 10) return "at sea level";
     return `${m.toLocaleString("en-US")} m above sea level`;
   }
 
-  // Decoys, ordered by how easily they can be told apart from the answer. Later
-  // stages want the closest ones: same country beats same region beats anywhere.
-  function optionsFor(place, pool, stage) {
-    const others = pool.filter((p) => p.city !== place.city);
-    const sameCountry = shuffled(others.filter((p) => p.country === place.country));
-    const sameRegion = shuffled(others.filter((p) => p.country !== place.country && p.region === place.region));
-    const rest = shuffled(others.filter((p) => p.region !== place.region));
+  // Strip accents, case and everything that isn't a letter or digit, so
+  // "São Paulo", "sao paulo" and "SAOPAULO" all land on the same string.
+  function norm(s) {
+    return String(s)
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase().replace(/[^a-z0-9]+/g, "");
+  }
 
-    let ranked;
-    if (stage.decoy === "country") ranked = sameCountry.concat(sameRegion, rest);
-    else if (stage.decoy === "region") ranked = sameRegion.concat(sameCountry, rest);
-    else ranked = shuffled(others);
+  // Levenshtein, capped — used only to forgive a single slip on longer names.
+  function editDistance(a, b) {
+    if (Math.abs(a.length - b.length) > 1) return 2;
+    let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+      const row = [i];
+      for (let j = 1; j <= b.length; j++) {
+        row[j] = Math.min(
+          prev[j] + 1,
+          row[j - 1] + 1,
+          prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+        );
+      }
+      prev = row;
+    }
+    return prev[b.length];
+  }
 
-    return shuffled([place].concat(ranked.slice(0, stage.opts - 1)));
+  function accepted(place) {
+    return [place.city].concat(ALIASES[place.city] || []).map(norm);
+  }
+
+  function matches(guess, place) {
+    const g = norm(guess);
+    if (!g) return false;
+    return accepted(place).some((a) =>
+      a === g || (a.length >= 6 && editDistance(a, g) <= 1)
+    );
   }
 
   /**
-   * opts.onStart     called when the first guess of a run is locked in
+   * opts.onStart     called when the first guess of a run is made
    * opts.onGameOver  (score) — called when a run ends
    * Returns a teardown; call it when the view goes away.
    */
@@ -122,6 +162,8 @@ window.Locate = (function () {
     let score = 0;
     let round = 0;
     let stage = STAGES[0];
+    let attempts = 0;      // wrong guesses so far this round
+    let tried = [];        // what has already been typed, to ignore repeats
     let locked = true;
     let best = loadBest();
     let started = false;
@@ -137,16 +179,33 @@ window.Locate = (function () {
     hud.append(roundEl, stageEl, scoreEl, bestEl);
 
     const stageUp = el("div", "loc-stage-up");
-
     const dossier = el("div", "loc-clues");
-    const choices = el("div", "choices loc-choices");
+
+    // guessing
+    const form = el("form", "loc-guess");
+    const input = el("input", "loc-input");
+    input.type = "text";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.placeholder = "Name the city…";
+    input.setAttribute("aria-label", "Type the name of the city");
+    const submit = el("button", "pz-btn loc-submit", "Guess");
+    submit.type = "submit";
+    form.append(input, submit);
+
+    const meter = el("div", "loc-meter");
+    const dots = el("div", "loc-dots");
+    const worthEl = el("span", "loc-worth");
+    meter.append(dots, worthEl);
+
+    const triedEl = el("div", "loc-tried");
     const result = el("div", "loc-result");
     const controls = el("div", "loc-controls");
 
-    wrap.append(hud, stageUp, dossier, choices, result, controls);
+    wrap.append(hud, stageUp, dossier, meter, form, triedEl, result, controls);
     root.append(wrap);
 
-    // ----- the dossier -----
+    // ----- dossier pieces -----
     function card(tag, body, cls) {
       const c = el("div", "loc-clue" + (cls ? " " + cls : ""));
       c.append(el("span", "loc-clue-tag", tag));
@@ -154,10 +213,8 @@ window.Locate = (function () {
       return c;
     }
 
-    // Facts that fit on one line each, as a labelled grid.
     function vitals(p) {
       const grid = el("dl", "loc-vitals");
-      // Latitude is left out — the globe alongside already shows it.
       [
         ["Region", p.region],
         ["Population", p.pop.replace(/^about /, "~")],
@@ -169,7 +226,7 @@ window.Locate = (function () {
       return grid;
     }
 
-    // The country, unmarked. Recognising the shape gets you a country, not a city.
+    // The country, unmarked: it gets you a country, not a city.
     function mapArt(p) {
       const box = el("div", "loc-map");
       const s = svg("svg", { viewBox: "0 0 200 140", class: "loc-map-svg", role: "img" });
@@ -179,44 +236,44 @@ window.Locate = (function () {
       return box;
     }
 
-    // A globe seen edge-on with the city's parallel drawn across it. Plenty of
-    // cities share a latitude, so it narrows the band without giving the answer.
-    function latArt(p) {
-      const box = el("div", "loc-globe");
-      const s = svg("svg", { viewBox: "0 0 120 120", class: "loc-globe-svg", role: "img" });
-      s.setAttribute("aria-label", `The city's latitude, ${fmtLat(p.lat)}`);
-      const R = 52, CX = 60, CY = 60;
-      s.append(svg("circle", { class: "loc-globe-edge", cx: CX, cy: CY, r: R }));
-      // tropics and equator for reference
-      [23.44, -23.44].forEach((t) => {
-        const y = CY - (t / 90) * R;
-        const half = R * Math.cos((t * Math.PI) / 180);
-        s.append(svg("line", { class: "loc-globe-tropic", x1: CX - half, y1: y, x2: CX + half, y2: y }));
-      });
-      s.append(svg("line", { class: "loc-globe-eq", x1: CX - R, y1: CY, x2: CX + R, y2: CY }));
+    // Bought one at a time, with a wrong guess. Ordered least to most revealing.
+    const HINTS = [
+      { tag: "Hint · the country it's in", build: mapArt },
+      { tag: "Hint · on the table", build: (p) => el("p", "loc-clue-text", p.food + ".") },
+      { tag: "Hint · everyday life", build: (p) => el("p", "loc-clue-text", p.life) },
+      { tag: "Hint · nearly telling you", build: (p) =>
+          el("p", "loc-clue-text",
+             `It is in ${p.country}, and the name begins with “${p.city.charAt(0)}”.`) }
+    ];
 
-      const y = CY - (p.lat / 90) * R;
-      const half = R * Math.cos((p.lat * Math.PI) / 180);
-      s.append(svg("line", { class: "loc-globe-lat", x1: CX - half, y1: y, x2: CX + half, y2: y }));
-      const label = svg("text", { class: "loc-globe-label", x: CX, y: y - 6, "text-anchor": "middle" });
-      label.textContent = fmtLat(p.lat);
-      s.append(label);
-      box.append(s);
-      return box;
-    }
-
-    function renderDossier(p) {
+    function renderDossier() {
+      const p = place;
       dossier.innerHTML = "";
-
-      const art = el("div", "loc-art");
-      art.append(card("The country it's in", mapArt(p), "loc-clue-map"),
-                 card("Latitude", latArt(p), "loc-clue-globe"));
-      dossier.append(art);
-
       dossier.append(card("Vitals", vitals(p)));
       dossier.append(card("Weather", el("p", "loc-clue-text", p.climate)));
-      dossier.append(card("On the table", el("p", "loc-clue-text", p.food + ".")));
-      dossier.append(card("Everyday life", el("p", "loc-clue-text", p.life)));
+      // one hint per wrong guess so far
+      HINTS.slice(0, attempts).forEach((h) => {
+        dossier.append(card(h.tag, h.build(p), "loc-hint"));
+      });
+    }
+
+    function roundValue() {
+      return Math.round((stage.points * VALUE[attempts]) / 5) * 5;
+    }
+
+    function renderMeter() {
+      dots.innerHTML = "";
+      for (let i = 0; i < MAX_ATTEMPTS; i++) {
+        dots.append(el("span", "loc-dot" + (i < attempts ? " used" : "")));
+      }
+      dots.setAttribute("aria-label", `${MAX_ATTEMPTS - attempts} of ${MAX_ATTEMPTS} guesses left`);
+      worthEl.textContent = `Worth ${roundValue()} pts`;
+    }
+
+    function renderTried() {
+      triedEl.innerHTML = "";
+      if (!tried.length) return;
+      tried.forEach((t) => triedEl.append(el("span", "loc-tried-chip", t)));
     }
 
     function renderHud() {
@@ -226,8 +283,6 @@ window.Locate = (function () {
       bestEl.textContent = best ? `Best ${best}` : "No score yet";
     }
 
-    // Draw from the stage's tiers, keeping a separate deck per tier so a city
-    // can't come round again until its whole tier has been used.
     function draw() {
       const tier = stage.tiers[Math.floor(Math.random() * stage.tiers.length)];
       if (!decks[tier] || !decks[tier].length) {
@@ -242,11 +297,12 @@ window.Locate = (function () {
       const previous = stage;
       stage = stageFor(round);
       place = draw();
+      attempts = 0;
+      tried = [];
       locked = false;
 
-      // Say so when the run steps up, rather than silently changing the rules.
       if (round > 1 && stage !== previous) {
-        stageUp.textContent = `${stage.name} — ${stage.opts} options now, ${stage.points} points a round.`;
+        stageUp.textContent = `${stage.name} — cities get harder, and a round is now worth ${stage.points}.`;
         stageUp.classList.add("show");
       } else {
         stageUp.textContent = "";
@@ -256,59 +312,34 @@ window.Locate = (function () {
       result.className = "loc-result";
       result.textContent = "";
       controls.innerHTML = "";
-      renderHud();
-      renderDossier(place);
+      form.style.display = "";
+      meter.style.display = "";
+      input.value = "";
+      input.disabled = false;
 
-      choices.innerHTML = "";
-      optionsFor(place, pool, stage).forEach((opt, i) => {
-        const btn = el("div", "choice");
-        btn.setAttribute("role", "button");
-        btn.setAttribute("tabindex", "0");
-        btn.dataset.city = opt.city;
-        btn.append(
-          el("span", "key", KEYS[i]),
-          el("span", "loc-opt", `${opt.city}, ${opt.country}`)
-        );
-        const go = () => guess(opt, btn);
-        btn.addEventListener("click", go);
-        btn.addEventListener("keydown", (e) => {
-          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); }
-        });
-        choices.append(btn);
-      });
+      renderHud();
+      renderDossier();
+      renderMeter();
+      renderTried();
+      // Not on the opening round: the modal puts focus on its close button for
+      // accessibility, and grabbing it here would also throw up the on-screen
+      // keyboard before anyone has read a word. From round two on you are
+      // already typing, so the focus is welcome.
+      if (!killed && round > 1) requestAnimationFrame(() => input.focus());
     }
 
-    function guess(opt, btn) {
-      if (locked) return;
+    function endRound(won) {
       locked = true;
+      form.style.display = "none";
+      meter.style.display = "none";
 
-      const right = opt.city === place.city;
-
-      [...choices.children].forEach((c) => {
-        c.classList.add("disabled");
-        if (c.dataset.city === place.city) c.classList.add("correct");
-        else if (c === btn) c.classList.add("wrong");
-      });
-
-      if (!started) {
-        started = true;
-        if (typeof opts.onStart === "function") opts.onStart();
-      }
-
-      if (right) {
-        score += stage.points;
-        if (score > best) { best = score; saveBest(best); }
-        renderHud();
-        result.className = "loc-result show good";
-        result.textContent = `${place.city} it is — +${stage.points} pts`;
+      if (won) {
         const next = el("button", "pz-btn", "Next city →");
         next.type = "button";
         next.addEventListener("click", nextRound);
         controls.append(next);
         requestAnimationFrame(() => next.focus());
       } else {
-        result.className = "loc-result show bad";
-        result.textContent = `Not quite — that was ${place.city}, ${place.country}.`;
         controls.append(el("div", "loc-final",
           score === 0
             ? "No points this run."
@@ -321,18 +352,61 @@ window.Locate = (function () {
       }
     }
 
-    // ----- keyboard: A-D guess -----
-    const keyHandler = function (e) {
-      if (killed || locked) return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const i = KEYS.indexOf(e.key.toUpperCase());
-      if (i < 0) return;
-      const btn = choices.children[i];
-      if (!btn) return;
+    function guess(text) {
+      if (locked) return;
+      const raw = text.trim();
+      if (!raw) return;
+
+      // A repeat isn't a new attempt — it's almost always a double submit.
+      if (tried.some((t) => norm(t) === norm(raw))) {
+        result.className = "loc-result show warn";
+        result.textContent = "You already tried that one.";
+        return;
+      }
+
+      if (!started) {
+        started = true;
+        if (typeof opts.onStart === "function") opts.onStart();
+      }
+
+      if (matches(raw, place)) {
+        const points = roundValue();
+        score += points;
+        if (score > best) { best = score; saveBest(best); }
+        renderHud();
+        result.className = "loc-result show good";
+        result.textContent = attempts === 0
+          ? `${place.city}, ${place.country} — first guess, +${points} pts`
+          : `${place.city}, ${place.country} — +${points} pts`;
+        endRound(true);
+        return;
+      }
+
+      // Wrong: bank the guess, spend an attempt, open the next hint.
+      tried.push(raw);
+      attempts += 1;
+      input.value = "";
+      renderTried();
+
+      if (attempts >= MAX_ATTEMPTS) {
+        renderDossier();
+        result.className = "loc-result show bad";
+        result.textContent = `Out of guesses — it was ${place.city}, ${place.country}.`;
+        endRound(false);
+        return;
+      }
+
+      renderDossier();
+      renderMeter();
+      result.className = "loc-result show bad";
+      result.textContent = `Not ${raw}. Here's another hint — now worth ${roundValue()} pts.`;
+      if (!killed) requestAnimationFrame(() => input.focus());
+    }
+
+    form.addEventListener("submit", (e) => {
       e.preventDefault();
-      btn.click();
-    };
-    document.addEventListener("keydown", keyHandler);
+      guess(input.value);
+    });
 
     function start() {
       Object.keys(decks).forEach((k) => delete decks[k]);
@@ -349,7 +423,6 @@ window.Locate = (function () {
 
     return function teardown() {
       killed = true;
-      document.removeEventListener("keydown", keyHandler);
     };
   }
 

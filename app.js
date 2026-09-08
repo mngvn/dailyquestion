@@ -636,7 +636,7 @@
     });
 
     body.append(el("div", "modal-note",
-      "Populations are metro-area figures, rounded — city limits would tell a very different story. Outlines are simplified from Natural Earth's public-domain data, so small islands and territories are left off."));
+      "Type the city name — accents, case and a single typo are forgiven, and common alternatives like Bombay or Peking are accepted. Populations are metro-area figures, rounded. Outlines are simplified from Natural Earth's public-domain data, so small islands and territories are left off."));
     return teardown;
   }
 
