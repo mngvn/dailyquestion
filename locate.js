@@ -8,8 +8,23 @@
 // The country outline is deliberately unmarked, so it gets you a country and
 // leaves the city to you.
 //
-// Each correct answer is worth 100 points and a wrong one ends the run, so the
-// score is how far you can get in one sitting. Best score lives in localStorage.
+// It is an endless run that tightens as you go. Nothing is ever taken away —
+// the dossier stays complete — but the cities get more obscure, the decoys get
+// harder to separate, there are more of them, and each round pays more:
+//
+//   rounds 1-3    Warm-up      well-known cities, 4 options, decoys from anywhere   100 pts
+//   rounds 4-7    Stepping up  + mid cities,      4 options, decoys from the region 150 pts
+//   rounds 8-12   Hard         mid and obscure,   5 options, decoys from the region 200 pts
+//   round 13+     Expert       obscure only,      6 options, decoys as close as the  300 pts
+//                                                            pool allows
+//
+// "As close as the pool allows" is doing real work in the last stage: it asks
+// for decoys from the answer's own country first, but most obscure cities here
+// are the only one from theirs, so in practice it usually falls back to the
+// region. The difficulty there comes from the tier and the six options.
+//
+// A wrong answer ends the run, so the score is how deep you got. Best score
+// lives in localStorage.
 //
 // The outlines live in places.js, generated from Natural Earth's public-domain
 // 110m dataset — see the header there.
@@ -18,8 +33,21 @@ window.Locate = (function () {
   "use strict";
 
   const BEST_KEY = "daily.locate.v1";
-  const PER_ROUND = 100;
-  const KEYS = ["A", "B", "C", "D"];
+  const KEYS = ["A", "B", "C", "D", "E", "F"];
+
+  // The difficulty ramp. `from` is the first round of the stage, `tiers` the
+  // city pools it draws on, `decoy` how close the wrong answers sit.
+  const STAGES = [
+    { from: 1,  name: "Warm-up",     tiers: [1],    opts: 4, points: 100, decoy: "any" },
+    { from: 4,  name: "Stepping up", tiers: [1, 2], opts: 4, points: 150, decoy: "region" },
+    { from: 8,  name: "Hard",        tiers: [2, 3], opts: 5, points: 200, decoy: "region" },
+    { from: 13, name: "Expert",      tiers: [3],    opts: 6, points: 300, decoy: "country" }
+  ];
+  function stageFor(round) {
+    let s = STAGES[0];
+    for (const st of STAGES) if (round >= st.from) s = st;
+    return s;
+  }
   const SVG_NS = "http://www.w3.org/2000/svg";
 
   function el(tag, cls, text) {
@@ -60,13 +88,20 @@ window.Locate = (function () {
     return `${m.toLocaleString("en-US")} m above sea level`;
   }
 
-  // Three decoys, drawn from the same region where possible so the answer can't
-  // be reached by elimination on continent alone.
-  function optionsFor(place, pool) {
+  // Decoys, ordered by how easily they can be told apart from the answer. Later
+  // stages want the closest ones: same country beats same region beats anywhere.
+  function optionsFor(place, pool, stage) {
     const others = pool.filter((p) => p.city !== place.city);
-    const near = shuffled(others.filter((p) => p.region === place.region));
-    const far = shuffled(others.filter((p) => p.region !== place.region));
-    return shuffled([place].concat(near.concat(far).slice(0, 3)));
+    const sameCountry = shuffled(others.filter((p) => p.country === place.country));
+    const sameRegion = shuffled(others.filter((p) => p.country !== place.country && p.region === place.region));
+    const rest = shuffled(others.filter((p) => p.region !== place.region));
+
+    let ranked;
+    if (stage.decoy === "country") ranked = sameCountry.concat(sameRegion, rest);
+    else if (stage.decoy === "region") ranked = sameRegion.concat(sameCountry, rest);
+    else ranked = shuffled(others);
+
+    return shuffled([place].concat(ranked.slice(0, stage.opts - 1)));
   }
 
   /**
@@ -82,10 +117,11 @@ window.Locate = (function () {
       return function () {};
     }
 
-    let deck = [];
+    const decks = {};      // tier -> remaining cities, reshuffled when spent
     let place = null;
     let score = 0;
     let round = 0;
+    let stage = STAGES[0];
     let locked = true;
     let best = loadBest();
     let started = false;
@@ -95,16 +131,19 @@ window.Locate = (function () {
 
     const hud = el("div", "loc-hud");
     const roundEl = el("span", "loc-round");
+    const stageEl = el("span", "loc-stage");
     const scoreEl = el("span", "loc-score");
     const bestEl = el("span", "loc-best");
-    hud.append(roundEl, scoreEl, bestEl);
+    hud.append(roundEl, stageEl, scoreEl, bestEl);
+
+    const stageUp = el("div", "loc-stage-up");
 
     const dossier = el("div", "loc-clues");
     const choices = el("div", "choices loc-choices");
     const result = el("div", "loc-result");
     const controls = el("div", "loc-controls");
 
-    wrap.append(hud, dossier, choices, result, controls);
+    wrap.append(hud, stageUp, dossier, choices, result, controls);
     root.append(wrap);
 
     // ----- the dossier -----
@@ -182,16 +221,37 @@ window.Locate = (function () {
 
     function renderHud() {
       roundEl.textContent = `Round ${round}`;
+      stageEl.textContent = `${stage.name} · ${stage.points} pts`;
       scoreEl.textContent = `${score} pts`;
       bestEl.textContent = best ? `Best ${best}` : "No score yet";
     }
 
+    // Draw from the stage's tiers, keeping a separate deck per tier so a city
+    // can't come round again until its whole tier has been used.
+    function draw() {
+      const tier = stage.tiers[Math.floor(Math.random() * stage.tiers.length)];
+      if (!decks[tier] || !decks[tier].length) {
+        decks[tier] = shuffled(pool.filter((p) => p.tier === tier));
+      }
+      return decks[tier].pop();
+    }
+
     // ----- a round -----
     function nextRound() {
-      if (!deck.length) deck = shuffled(pool);
-      place = deck.pop();
-      locked = false;
       round += 1;
+      const previous = stage;
+      stage = stageFor(round);
+      place = draw();
+      locked = false;
+
+      // Say so when the run steps up, rather than silently changing the rules.
+      if (round > 1 && stage !== previous) {
+        stageUp.textContent = `${stage.name} — ${stage.opts} options now, ${stage.points} points a round.`;
+        stageUp.classList.add("show");
+      } else {
+        stageUp.textContent = "";
+        stageUp.classList.remove("show");
+      }
 
       result.className = "loc-result";
       result.textContent = "";
@@ -200,7 +260,7 @@ window.Locate = (function () {
       renderDossier(place);
 
       choices.innerHTML = "";
-      optionsFor(place, pool).forEach((opt, i) => {
+      optionsFor(place, pool, stage).forEach((opt, i) => {
         const btn = el("div", "choice");
         btn.setAttribute("role", "button");
         btn.setAttribute("tabindex", "0");
@@ -236,11 +296,11 @@ window.Locate = (function () {
       }
 
       if (right) {
-        score += PER_ROUND;
+        score += stage.points;
         if (score > best) { best = score; saveBest(best); }
         renderHud();
         result.className = "loc-result show good";
-        result.textContent = `${place.city} it is — +${PER_ROUND} pts`;
+        result.textContent = `${place.city} it is — +${stage.points} pts`;
         const next = el("button", "pz-btn", "Next city →");
         next.type = "button";
         next.addEventListener("click", nextRound);
@@ -250,7 +310,9 @@ window.Locate = (function () {
         result.className = "loc-result show bad";
         result.textContent = `Not quite — that was ${place.city}, ${place.country}.`;
         controls.append(el("div", "loc-final",
-          score === 0 ? "No points this run." : `Final score: ${score} pts · Best: ${best}`));
+          score === 0
+            ? "No points this run."
+            : `Made it to round ${round} · ${score} pts · Best: ${best}`));
         const again = el("button", "pz-btn", "Play again");
         again.type = "button";
         again.addEventListener("click", start);
@@ -273,10 +335,13 @@ window.Locate = (function () {
     document.addEventListener("keydown", keyHandler);
 
     function start() {
-      deck = shuffled(pool);
+      Object.keys(decks).forEach((k) => delete decks[k]);
       score = 0;
       round = 0;
+      stage = STAGES[0];
       best = loadBest();
+      stageUp.textContent = "";
+      stageUp.classList.remove("show");
       nextRound();
     }
 

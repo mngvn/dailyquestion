@@ -1211,6 +1211,8 @@ body.light .loc-map-path { fill: rgba(13, 148, 136, 0.14); stroke: #0d9488; }
 body.light .loc-globe-edge { fill: rgba(13, 148, 136, 0.07); stroke: rgba(13, 148, 136, 0.5); }
 body.light .loc-globe-eq { stroke: rgba(13, 148, 136, 0.5); }
 body.light .loc-globe-tropic { stroke: rgba(13, 148, 136, 0.28); }
+body.light .loc-stage,
+body.light .loc-stage-up { color: #0b7c72; background: rgba(13, 148, 136, 0.12); border-color: rgba(13, 148, 136, 0.32); }
 /* the neon category accents need darkening to stay legible on white */
 body.light .ff-card[data-cat="Tech"]    { --ff-c: #0a7f96; }
 body.light .ff-card[data-cat="Art"]     { --ff-c: #c02a68; }
@@ -1264,7 +1266,27 @@ body.light.pointer-active .pointer-glow { opacity: 0.45; }
   font-size: 1rem; font-weight: 700; color: var(--text);
   font-variant-numeric: tabular-nums;
 }
+.loc-stage {
+  padding: 2px 9px; border-radius: 999px;
+  background: rgba(94, 234, 212, 0.14);
+  border: 1px solid rgba(94, 234, 212, 0.35);
+  color: #5eead4;
+  font-size: 0.68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.07em;
+}
 .loc-best { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* announced when the run steps up a stage */
+.loc-stage-up {
+  display: none;
+  padding: 9px 14px; border-radius: 12px;
+  background: rgba(94, 234, 212, 0.1);
+  border: 1px solid rgba(94, 234, 212, 0.3);
+  color: #5eead4;
+  font-size: 0.84rem; font-weight: 600;
+  animation: locIn 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.loc-stage-up.show { display: block; }
 
 /* clues stack up as they are bought */
 .loc-clues { display: flex; flex-direction: column; gap: 10px; }
