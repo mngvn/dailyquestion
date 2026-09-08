@@ -186,7 +186,8 @@
     { id: "history", frac: 0.12, c1: "#4aa8ff", c2: "#1f5fe0", icon: "📜", name: "On This Day" }
   ];
 
-  const LOCATE_TARGET = 500;   // score at which the Where? slice fills completely
+  const LOCATE_TARGET = 1500;  // score at which the Where? slice fills completely
+                               // (roughly round 10 of the endless run)
 
   const SVG_NS = "http://www.w3.org/2000/svg";
   const CX = 260, CY = 260, R = 244;
