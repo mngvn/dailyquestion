@@ -1207,12 +1207,8 @@ body.light .loc-clue { background: rgba(28, 34, 80, 0.05); }
 /* the mint accent needs darkening to stay legible on white */
 body.light .loc-clue { border-left-color: #0d9488; }
 body.light .loc-clue-tag { color: #0b7c72; }
-body.light .loc-map-path { fill: rgba(13, 148, 136, 0.14); stroke: #0d9488; }
-body.light .loc-input { background: rgba(28, 34, 80, 0.05); }
-body.light .loc-input:focus { background: rgba(13, 148, 136, 0.08); border-color: #0d9488; }
-body.light .loc-tried-chip { background: rgba(28, 34, 80, 0.05); }
-body.light .loc-dot { background: rgba(13, 148, 136, 0.7); }
-body.light .loc-dot.used { background: rgba(28, 34, 80, 0.16); }
+body.light .loc-stage,
+body.light .loc-stage-up { color: #0b7c72; background: rgba(13, 148, 136, 0.12); border-color: rgba(13, 148, 136, 0.32); }
 body.light .loc-stage,
 body.light .loc-stage-up { color: #0b7c72; background: rgba(13, 148, 136, 0.12); border-color: rgba(13, 148, 136, 0.32); }
 /* the neon category accents need darkening to stay legible on white */
@@ -1263,11 +1259,6 @@ body.light.pointer-active .pointer-glow { opacity: 0.45; }
   color: var(--muted); font-weight: 600;
   text-transform: uppercase; letter-spacing: 0.08em;
 }
-.loc-score {
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 1rem; font-weight: 700; color: var(--text);
-  font-variant-numeric: tabular-nums;
-}
 .loc-stage {
   padding: 2px 9px; border-radius: 999px;
   background: rgba(94, 234, 212, 0.14);
@@ -1276,9 +1267,13 @@ body.light.pointer-active .pointer-glow { opacity: 0.45; }
   font-size: 0.68rem; font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.07em;
 }
+.loc-score {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1rem; font-weight: 700; color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
 .loc-best { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
 
-/* announced when the run steps up a stage */
 .loc-stage-up {
   display: none;
   padding: 9px 14px; border-radius: 12px;
@@ -1289,20 +1284,52 @@ body.light.pointer-active .pointer-glow { opacity: 0.45; }
   animation: locIn 0.45s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .loc-stage-up.show { display: block; }
+@keyframes locIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
 
-/* clues stack up as they are bought */
+/* the photograph you have to place */
+.loc-shot { position: relative; margin: 0; }
+.loc-shot-img {
+  display: block; width: 100%;
+  aspect-ratio: 3 / 2;
+  max-height: 46vh;
+  object-fit: cover;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--card-border);
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+.loc-shot.loading .loc-shot-img { opacity: 0; }
+.loc-shot.loading::after {
+  content: "Finding a photograph…";
+  position: absolute; inset: 0 0 22px 0;
+  display: grid; place-items: center;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--card-border);
+  color: var(--muted); font-size: 0.85rem;
+}
+.loc-shot-note {
+  margin-top: 6px;
+  font-size: 0.72rem; color: var(--muted);
+  line-height: 1.4;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* the written fallback, when there is no photograph to show */
 .loc-clues { display: flex; flex-direction: column; gap: 10px; }
+.loc-noshot {
+  font-size: 0.82rem; color: var(--muted); font-style: italic;
+}
 .loc-clue {
   padding: 12px 14px;
   border-radius: 14px;
   background: rgba(255,255,255,0.04);
   border: 1px solid var(--card-border);
   border-left: 3px solid #5eead4;
-  animation: locIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-@keyframes locIn {
-  from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 1; transform: none; }
 }
 .loc-clue-tag {
   display: block; margin-bottom: 6px;
@@ -1311,78 +1338,47 @@ body.light.pointer-active .pointer-glow { opacity: 0.45; }
   color: #5eead4;
 }
 .loc-clue-text { font-size: 0.94rem; line-height: 1.6; color: var(--text); }
-
-/* the country outline */
-.loc-map { display: flex; align-items: center; justify-content: center; padding: 2px 0; }
-.loc-map-svg { width: 100%; max-width: 280px; height: auto; }
-.loc-map-path {
-  fill: rgba(94, 234, 212, 0.13);
-  stroke: #5eead4;
-  stroke-width: 1;
-  stroke-linejoin: round;
-}
-
-/* a card bought with a wrong guess reads warmer than the opening dossier */
-.loc-clue.loc-hint { border-left-color: var(--accent-3); }
-.loc-clue.loc-hint .loc-clue-tag { color: var(--accent-3); }
-
-/* typing the answer */
-.loc-guess { display: flex; gap: 10px; }
-.loc-input {
-  flex: 1; min-width: 0;
-  font-family: "Inter", sans-serif;
-  font-size: 0.98rem; color: var(--text);
-  background: rgba(255,255,255,0.05);
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
-  padding: 11px 16px;
-  transition: border-color 0.2s ease, background 0.2s ease;
-}
-.loc-input::placeholder { color: var(--muted); }
-.loc-input:focus {
-  outline: none;
-  border-color: #5eead4;
-  background: rgba(94, 234, 212, 0.07);
-}
-.loc-submit { flex-shrink: 0; }
-
-/* guesses left, and what the round is still worth */
-.loc-meter { display: flex; align-items: center; gap: 12px; }
-.loc-dots { display: flex; gap: 6px; }
-.loc-dot {
-  width: 9px; height: 9px; border-radius: 50%;
-  background: rgba(94, 234, 212, 0.65);
-  transition: background 0.3s ease, transform 0.3s ease;
-}
-.loc-dot.used { background: rgba(255,255,255,0.14); transform: scale(0.8); }
-
-/* what has already been tried, so nobody repeats themselves */
-.loc-tried { display: flex; flex-wrap: wrap; gap: 6px; }
-.loc-tried-chip {
-  padding: 3px 10px; border-radius: 999px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid var(--card-border);
-  color: var(--muted);
-  font-size: 0.76rem;
-  text-decoration: line-through;
-}
-
-/* the one-line facts */
 .loc-vitals {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 3px 14px;
+  display: grid; grid-template-columns: auto 1fr; gap: 3px 14px;
   font-size: 0.88rem;
 }
 .loc-vk {
   color: var(--muted); font-size: 0.7rem; font-weight: 700;
-  text-transform: uppercase; letter-spacing: 0.08em;
-  align-self: center;
+  text-transform: uppercase; letter-spacing: 0.08em; align-self: center;
 }
 .loc-vv { color: var(--text); line-height: 1.45; }
 
-.loc-choices .choice { font-size: 0.94rem; }
-.loc-opt { line-height: 1.35; }
+/* the map you point at */
+.loc-worldbox {
+  border-radius: 14px; overflow: hidden;
+  border: 1px solid var(--card-border);
+  background: #0a1622;
+}
+.loc-world { display: block; width: 100%; height: auto; cursor: crosshair; }
+.loc-worldbox.revealed .loc-world { cursor: default; }
+.loc-sea { fill: #0a1622; }
+.loc-land {
+  fill: rgba(94, 234, 212, 0.16);
+  stroke: rgba(94, 234, 212, 0.5);
+  stroke-width: 0.6;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.loc-marks { pointer-events: none; }
+.loc-pin { fill: var(--accent-3); }
+.loc-pin.is-truth { fill: var(--good); }
+.loc-pin-halo { fill: none; stroke: var(--accent-3); stroke-width: 1.2; opacity: 0.75; }
+.loc-pin-halo.is-truth { stroke: var(--good); }
+.loc-link {
+  stroke: #fff; stroke-width: 1.2; stroke-dasharray: 4 3; opacity: 0.7;
+}
+.loc-truth-label {
+  fill: var(--good);
+  font-family: "Inter", sans-serif;
+  font-size: 9px; font-weight: 700;
+  paint-order: stroke; stroke: #0a1622; stroke-width: 2.5;
+}
+.loc-maphint { font-size: 0.78rem; color: var(--muted); }
 
 .loc-result {
   font-weight: 600; font-size: 0.95rem;
@@ -1392,12 +1388,8 @@ body.light.pointer-active .pointer-glow { opacity: 0.45; }
 .loc-result.show { opacity: 1; transform: none; }
 .loc-result.good { color: var(--good); }
 .loc-result.bad { color: var(--bad); }
-.loc-result.warn { color: var(--muted); }
 
 .loc-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .loc-final { font-size: 0.85rem; color: var(--muted); }
-
-@media (max-width: 520px) {
-  .loc-guess { flex-direction: column; }
   .loc-submit { width: 100%; }
 }

@@ -636,7 +636,7 @@
     });
 
     body.append(el("div", "modal-note",
-      "Type the city name — accents, case and a single typo are forgiven, and common alternatives like Bombay or Peking are accepted. Populations are metro-area figures, rounded. Outlines are simplified from Natural Earth's public-domain data, so small islands and territories are left off."));
+      "Photographs come from Wikimedia Commons, taken within a few kilometres of the place and used only where they are freely licensed. Where there is no such photograph — or no connection — the round falls back to a written description. The map is Natural Earth's public-domain data."));
     return teardown;
   }
 
