@@ -163,87 +163,171 @@ body {
 .streak-num { font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 1.5rem; }
 .streak-label { font-size: 0.66rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
 
-/* ---------- Main content: the section pie ---------- */
+/* ---------- Main content: the section cube ---------- */
+/* Six sections, one per face. Everything inside the cube is sized off
+   --cube so the whole thing scales as one object. */
 .content { display: flex; flex-direction: column; }
 
-.pie-stage { display: flex; justify-content: center; }
-.pie-wrap { width: min(92vw, 640px); }
-#pieSvg { display: block; width: 100%; height: auto; overflow: visible; }
+.cube-stage {
+  --cube: clamp(168px, 52vw, 340px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding-block: calc(var(--cube) * 0.06);
+}
 
-.pie-slice {
-  cursor: pointer;
-  transform-box: view-box;
-  transform-origin: 50% 50%;
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), filter 0.35s ease;
-  animation: sliceIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) backwards;
-  animation-delay: calc(var(--i, 0) * 0.12s + 0.25s);
-  outline: none;
+.cube-scene {
+  position: relative;
+  width: var(--cube);
+  height: var(--cube);
+  /* perspective throws the near face a long way past the cube's own box —
+     these margins are the room its corners need, so nothing collides */
+  margin-block: calc(var(--cube) * 0.22) calc(var(--cube) * 0.3);
+  perspective: calc(var(--cube) * 3.6);
+  touch-action: none;   /* a drag here turns the cube, it doesn't scroll */
+  cursor: grab;
 }
-@keyframes sliceIn {
-  from { opacity: 0; transform: scale(0.3) rotate(-14deg); }
-  to   { opacity: 1; transform: none; }
-}
-/* the slice slides outward along its own mid-angle (set by app.js) */
-.pie-slice:hover,
-.pie-slice:focus-visible {
-  transform: translate(var(--ox, 0px), var(--oy, 0px));
-  filter: drop-shadow(0 14px 30px rgba(0, 0, 0, 0.55));
-}
-.pie-slice:focus-visible .slice-bg { stroke-width: 3; stroke-opacity: 1; }
+.cube-scene.dragging { cursor: grabbing; }
 
-.slice-bg {
-  fill-opacity: 0.16;
-  stroke-width: 1.5;
-  stroke-opacity: 0.55;
-  transition: fill-opacity 0.35s ease, stroke-opacity 0.35s ease;
+.cube {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  /* app.js writes the rotation here every frame — no transition on it */
 }
-.pie-slice:hover .slice-bg,
-.pie-slice:focus-visible .slice-bg { fill-opacity: 0.32; stroke-opacity: 0.9; }
 
-/* accuracy fill inside the puzzle and trivia slices */
-.slice-fill {
-  fill-opacity: 0.75;
+.cube-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--cube) * -0.2);
+  width: 80%;
+  height: calc(var(--cube) * 0.14);
+  transform: translateX(-50%);
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.6), transparent 72%);
+  filter: blur(7px);
   pointer-events: none;
 }
 
-.slice-label { pointer-events: none; }
-.slice-icon { font-size: 38px; }
-.slice-name {
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 21px; font-weight: 700; letter-spacing: 0.5px;
-  fill: var(--text);
+.cube-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--cube) * 0.024);
+  padding: calc(var(--cube) * 0.08);
+  font-family: inherit;
+  color: var(--text);
+  text-align: center;
+  cursor: pointer;
+  overflow: hidden;
+  border: 1px solid var(--edge);
+  border-radius: calc(var(--cube) * 0.07);
+  background: rgba(9, 9, 18, 0.93);
+  box-shadow: inset 0 0 calc(var(--cube) * 0.2) var(--edge);
+  /* a face facing away is hidden — and so is its click target */
+  backface-visibility: hidden;
+  transform: var(--rot, none) translateZ(calc(var(--cube) / 2 + var(--pop, 0px)));
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.35s ease, border-color 0.35s ease;
 }
-.slice-sub { font-size: 12.5px; fill: var(--muted); }
-.slice-acc { font-weight: 600; fill: var(--text); }
-/* these labels sit on top of the accuracy fills — keep them readable */
-.pie-slice[data-section="puzzle"] .slice-sub,
-.pie-slice[data-section="locate"] .slice-sub,
-.pie-slice[data-section="trivia"] .slice-sub { fill: var(--text); opacity: 0.78; }
+/* the six sides of the box */
+.cube-face[data-face="front"]  { --rot: rotateY(0deg); }
+.cube-face[data-face="right"]  { --rot: rotateY(90deg); }
+.cube-face[data-face="back"]   { --rot: rotateY(180deg); }
+.cube-face[data-face="left"]   { --rot: rotateY(-90deg); }
+.cube-face[data-face="top"]    { --rot: rotateX(90deg); }
+.cube-face[data-face="bottom"] { --rot: rotateX(-90deg); }
 
-/* central hub covering the point where the slices meet */
-.pie-hub { pointer-events: none; }
-.hub-disc {
-  fill: var(--panel);
-  stroke: var(--card-border);
-  stroke-width: 1.5;
+/* the section's own colour, washed over the face */
+.cube-face::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(150deg, var(--c1), var(--c2));
+  opacity: 0.3;
+  transition: opacity 0.35s ease;
 }
-.hub-ring {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 2;
-  opacity: 0.5;
-  animation: hubPulse 2.6s ease-in-out infinite;
+.cube-face > * { position: relative; z-index: 1; }
+
+/* pointing at a face lifts it off the box */
+.cube-face:hover,
+.cube-face:focus-visible {
+  --pop: calc(var(--cube) * 0.055);
+  border-color: var(--c1);
+  box-shadow: inset 0 0 calc(var(--cube) * 0.34) var(--edge),
+              0 18px 44px -14px var(--edge);
 }
-@keyframes hubPulse {
-  0%, 100% { opacity: 0.5; stroke-width: 2; }
-  50%      { opacity: 0.15; stroke-width: 5; }
+.cube-face:hover::before,
+.cube-face:focus-visible::before { opacity: 0.5; }
+.cube-face:focus-visible { outline: 2px solid var(--text); outline-offset: calc(var(--cube) * -0.03); }
+
+.face-icon {
+  font-size: calc(var(--cube) * 0.19);
+  line-height: 1;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.55));
 }
-.hub-top {
+.face-name {
   font-family: "Space Grotesk", sans-serif;
-  font-size: 19px; font-weight: 700; letter-spacing: 5px;
-  fill: var(--text);
+  font-size: calc(var(--cube) * 0.088);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  line-height: 1.15;
 }
-.hub-sub { font-size: 12px; fill: var(--muted); letter-spacing: 1px; }
+.face-sub {
+  font-size: calc(var(--cube) * 0.046);
+  line-height: 1.3;
+  color: var(--text);
+  opacity: 0.78;
+}
+
+/* how you're doing in this section, filling left to right */
+.face-meter {
+  display: block;
+  width: 70%;
+  height: calc(var(--cube) * 0.022);
+  margin-top: calc(var(--cube) * 0.02);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  overflow: hidden;
+}
+.face-meter-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--c1), var(--c2));
+  transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.face-acc {
+  font-size: calc(var(--cube) * 0.044);
+  font-weight: 600;
+}
+
+/* the plate under the cube, where the hub used to be */
+.cube-plate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.plate-top {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 5px;
+}
+.plate-sub { font-size: 0.74rem; color: var(--muted); letter-spacing: 1px; }
+.cube-hint {
+  max-width: 30ch;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--muted);
+}
 
 /* ---------- Footer stats: one slim inline strip ---------- */
 .footer {
@@ -1224,13 +1308,24 @@ body.light .tv-chip { color: #c02a68; }
 body.light .controls { background: rgba(255, 255, 255, 0.7); }
 body.light .modal { border-color: rgba(28, 34, 70, 0.16); }
 body.light .modal-icon { filter: none; }
-/* the pie reads a touch stronger on a light page */
-body.light .slice-bg { fill-opacity: 0.22; }
-body.light .pie-slice:hover .slice-bg,
-body.light .pie-slice:focus-visible .slice-bg { fill-opacity: 0.4; }
-body.light .pie-slice:hover,
-body.light .pie-slice:focus-visible {
-  filter: drop-shadow(0 14px 30px rgba(40, 50, 100, 0.35));
+/* the cube is a pale box with a lighter colour wash on a light page */
+body.light .cube-face {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: inset 0 0 calc(var(--cube) * 0.2) var(--edge),
+              0 10px 30px -18px rgba(40, 50, 100, 0.5);
+}
+body.light .cube-face::before { opacity: 0.22; }
+body.light .cube-face:hover,
+body.light .cube-face:focus-visible {
+  box-shadow: inset 0 0 calc(var(--cube) * 0.3) var(--edge),
+              0 18px 44px -16px rgba(40, 50, 100, 0.55);
+}
+body.light .cube-face:hover::before,
+body.light .cube-face:focus-visible::before { opacity: 0.38; }
+body.light .face-icon { filter: none; }
+body.light .face-meter { background: rgba(28, 34, 80, 0.13); }
+body.light .cube-shadow {
+  background: radial-gradient(closest-side, rgba(40, 50, 100, 0.3), transparent 72%);
 }
 /* hard-coded light strokes/text inside puzzles, flipped for light mode */
 body.light .pz-seq { color: var(--text); }

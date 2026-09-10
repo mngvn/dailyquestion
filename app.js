@@ -1,4 +1,4 @@
-// app.js — Daily. Deterministic daily content, the pie-chart section wheel,
+// app.js — Daily. Deterministic daily content, the rotatable section cube,
 // modal sections, and streak tracking via localStorage.
 
 (function () {
@@ -173,173 +173,112 @@
     document.getElementById("statAccuracy").textContent = a === null ? "—" : a + "%";
   }
 
-  // ----- The pie: every section is a slice of one circle -----
-  // Fractions are how much of the circle each section takes. The puzzle and
-  // trivia slices additionally fill from the hub outward according to their
-  // respective accuracy.
-  const SLICES = [
-    { id: "puzzle",  frac: 0.27, c1: "#7c5cff", c2: "#b06bff", icon: "🧩", name: "Puzzle" },
-    { id: "trivia",  frac: 0.19, c1: "#ff5c9c", c2: "#ff8a5c", icon: "🎯", name: "Trivia" },
-    { id: "locate",  frac: 0.14, c1: "#5eead4", c2: "#0d9488", icon: "🌍", name: "Where?" },
-    { id: "fact",    frac: 0.13, c1: "#ffd86b", c2: "#ff9a3c", icon: "💡", name: "Fun Fact" },
-    { id: "artwork", frac: 0.15, c1: "#47e0a0", c2: "#0fb5a5", icon: "🎨", name: "Artwork" },
-    { id: "history", frac: 0.12, c1: "#4aa8ff", c2: "#1f5fe0", icon: "📜", name: "On This Day" }
+  const SVG_NS = "http://www.w3.org/2000/svg";
+
+  // ----- The cube: every section is one face -----
+  // Six sections, six faces. The cube spins under the pointer (and the arrow
+  // keys), and a click on a face opens that section. The puzzle, trivia and
+  // Where? faces also carry a meter that fills with how you've been doing.
+  // The four "equator" faces are the ones a plain sideways spin reaches, so
+  // the interactive sections live there.
+  const FACES = [
+    { id: "puzzle",  face: "front",  c1: "#7c5cff", c2: "#b06bff", icon: "🧩", name: "Puzzle" },
+    { id: "trivia",  face: "right",  c1: "#ff5c9c", c2: "#ff8a5c", icon: "🎯", name: "Trivia" },
+    { id: "locate",  face: "back",   c1: "#5eead4", c2: "#0d9488", icon: "🌍", name: "Where?" },
+    { id: "fact",    face: "left",   c1: "#ffd86b", c2: "#ff9a3c", icon: "💡", name: "Fun Fact" },
+    { id: "artwork", face: "top",    c1: "#47e0a0", c2: "#0fb5a5", icon: "🎨", name: "Artwork" },
+    { id: "history", face: "bottom", c1: "#4aa8ff", c2: "#1f5fe0", icon: "📜", name: "On This Day" }
   ];
 
-  const LOCATE_TARGET = 1500;  // score at which the Where? slice fills completely
+  const LOCATE_TARGET = 1500;  // score at which the Where? meter fills completely
                                // (roughly round 10 of the endless run)
 
-  const SVG_NS = "http://www.w3.org/2000/svg";
-  const CX = 260, CY = 260, R = 244;
-  const HUB_R = 74;              // central disc — slice fills grow out from it
-  const PAD = 0.016;             // radians shaved off each slice edge (the gap)
+  // Cube rotations that bring a given face to the viewer. The cube transform is
+  // rotateX(rx) rotateY(ry), so for the top and bottom faces ry only rolls the
+  // face — it doesn't change which one is facing front.
+  const FACE_HOME = {
+    front:  { rx: 0,   ry: 0 },
+    right:  { rx: 0,   ry: -90 },
+    back:   { rx: 0,   ry: 180 },
+    left:   { rx: 0,   ry: 90 },
+    top:    { rx: -90, ry: 0 },
+    bottom: { rx: 90,  ry: 0 }
+  };
 
-  const polar = (a, r) => [CX + Math.cos(a) * r, CY + Math.sin(a) * r];
+  // Faces with a meter: id -> { fill, acc }.
+  const faceMeters = {};
+  let triviaSubEl = null;    // per-day state line on the trivia face
 
-  function wedgePath(a0, a1, r) {
-    const [x0, y0] = polar(a0, r);
-    const [x1, y1] = polar(a1, r);
-    const large = a1 - a0 > Math.PI ? 1 : 0;
-    return `M ${CX} ${CY} L ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1} Z`;
+  function hexRgba(hex, a) {
+    const n = parseInt(hex.slice(1), 16);
+    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
   }
 
-  // Annular wedge (a slice with the hub cut out) used for the accuracy fill.
-  function ringWedgePath(a0, a1, r0, r1) {
-    const [ox0, oy0] = polar(a0, r1);
-    const [ox1, oy1] = polar(a1, r1);
-    const [ix0, iy0] = polar(a0, r0);
-    const [ix1, iy1] = polar(a1, r0);
-    const large = a1 - a0 > Math.PI ? 1 : 0;
-    return `M ${ox0} ${oy0} A ${r1} ${r1} 0 ${large} 1 ${ox1} ${oy1} ` +
-           `L ${ix1} ${iy1} A ${r0} ${r0} 0 ${large} 0 ${ix0} ${iy0} Z`;
+  function span(cls, text) {
+    const el = document.createElement("span");
+    el.className = cls;
+    if (text !== undefined) el.textContent = text;
+    return el;
   }
 
-  function svgEl(tag, attrs) {
-    const n = document.createElementNS(SVG_NS, tag);
-    for (const k in attrs) n.setAttribute(k, attrs[k]);
-    return n;
-  }
+  function buildCube() {
+    const cube = document.getElementById("cube");
+    if (!cube) return;
+    cube.innerHTML = "";
 
-  // Slices with an accuracy fill: id -> { el, accEl, a0, a1 }. The fill path
-  // grows from the hub outward in proportion to that section's accuracy.
-  const sliceFills = {};
-  let triviaSubEl = null;    // per-day state line in the trivia slice
+    FACES.forEach((f) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cube-face";
+      btn.dataset.section = f.id;
+      btn.dataset.face = f.face;
+      btn.setAttribute("aria-haspopup", "dialog");
+      btn.style.setProperty("--c1", f.c1);
+      btn.style.setProperty("--c2", f.c2);
+      btn.style.setProperty("--edge", hexRgba(f.c1, 0.6));
 
-  function buildPie() {
-    const svg = document.getElementById("pieSvg");
-    if (!svg) return;
-    svg.innerHTML = "";
+      const icon = span("face-icon", f.icon);
+      icon.setAttribute("aria-hidden", "true");
+      const sub = span("face-sub");
+      btn.append(icon, span("face-name", f.name), sub);
 
-    const defs = svgEl("defs", {});
-    SLICES.forEach((s) => {
-      const grad = svgEl("linearGradient", {
-        id: "grad-" + s.id, x1: "0%", y1: "0%", x2: "100%", y2: "100%"
-      });
-      grad.append(
-        svgEl("stop", { offset: "0%", "stop-color": s.c1 }),
-        svgEl("stop", { offset: "100%", "stop-color": s.c2 })
-      );
-      defs.append(grad);
-    });
-    svg.append(defs);
-
-    let angle = -Math.PI / 2; // start at 12 o'clock, sweep clockwise
-    SLICES.forEach((s, idx) => {
-      const a0 = angle + PAD;
-      const a1 = angle + s.frac * Math.PI * 2 - PAD;
-      angle += s.frac * Math.PI * 2;
-
-      const mid = (a0 + a1) / 2;
-      const g = svgEl("g", {
-        class: "pie-slice",
-        "data-section": s.id,
-        role: "button",
-        tabindex: "0",
-        "aria-haspopup": "dialog",
-        "aria-label": s.name
-      });
-      g.style.setProperty("--i", idx);
-      // hover nudge: the slice slides outward along its own mid-angle
-      g.style.setProperty("--ox", (Math.cos(mid) * 12).toFixed(1) + "px");
-      g.style.setProperty("--oy", (Math.sin(mid) * 12).toFixed(1) + "px");
-
-      g.append(svgEl("path", {
-        class: "slice-bg",
-        d: wedgePath(a0, a1, R),
-        fill: `url(#grad-${s.id})`,
-        stroke: s.c1
-      }));
-
-      if (s.id === "puzzle" || s.id === "trivia" || s.id === "locate") {
-        const fill = svgEl("path", {
-          class: "slice-fill",
-          d: "",
-          fill: `url(#grad-${s.id})`
-        });
-        g.append(fill);
-        sliceFills[s.id] = { el: fill, accEl: null, a0, a1 };
-      }
-
-      // labels sit on the slice's mid-angle
-      const [lx, ly] = polar(mid, R * 0.63);
-      const label = svgEl("g", { class: "slice-label", transform: `translate(${lx} ${ly})` });
-      const icon = svgEl("text", { class: "slice-icon", x: 0, y: -14, "text-anchor": "middle" });
-      icon.textContent = s.icon;
-      const name = svgEl("text", { class: "slice-name", x: 0, y: 16, "text-anchor": "middle" });
-      name.textContent = s.name;
-      const sub = svgEl("text", { class: "slice-sub", x: 0, y: 36, "text-anchor": "middle" });
-      label.append(icon, name, sub);
-      g.append(label);
-
-      if (s.id === "puzzle") {
+      if (f.id === "puzzle") {
         sub.textContent = todaysGame ? `Today: ${todaysGame.name} ${todaysGame.icon}` : "One draw a day";
-      } else if (s.id === "trivia") {
+      } else if (f.id === "trivia") {
         triviaSubEl = sub;
-      } else if (s.id === "fact") {
-        // Kept short: the slice is narrow and SVG text doesn't wrap.
+      } else if (f.id === "fact") {
         sub.textContent = `${facts.length} facts, ${facts.length} categories`;
-      } else if (s.id === "artwork") {
+      } else if (f.id === "artwork") {
         sub.textContent = artwork.artist;
-      } else if (s.id === "history") {
-        // Just the year: the full date is in the header and inside the
-        // section, and a long date string overflows this wedge.
+      } else if (f.id === "history") {
+        // Just the year — the full date is in the header and in the section.
         sub.textContent = hist ? String(hist.year) : "—";
-      } else if (s.id === "locate") {
+      } else if (f.id === "locate") {
         sub.textContent = "Guess the city";
       }
 
-      if (sliceFills[s.id]) {
-        const acc = svgEl("text", { class: "slice-sub slice-acc", x: 0, y: 54, "text-anchor": "middle" });
-        label.append(acc);
-        sliceFills[s.id].accEl = acc;
+      if (f.id === "puzzle" || f.id === "trivia" || f.id === "locate") {
+        const meter = span("face-meter");
+        const fill = span("face-meter-fill");
+        meter.append(fill);
+        const acc = span("face-acc");
+        btn.append(meter, acc);
+        faceMeters[f.id] = { fill, acc };
       }
 
-      svg.append(g);
+      cube.append(btn);
     });
 
-    // central hub covering the point where all slices meet
-    const hub = svgEl("g", { class: "pie-hub" });
-    hub.append(svgEl("circle", { class: "hub-ring", cx: CX, cy: CY, r: HUB_R + 8 }));
-    hub.append(svgEl("circle", { class: "hub-disc", cx: CX, cy: CY, r: HUB_R }));
-    const hubTop = svgEl("text", { class: "hub-top", x: CX, y: CY - 6, "text-anchor": "middle" });
-    hubTop.textContent = "DAILY";
-    const hubSub = svgEl("text", { class: "hub-sub", x: CX, y: CY + 18, "text-anchor": "middle" });
-    hubSub.textContent = `Day ${dayOfYear}`;
-    hub.append(hubTop, hubSub);
-    svg.append(hub);
+    const plate = document.getElementById("plateSub");
+    if (plate) plate.textContent = `Day ${dayOfYear}`;
   }
 
-  // A slice's fill grows from the hub outward, proportionally to accuracy.
+  // A face's meter fills left to right in proportion to how you're doing.
   function renderFill(id, pct, caption) {
-    const f = sliceFills[id];
-    if (!f) return;
-    if (pct <= 0) {
-      f.el.setAttribute("d", "");
-    } else {
-      const r1 = HUB_R + (R - HUB_R) * Math.min(1, pct);
-      f.el.setAttribute("d", ringWedgePath(f.a0, f.a1, HUB_R, r1));
-    }
-    if (f.accEl) f.accEl.textContent = caption;
+    const m = faceMeters[id];
+    if (!m) return;
+    m.fill.style.width = (Math.max(0, Math.min(1, pct)) * 100).toFixed(1) + "%";
+    m.acc.textContent = caption;
   }
 
   function renderFills() {
@@ -353,15 +292,15 @@
       ? `${Math.round(tPct * 100)}% correct (${stats.triviaCorrect}/${stats.triviaAnswered})`
       : "No answers yet");
 
-    // Where? has no accuracy either, so its fill tracks the best score,
+    // Where? has no accuracy either, so its meter tracks the best score,
     // topping out at LOCATE_TARGET.
     const lBest = (typeof Locate !== "undefined") ? Locate.bestScore() : 0;
     renderFill("locate", lBest / LOCATE_TARGET,
       lBest ? `Best: ${lBest} pts` : "No score yet");
   }
 
-  // Slice state that changes within the day (how far into today's run you are).
-  function refreshSlices() {
+  // Face state that changes within the day (how far into today's run you are).
+  function refreshFaces() {
     if (!triviaSubEl) return;
     const r = stats.run;
     triviaSubEl.textContent = runDone()
@@ -369,6 +308,174 @@
       : r.i > 0
         ? `Round ${r.i + 1} of ${TRIVIA_ROUNDS}`
         : `${TRIVIA_ROUNDS} questions · new today`;
+  }
+
+  // ----- Spinning the cube -----
+  // Drag anywhere on the cube to turn it; let go and it keeps its momentum.
+  // Left alone it drifts slowly so the other faces come round on their own,
+  // and it holds still while you're pointing at it so a face is easy to hit.
+  function initCube() {
+    const scene = document.getElementById("cubeScene");
+    const cube = document.getElementById("cube");
+    if (!scene || !cube) return;
+
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const AMBIENT = reduce ? 0 : 0.09;  // idle drift, degrees per frame
+    const FRICTION = 0.93;              // momentum decay after a throw
+    const EASE = 0.16;                  // how fast a turn-to-face settles
+    const HOLD = 90;                    // frames of stillness after you let go
+    const SLOP = 8;                     // px of movement that counts as a drag
+    const SPEED = 0.42;                 // degrees of turn per px dragged
+    const MAX_TILT = 90;                // straight up / straight down
+
+    let rx = FACE_HOME.front.rx - 34;   // the intro spin starts off-axis and
+    let ry = FACE_HOME.front.ry - 320;  // settles onto the front face
+    let vx = 0, vy = 0;                 // momentum, degrees per frame
+    let goal = null;                    // { rx, ry } while turning to a face
+    let hold = 0;                       // frames left before the drift resumes
+    let hovering = false, dragging = false;
+    let dragId = null, lastX = 0, lastY = 0, moved = 0, dragged = false;
+
+    const clampTilt = (v) => Math.max(-MAX_TILT, Math.min(MAX_TILT, v));
+    // the version of `to` that's the shortest way round from `cur`
+    const near = (cur, to) => to + 360 * Math.round((cur - to) / 360);
+    const apply = () => {
+      cube.style.transform = `rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`;
+    };
+
+    // Which face ends up facing the viewer at a quarter-turned orientation.
+    function faceAt(qrx, qry) {
+      const t = ((qrx % 360) + 360) % 360;
+      if (t === 270) return "top";        // tilted a quarter turn back
+      if (t === 90) return "bottom";
+      const y = ((qry % 360) + 360) % 360;
+      return { 0: "front", 90: "left", 180: "back", 270: "right" }[y] || null;
+    }
+
+    function turnTo(face) {
+      const home = FACE_HOME[face];
+      if (!home) return;
+      goal = {
+        rx: home.rx,
+        // top and bottom face the viewer at any ry, so keep the roll we have
+        // (tidied to a right angle) rather than swinging it back to zero.
+        ry: (face === "top" || face === "bottom")
+          ? Math.round(ry / 90) * 90
+          : near(ry, home.ry)
+      };
+      vx = vy = 0;
+      hold = HOLD;
+    }
+
+    if (reduce) { rx = FACE_HOME.front.rx; ry = FACE_HOME.front.ry; }
+    else goal = { rx: -16, ry: -20 };
+    apply();
+
+    (function frame() {
+      requestAnimationFrame(frame);
+      if (dragging) return;             // pointermove drives it directly
+
+      if (goal) {
+        rx += (goal.rx - rx) * EASE;
+        ry += (goal.ry - ry) * EASE;
+        if (Math.abs(goal.rx - rx) < 0.05 && Math.abs(goal.ry - ry) < 0.05) {
+          rx = goal.rx; ry = goal.ry; goal = null;
+        }
+      } else if (vx || vy) {
+        rx = clampTilt(rx + vx);
+        ry += vy;
+        vx *= FRICTION; vy *= FRICTION;
+        if (Math.abs(vx) < 0.015) vx = 0;
+        if (Math.abs(vy) < 0.015) vy = 0;
+      } else if (hold > 0) {
+        hold--;
+        return;                          // nothing moved — nothing to redraw
+      } else if (!hovering && AMBIENT) {
+        ry += AMBIENT;
+      } else {
+        return;
+      }
+      apply();
+    })();
+
+    function onMove(e) {
+      if (e.pointerId !== dragId) return;
+      const dx = e.clientX - lastX, dy = e.clientY - lastY;
+      lastX = e.clientX; lastY = e.clientY;
+      moved += Math.abs(dx) + Math.abs(dy);
+      if (moved > SLOP) dragged = true;
+      ry += dx * SPEED;
+      rx = clampTilt(rx - dy * SPEED);
+      // the last flick of the pointer is what the cube keeps spinning on
+      if (!reduce) { vy = dx * SPEED; vx = -dy * SPEED; }
+      apply();
+    }
+
+    function onUp(e) {
+      if (e.pointerId !== dragId) return;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      dragging = false;
+      dragId = null;
+      hold = HOLD;
+      scene.classList.remove("dragging");
+      if (e.type !== "pointerup") { vx = vy = 0; dragged = false; }
+    }
+
+    scene.addEventListener("pointerdown", (e) => {
+      if (e.button) return;              // primary button / touch only
+      dragging = true;
+      dragged = false;
+      dragId = e.pointerId;
+      lastX = e.clientX; lastY = e.clientY;
+      moved = 0;
+      goal = null;
+      vx = vy = 0;
+      scene.classList.add("dragging");
+      // No pointer capture: it would retarget the click away from the face.
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+      window.addEventListener("pointercancel", onUp);
+    });
+
+    scene.addEventListener("pointerenter", () => { hovering = true; });
+    scene.addEventListener("pointerleave", () => { hovering = false; });
+
+    // Arrow keys quarter-turn the cube, matching which way a drag would take
+    // it: up moves the front face up, bringing the bottom one round. Focus
+    // follows the turn, so Enter always opens the face you're looking at.
+    scene.addEventListener("keydown", (e) => {
+      const rxQ = Math.round(rx / 90) * 90;
+      const ryQ = Math.round(ry / 90) * 90;
+      let next;
+      if (e.key === "ArrowLeft")       next = { rx: rxQ, ry: ryQ + 90 };
+      else if (e.key === "ArrowRight") next = { rx: rxQ, ry: ryQ - 90 };
+      else if (e.key === "ArrowUp")    next = { rx: clampTilt(rxQ + 90), ry: ryQ };
+      else if (e.key === "ArrowDown")  next = { rx: clampTilt(rxQ - 90), ry: ryQ };
+      else return;
+      e.preventDefault();
+      goal = next;
+      vx = vy = 0;
+      hold = HOLD;
+      const front = cube.querySelector(`.cube-face[data-face="${faceAt(next.rx, next.ry)}"]`);
+      if (front) front.focus();
+    });
+
+    cube.querySelectorAll(".cube-face[data-section]").forEach((btn) => {
+      const id = btn.dataset.section;
+      btn.addEventListener("click", () => {
+        if (dragged) { dragged = false; return; }  // that was a spin, not a tap
+        openModal(id);
+      });
+      // Tabbing to a face turns it to the front — a face pointing away is
+      // hidden, so focus has to bring it into view.
+      btn.addEventListener("focus", () => {
+        let keyed = true;
+        try { keyed = btn.matches(":focus-visible"); } catch (_) { /* older browser */ }
+        if (keyed) turnTo(btn.dataset.face);
+      });
+    });
   }
 
   // Puzzles report their daily result here (true = solved). Only the first
@@ -632,7 +739,7 @@
 
     const teardown = Locate.mount(root, {
       onStart: registerPlay,
-      onGameOver: () => { renderFills(); refreshSlices(); }
+      onGameOver: () => { renderFills(); refreshFaces(); }
     });
 
     body.append(el("div", "modal-note",
@@ -694,14 +801,14 @@
         saveStats(stats);
         renderFooter();
         renderFills();
-        refreshSlices();
+        refreshFaces();
       },
       onBest: (score) => {
         stats.triviaBest = score;
         saveStats(stats);
       },
       onComplete: (res) => {
-        refreshSlices();
+        refreshFaces();
         if (!res.replay && res.perfect) burstConfetti();
       }
     });
@@ -764,7 +871,7 @@
 
     // Persist any results gathered while the modal was open, then sync the UI.
     saveStats(stats);
-    refreshSlices();
+    refreshFaces();
     renderFills();
     renderFooter();
 
@@ -780,24 +887,16 @@
   });
 
   // ----- Init -----
-  buildPie();
+  buildCube();
   renderFills();
-  refreshSlices();
-
-  // Wire each slice to open its section.
-  document.querySelectorAll(".pie-slice[data-section]").forEach((slice) => {
-    const id = slice.getAttribute("data-section");
-    slice.addEventListener("click", () => openModal(id));
-    slice.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openModal(id); }
-    });
-  });
+  refreshFaces();
+  initCube();   // wires the drag/keys and each face's click
 
   renderStreak(false);
   renderFooter();
 
   // Warm the artwork lookup once the page is idle. Nothing is displayed here —
-  // it just means the reveal is instant when the slice is actually opened.
+  // it just means the reveal is instant when the face is actually opened.
   if (typeof Artwork !== "undefined" && artwork.wiki) {
     const warm = () => {
       Artwork.findImage(artwork).then((res) => {

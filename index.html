@@ -52,13 +52,19 @@
     </div>
   </header>
 
-  <!-- The daily sections, laid out as slices of a pie chart. Each slice is a
-       trigger that opens its section in a modal. Built by app.js. -->
+  <!-- The daily sections, one per face of a cube you can spin. Each face is a
+       button that opens its section in a modal. Faces are built by app.js. -->
   <main class="content">
-    <section class="pie-stage reveal" style="--i:1">
-      <div class="pie-wrap">
-        <svg id="pieSvg" viewBox="0 0 520 520" role="group" aria-label="Today's sections"></svg>
+    <section class="cube-stage reveal" style="--i:1">
+      <div class="cube-scene" id="cubeScene">
+        <div class="cube-shadow" aria-hidden="true"></div>
+        <div class="cube" id="cube" role="group" aria-label="Today's sections — drag to rotate the cube"></div>
       </div>
+      <div class="cube-plate">
+        <span class="plate-top">DAILY</span>
+        <span class="plate-sub" id="plateSub">—</span>
+      </div>
+      <p class="cube-hint">Drag to spin the cube · click a face to open it · arrow keys turn it</p>
     </section>
   </main>
 
