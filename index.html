@@ -64,7 +64,11 @@
         <span class="plate-top">DAILY</span>
         <span class="plate-sub" id="plateSub">—</span>
       </div>
-      <p class="cube-hint">Drag to spin the cube · click a face to open it · arrow keys turn it</p>
+      <button class="roll-btn" id="rollBtn" type="button">
+        <span class="roll-die" aria-hidden="true">🎲</span> Roll the cube
+      </button>
+      <p class="cube-hint">Drag to spin it · click a face to open it · or roll for a random one</p>
+      <span class="sr-only" id="rollStatus" role="status" aria-live="polite"></span>
     </section>
   </main>
 
