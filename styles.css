@@ -173,7 +173,10 @@ body {
 .content { display: flex; flex-direction: column; }
 
 .cube-stage {
-  --cube: clamp(168px, 52vw, 340px);
+  /* Sized off the viewport's height as well as its width: the cube and the
+     controls under it have to land above the fold on a laptop window, not
+     just on a tall screen. */
+  --cube: clamp(168px, min(52vw, 33vh), 340px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -185,9 +188,11 @@ body {
   position: relative;
   width: var(--cube);
   height: var(--cube);
-  /* perspective throws the near face a long way past the cube's own box —
-     these margins are the room its corners need, so nothing collides */
-  margin-block: calc(var(--cube) * 0.22) calc(var(--cube) * 0.3);
+  /* Perspective throws the near face a long way past the cube's own box, so
+     it needs room for its corners. Only the bottom margin has to hold all of
+     it — above, the cube passes behind the top bar's glass, which paints over
+     it, and that costs nothing. */
+  margin-block: calc(var(--cube) * 0.08) calc(var(--cube) * 0.3);
   perspective: calc(var(--cube) * 3.6);
   touch-action: none;   /* a drag here turns the cube, it doesn't scroll */
   cursor: grab;
@@ -343,19 +348,18 @@ body {
 
 .cube-plate {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
+  align-items: baseline;
+  gap: 10px;
 }
 .plate-top {
   font-family: "Space Grotesk", sans-serif;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 700;
-  letter-spacing: 5px;
+  letter-spacing: 4px;
 }
 .plate-sub { font-size: 0.74rem; color: var(--muted); letter-spacing: 1px; }
 .cube-hint {
-  max-width: 34ch;
+  max-width: 46ch;
   font-size: 0.72rem;
   line-height: 1.5;
   text-align: center;
