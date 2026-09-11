@@ -312,35 +312,54 @@
 
   // ----- Spinning the cube -----
   // Drag anywhere on the cube to turn it; let go and it keeps its momentum.
-  // Left alone it drifts slowly so the other faces come round on their own,
-  // and it holds still while you're pointing at it so a face is easy to hit.
+  // Left alone it turns slowly on its own — that idle tumble is what tells you
+  // the thing can be grabbed — and it holds still while you're pointing at it
+  // so a face is easy to hit. The roll button throws it like a die.
   function initCube() {
     const scene = document.getElementById("cubeScene");
     const cube = document.getElementById("cube");
     if (!scene || !cube) return;
 
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const AMBIENT = reduce ? 0 : 0.09;  // idle drift, degrees per frame
+    const AMBIENT = reduce ? 0 : 0.13;  // idle drift, degrees per frame (~45s a turn)
+    const SWAY_RATE = 0.012;            // radians per frame of the idle tilt
+    const SWAY_AMP = 7 * SWAY_RATE;     // which works out as a ±7° nod
     const FRICTION = 0.93;              // momentum decay after a throw
     const EASE = 0.16;                  // how fast a turn-to-face settles
     const HOLD = 90;                    // frames of stillness after you let go
     const SLOP = 8;                     // px of movement that counts as a drag
     const SPEED = 0.42;                 // degrees of turn per px dragged
     const MAX_TILT = 90;                // straight up / straight down
+    const ROLL_MS = 1500;               // how long a throw of the die takes
 
     let rx = FACE_HOME.front.rx - 34;   // the intro spin starts off-axis and
     let ry = FACE_HOME.front.ry - 320;  // settles onto the front face
     let vx = 0, vy = 0;                 // momentum, degrees per frame
     let goal = null;                    // { rx, ry } while turning to a face
+    let roll = null;                    // the throw in flight, if there is one
+    let hop = 0;                        // px the cube is off the ground mid-roll
+    let hopMax = 1, lifted = false;     // peak of that arc, measured per throw
+    let sway = 0;                       // phase of the idle nod
     let hold = 0;                       // frames left before the drift resumes
     let hovering = false, dragging = false;
     let dragId = null, lastX = 0, lastY = 0, moved = 0, dragged = false;
+
+    const rollBtn = document.getElementById("rollBtn");
+    const rollStatus = document.getElementById("rollStatus");
 
     const clampTilt = (v) => Math.max(-MAX_TILT, Math.min(MAX_TILT, v));
     // the version of `to` that's the shortest way round from `cur`
     const near = (cur, to) => to + 360 * Math.round((cur - to) / 360);
     const apply = () => {
       cube.style.transform = `rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`;
+      if (!hop && !lifted) return;   // the hop only moves during a roll
+      // `translate` is its own property, so the hop composes with the rotation
+      // instead of fighting the transform the spin is written to.
+      cube.style.translate = hop ? `0 ${hop.toFixed(1)}px` : "";
+      // the shadow tightens and fades as the cube goes up, the way a thrown
+      // die's does, and firms back up as it lands
+      scene.style.setProperty("--lift", hopMax ? (Math.abs(hop) / hopMax).toFixed(3) : "0");
+      lifted = hop !== 0;
     };
 
     // Which face ends up facing the viewer at a quarter-turned orientation.
@@ -351,6 +370,65 @@
       const y = ((qry % 360) + 360) % 360;
       return { 0: "front", 90: "left", 180: "back", 270: "right" }[y] || null;
     }
+
+    // ----- Rolling it like a die -----
+    // Pick a face up front, then tumble the cube through a few whole turns on
+    // the way to that face's resting orientation, so where it lands is a real
+    // landing rather than a cut. Whatever comes up on top is what opens.
+    function startRoll() {
+      if (roll) return;
+      const pick = FACES[Math.floor(Math.random() * FACES.length)];
+      const home = FACE_HOME[pick.face];
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      const now = performance.now();
+
+      roll = {
+        t0: now,
+        dur: reduce ? 1 : ROLL_MS,
+        fx: rx, fy: ry,
+        // whole extra turns on both axes, landing square on the chosen face
+        tx: near(rx, home.rx) - (1 + Math.floor(Math.random() * 2)) * 360,
+        ty: near(ry, home.ry) + dir * (2 + Math.floor(Math.random() * 2)) * 360,
+        face: pick.face,
+        id: pick.id,
+        name: pick.name
+      };
+      hopMax = reduce ? 0 : scene.getBoundingClientRect().width * 0.2;
+      goal = null;
+      vx = vy = 0;
+      scene.classList.add("rolling");
+      if (rollBtn) rollBtn.disabled = true;
+      if (rollStatus) rollStatus.textContent = "Rolling…";
+    }
+
+    function landRoll() {
+      const r = roll;
+      roll = null;
+      hop = 0;
+      // the tumble left whole turns piled up on both axes — fold them away, so
+      // the tilt clamp and the arrow keys carry on from sensible numbers
+      rx = FACE_HOME[r.face].rx;
+      ry = ((ry % 360) + 360) % 360;
+      apply();
+      scene.classList.remove("rolling");
+      if (rollBtn) {
+        rollBtn.disabled = false;
+        // disabling the button dropped focus to the page; take it back before
+        // the section opens, so closing the section returns you to the button
+        if (document.activeElement === document.body) rollBtn.focus();
+      }
+      if (rollStatus) rollStatus.textContent = `Landed on ${r.name}.`;
+      hold = HOLD;
+      const face = cube.querySelector(`.cube-face[data-face="${r.face}"]`);
+      if (face) face.classList.add("landed");
+      // a beat to watch it settle before the section covers it up
+      setTimeout(() => {
+        if (face) face.classList.remove("landed");
+        openModal(r.id);
+      }, reduce ? 0 : 240);
+    }
+
+    if (rollBtn) rollBtn.addEventListener("click", startRoll);
 
     function turnTo(face) {
       const home = FACE_HOME[face];
@@ -371,9 +449,21 @@
     else goal = { rx: -16, ry: -20 };
     apply();
 
-    (function frame() {
+    (function frame(now) {
       requestAnimationFrame(frame);
       if (dragging) return;             // pointermove drives it directly
+
+      if (roll) {
+        const p = Math.min(1, (now - roll.t0) / roll.dur);
+        const e = 1 - Math.pow(1 - p, 4);   // fast out of the hand, slow to settle
+        rx = roll.fx + (roll.tx - roll.fx) * e;
+        ry = roll.fy + (roll.ty - roll.fy) * e;
+        // a couple of decaying bounces, flat again exactly as it stops turning
+        hop = -hopMax * Math.abs(Math.sin(Math.PI * p * 2.6)) * Math.pow(1 - p, 1.6);
+        apply();
+        if (p >= 1) landRoll();
+        return;
+      }
 
       if (goal) {
         rx += (goal.rx - rx) * EASE;
@@ -391,12 +481,16 @@
         hold--;
         return;                          // nothing moved — nothing to redraw
       } else if (!hovering && AMBIENT) {
+        // the resting state: a slow turn with a gentle nod, so the cube reads
+        // as something you can take hold of rather than a picture of a box
         ry += AMBIENT;
+        sway += SWAY_RATE;
+        rx = clampTilt(rx + Math.cos(sway) * SWAY_AMP);
       } else {
         return;
       }
       apply();
-    })();
+    })(performance.now());
 
     function onMove(e) {
       if (e.pointerId !== dragId) return;
@@ -424,7 +518,7 @@
     }
 
     scene.addEventListener("pointerdown", (e) => {
-      if (e.button) return;              // primary button / touch only
+      if (e.button || roll) return;      // primary button / touch only
       dragging = true;
       dragged = false;
       dragId = e.pointerId;
@@ -446,6 +540,7 @@
     // it: up moves the front face up, bringing the bottom one round. Focus
     // follows the turn, so Enter always opens the face you're looking at.
     scene.addEventListener("keydown", (e) => {
+      if (roll) return;
       const rxQ = Math.round(rx / 90) * 90;
       const ryQ = Math.round(ry / 90) * 90;
       let next;
@@ -471,6 +566,7 @@
       // Tabbing to a face turns it to the front — a face pointing away is
       // hidden, so focus has to bring it into view.
       btn.addEventListener("focus", () => {
+        if (roll) return;
         let keyed = true;
         try { keyed = btn.matches(":focus-visible"); } catch (_) { /* older browser */ }
         if (keyed) turnTo(btn.dataset.face);
