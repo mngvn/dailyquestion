@@ -910,13 +910,50 @@
     });
   }
 
+  // ----- Movies to watch -----
+  // The list itself lives in movies.js so it can be added to without going
+  // anywhere near this file. Entries are forgiving: a bare title string works
+  // as well as { title, year, note }, and anything without a title is skipped.
+  function buildMovies(body) {
+    const raw = Array.isArray(window.Movies) ? window.Movies : [];
+    const films = raw
+      .map((m) => (typeof m === "string" ? { title: m } : m || {}))
+      .filter((m) => m.title);
+
+    if (!films.length) {
+      body.append(el("p", "modal-text", "Nothing on the list yet."));
+      body.append(el("p", "modal-note", "Add one in movies.js."));
+      return;
+    }
+
+    const list = el("ol", "mv-list");
+    films.forEach((m) => {
+      const item = el("li", "mv-item");
+      const head = el("div", "mv-head");
+      head.append(el("span", "mv-title", m.title));
+      if (m.year) head.append(el("span", "mv-year", String(m.year)));
+      item.append(head);
+      if (m.note) item.append(el("p", "mv-note", m.note));
+      list.append(item);
+    });
+    body.append(list);
+
+    const foot = el("div", "modal-foot");
+    foot.append(el("p", "modal-note", films.length === 1
+      ? "1 film on the list"
+      : `${films.length} films on the list`));
+    body.append(foot);
+  }
+
   const SECTIONS = {
     fact: { icon: "💡", title: "Four Fun Facts", build: buildFact },
     puzzle: { icon: "🧩", title: "Daily Puzzle", build: buildPuzzle },
     artwork: { icon: "🎨", title: "Artwork of the Day", build: buildArtwork },
     history: { icon: "📜", title: "On This Day", build: buildHistory },
     locate: { icon: "🌍", title: "Where in the World?", build: buildLocate },
-    trivia: { icon: "🎯", title: "Tech Trivia", build: buildTrivia }
+    trivia: { icon: "🎯", title: "Tech Trivia", build: buildTrivia },
+    // not a face of the cube — this one opens from the corner controls
+    movies: { icon: "🎬", title: "Movies to Watch", build: buildMovies }
   };
 
   // ----- Modal controller -----
@@ -987,6 +1024,9 @@
   renderFills();
   refreshFaces();
   initCube();   // wires the drag/keys and each face's click
+
+  const moviesBtn = document.getElementById("moviesBtn");
+  if (moviesBtn) moviesBtn.addEventListener("click", () => openModal("movies"));
 
   renderStreak(false);
   renderFooter();
