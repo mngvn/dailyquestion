@@ -416,6 +416,63 @@ body {
   white-space: nowrap;
 }
 
+/* ---------- Movies to watch ---------- */
+.mv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: mv;
+}
+.mv-item {
+  position: relative;
+  counter-increment: mv;
+  padding: 12px 16px 12px 46px;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  transition: border-color 0.25s ease, transform 0.25s ease;
+}
+.mv-item:hover { border-color: var(--accent); transform: translateX(3px); }
+/* the running number, set in the gutter the padding leaves for it */
+.mv-item::before {
+  content: counter(mv);
+  position: absolute;
+  left: 16px;
+  top: 13px;
+  min-width: 18px;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.mv-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.mv-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.08rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.mv-year {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.mv-note {
+  margin-top: 4px;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
 /* ---------- Footer stats: one slim inline strip ---------- */
 .footer {
   position: relative;
@@ -1393,6 +1450,7 @@ body.light .ff-card[data-cat="History"] { --ff-c: #9a6b00; }
 body.light .ff-card[data-cat="Misc"]    { --ff-c: #0b8459; }
 body.light .tv-chip { color: #c02a68; }
 body.light .controls { background: rgba(255, 255, 255, 0.7); }
+body.light .mv-item { background: rgba(255, 255, 255, 0.72); }
 body.light .modal { border-color: rgba(28, 34, 70, 0.16); }
 body.light .modal-icon { filter: none; }
 /* the cube is a pale box with a lighter colour wash on a light page */
