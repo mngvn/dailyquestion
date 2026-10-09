@@ -311,7 +311,9 @@
   }
 
   // ----- Spinning the cube -----
-  // Drag anywhere on the cube to turn it; let go and it keeps its momentum.
+  // Drag anywhere on the cube to turn it; let go and it keeps its momentum,
+  // then pulls square onto whichever face it's closest to, so it never comes
+  // to rest at an angle where the face you want is hard to hit.
   // Left alone it turns slowly on its own — that idle tumble is what tells you
   // the thing can be grabbed — and it holds still while you're pointing at it
   // so a face is easy to hit. The roll button throws it like a die.
@@ -325,6 +327,7 @@
     const SWAY_RATE = 0.012;            // radians per frame of the idle tilt
     const SWAY_AMP = 7 * SWAY_RATE;     // which works out as a ±7° nod
     const FRICTION = 0.93;              // momentum decay after a throw
+    const SNAP_SPEED = 0.4;             // below this the throw hands over to the snap
     const EASE = 0.16;                  // how fast a turn-to-face settles
     const HOLD = 90;                    // frames of stillness after you let go
     const SLOP = 8;                     // px of movement that counts as a drag
@@ -445,6 +448,14 @@
       hold = HOLD;
     }
 
+    // Pull the cube onto the nearest quarter turn on both axes, like a magnet
+    // catching it — the closest face ends up square to the viewer.
+    function snap() {
+      vx = vy = 0;
+      goal = { rx: clampTilt(Math.round(rx / 90) * 90), ry: Math.round(ry / 90) * 90 };
+      hold = HOLD;
+    }
+
     if (reduce) { rx = FACE_HOME.front.rx; ry = FACE_HOME.front.ry; }
     else goal = { rx: -16, ry: -20 };
     apply();
@@ -475,8 +486,7 @@
         rx = clampTilt(rx + vx);
         ry += vy;
         vx *= FRICTION; vy *= FRICTION;
-        if (Math.abs(vx) < 0.015) vx = 0;
-        if (Math.abs(vy) < 0.015) vy = 0;
+        if (Math.hypot(vx, vy) < SNAP_SPEED) snap();
       } else if (hold > 0) {
         hold--;
         return;                          // nothing moved — nothing to redraw
@@ -515,6 +525,10 @@
       hold = HOLD;
       scene.classList.remove("dragging");
       if (e.type !== "pointerup") { vx = vy = 0; dragged = false; }
+      // a tap shouldn't nudge the cube; a drag let go of without a flick
+      // settles straight away, and a throw snaps once it slows down
+      if (!dragged) vx = vy = 0;
+      else if (Math.hypot(vx, vy) < SNAP_SPEED) snap();
     }
 
     scene.addEventListener("pointerdown", (e) => {
