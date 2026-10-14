@@ -274,10 +274,13 @@ body {
 }
 .cube-face > * { position: relative; z-index: 1; }
 
-/* pointing at a face lifts it off the box */
+/* pointing at a face lights it up. Only a keyboard-focused face (which has
+   been turned to the front) lifts off the box: lifting a face that's at an
+   angle slides it sideways on screen, out from under the pointer, and the
+   hover flickers on and off as you try to click it. */
+.cube-face:focus-visible { --pop: calc(var(--cube) * 0.055); }
 .cube-face:hover,
 .cube-face:focus-visible {
-  --pop: calc(var(--cube) * 0.055);
   border-color: var(--c1);
   box-shadow: inset 0 0 calc(var(--cube) * 0.34) var(--edge),
               0 18px 44px -14px var(--edge);

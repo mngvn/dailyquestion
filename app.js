@@ -345,7 +345,9 @@
     let sway = 0;                       // phase of the idle nod
     let hold = 0;                       // frames left before the drift resumes
     let hovering = false, dragging = false;
+    let touched = false;                // once you've handled it, it stops drifting
     let dragId = null, lastX = 0, lastY = 0, moved = 0, dragged = false;
+    let pressed = null;                 // the face under the pointer when it went down
 
     const rollBtn = document.getElementById("rollBtn");
     const rollStatus = document.getElementById("rollStatus");
@@ -490,7 +492,7 @@
       } else if (hold > 0) {
         hold--;
         return;                          // nothing moved — nothing to redraw
-      } else if (!hovering && AMBIENT) {
+      } else if (!hovering && !touched && AMBIENT) {
         // the resting state: a slow turn with a gentle nod, so the cube reads
         // as something you can take hold of rather than a picture of a box
         ry += AMBIENT;
@@ -508,6 +510,9 @@
       lastX = e.clientX; lastY = e.clientY;
       moved += Math.abs(dx) + Math.abs(dy);
       if (moved > SLOP) dragged = true;
+      // a finger wobbles a little on a tap — don't let that turn the cube
+      // (and slide the face out from under it) until it's clearly a drag
+      if (!dragged) return;
       ry += dx * SPEED;
       rx = clampTilt(rx - dy * SPEED);
       // the last flick of the pointer is what the cube keeps spinning on
@@ -524,11 +529,19 @@
       dragId = null;
       hold = HOLD;
       scene.classList.remove("dragging");
-      if (e.type !== "pointerup") { vx = vy = 0; dragged = false; }
-      // a tap shouldn't nudge the cube; a drag let go of without a flick
-      // settles straight away, and a throw snaps once it slows down
-      if (!dragged) vx = vy = 0;
-      else if (Math.hypot(vx, vy) < SNAP_SPEED) snap();
+      if (e.type !== "pointerup") { vx = vy = 0; dragged = false; pressed = null; }
+      // A tap opens the face it went down on, whatever is under the pointer
+      // now: on a face seen at an angle the browser's own click can land on a
+      // neighbour, or on nothing, if the press and release don't line up.
+      if (!dragged) {
+        vx = vy = 0;
+        if (pressed) openModal(pressed.dataset.section);
+      } else if (Math.hypot(vx, vy) < SNAP_SPEED) {
+        // a drag let go of without a flick settles straight away, and a
+        // throw snaps once it slows down
+        snap();
+      }
+      pressed = null;
     }
 
     scene.addEventListener("pointerdown", (e) => {
@@ -538,6 +551,8 @@
       dragId = e.pointerId;
       lastX = e.clientX; lastY = e.clientY;
       moved = 0;
+      pressed = e.target.closest(".cube-face[data-section]");
+      touched = true;
       goal = null;
       vx = vy = 0;
       scene.classList.add("dragging");
@@ -573,9 +588,10 @@
 
     cube.querySelectorAll(".cube-face[data-section]").forEach((btn) => {
       const id = btn.dataset.section;
-      btn.addEventListener("click", () => {
-        if (dragged) { dragged = false; return; }  // that was a spin, not a tap
-        openModal(id);
+      // Pointer taps are opened from pointerup above; this click is for the
+      // keyboard (Enter / Space on a focused face), which reports no detail.
+      btn.addEventListener("click", (e) => {
+        if (e.detail === 0) openModal(id);
       });
       // Tabbing to a face turns it to the front — a face pointing away is
       // hidden, so focus has to bring it into view.
