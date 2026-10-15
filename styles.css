@@ -206,12 +206,13 @@ body {
   width: 100%;
   height: 100%;
   transform-style: preserve-3d;
-  /* Turned edge-on, this box is a plane perpendicular to the screen, and in
-     perspective such a plane is hit-tested right out to the horizon — it would
-     swallow clicks aimed at the button below the cube. Only the faces are
-     meant to be clickable anyway, so the box itself takes no pointer events. */
+  /* Only the faces are meant to be clickable, so the box takes no pointer
+     events (it would otherwise sit over the button below the cube). */
   pointer-events: none;
-  /* app.js writes the rotation here every frame — no transition on it */
+  /* app.js writes the cube's rotation here every frame. Each face applies it
+     itself; the box never turns, because a box turned near edge-on stops the
+     browser hit-testing the faces inside it. */
+  --spin: rotateX(0deg);
 }
 
 /* the patch of ground under the cube — it tightens and fades while the cube
@@ -251,8 +252,13 @@ body {
   box-shadow: inset 0 0 calc(var(--cube) * 0.2) var(--edge);
   /* a face facing away is hidden — and so is its click target */
   backface-visibility: hidden;
-  transform: var(--rot, none) translateZ(calc(var(--cube) / 2 + var(--pop, 0px)));
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+  transform: var(--spin) var(--rot) translateZ(calc(var(--cube) / 2));
+  /* The lift toward the viewer. It's on `translate`, which comes before the
+     spin and so moves straight out of the screen; a face only lifts once it's
+     facing you. The spin changes every frame, so `transform` takes no
+     transition. */
+  translate: 0 0 var(--pop, 0px);
+  transition: translate 0.35s cubic-bezier(0.16, 1, 0.3, 1),
               box-shadow 0.35s ease, border-color 0.35s ease;
 }
 /* the six sides of the box */

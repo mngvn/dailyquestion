@@ -356,10 +356,12 @@
     // the version of `to` that's the shortest way round from `cur`
     const near = (cur, to) => to + 360 * Math.round((cur - to) / 360);
     const apply = () => {
-      cube.style.transform = `rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`;
+      // The spin goes on each face rather than on the cube box: a box turned
+      // near edge-on stops Chromium hit-testing the faces inside it, so a face
+      // that had snapped square to the side or top couldn't be clicked.
+      cube.style.setProperty("--spin", `rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`);
       if (!hop && !lifted) return;   // the hop only moves during a roll
-      // `translate` is its own property, so the hop composes with the rotation
-      // instead of fighting the transform the spin is written to.
+      // the hop goes on the box, which never turns, so it's always straight up
       cube.style.translate = hop ? `0 ${hop.toFixed(1)}px` : "";
       // the shadow tightens and fades as the cube goes up, the way a thrown
       // die's does, and firms back up as it lands
