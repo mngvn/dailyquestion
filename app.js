@@ -333,15 +333,14 @@
     const SLOP = 8;                     // px of movement that counts as a drag
     const SPEED = 0.42;                 // degrees of turn per px dragged
     const MAX_TILT = 90;                // straight up / straight down
-    const ROLL_MS = 1500;               // how long a throw of the die takes
+    const LANDED_MS = 320;              // the face it lands on glows this long
+                                        // before its section opens
 
     let rx = FACE_HOME.front.rx - 34;   // the intro spin starts off-axis and
     let ry = FACE_HOME.front.ry - 320;  // settles onto the front face
     let vx = 0, vy = 0;                 // momentum, degrees per frame
     let goal = null;                    // { rx, ry } while turning to a face
     let roll = null;                    // the throw in flight, if there is one
-    let hop = 0;                        // px the cube is off the ground mid-roll
-    let hopMax = 1, lifted = false;     // peak of that arc, measured per throw
     let sway = 0;                       // phase of the idle nod
     let hold = 0;                       // frames left before the drift resumes
     let hovering = false, dragging = false;
@@ -359,14 +358,25 @@
       // The spin goes on each face rather than on the cube box: a box turned
       // near edge-on stops Chromium hit-testing the faces inside it, so a face
       // that had snapped square to the side or top couldn't be clicked.
-      cube.style.setProperty("--spin", `rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`);
-      if (!hop && !lifted) return;   // the hop only moves during a roll
-      // the hop goes on the box, which never turns, so it's always straight up
-      cube.style.translate = hop ? `0 ${hop.toFixed(1)}px` : "";
-      // the shadow tightens and fades as the cube goes up, the way a thrown
-      // die's does, and firms back up as it lands
-      scene.style.setProperty("--lift", hopMax ? (Math.abs(hop) / hopMax).toFixed(3) : "0");
-      lifted = hop !== 0;
+      const spin = `rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`;
+      const p = roll && roll.pose;
+      if (!p) {
+        cube.style.setProperty("--spin", spin);
+        return;
+      }
+      // Mid-throw, the tumble goes on ahead of the spin, turning about the
+      // table's own axes: tx tips it toward you over its front edge, ty
+      // swings the way it's heading, tz cartwheels it in the air.
+      cube.style.setProperty("--spin",
+        `rotateZ(${p.tz.toFixed(2)}deg) rotateY(${p.ty.toFixed(2)}deg) rotateX(${p.tx.toFixed(2)}deg) ${spin}`);
+      // where it is goes on the box, which never turns, so up is always up
+      cube.style.translate = `${p.x.toFixed(1)}px ${p.y.toFixed(1)}px ${p.z.toFixed(1)}px`;
+      // its shadow stays on the table underneath it, tightening and fading
+      // as it goes up and firming back up as it lands
+      scene.style.setProperty("--ground", `${p.x.toFixed(1)}px 0 ${p.z.toFixed(1)}px`);
+      scene.style.setProperty("--lift", Math.min(1, Math.max(0, -p.y / roll.plan.high)).toFixed(3));
+      // and the table jumps when it hits
+      scene.style.translate = p.jolt ? `0 ${p.jolt.toFixed(1)}px` : "";
     };
 
     // Which face ends up facing the viewer at a quarter-turned orientation.
@@ -379,43 +389,237 @@
     }
 
     // ----- Rolling it like a die -----
-    // Pick a face up front, then tumble the cube through a few whole turns on
-    // the way to that face's resting orientation, so where it lands is a real
-    // landing rather than a cut. Whatever comes up on top is what opens.
+    // The Roll button throws the cube the way a gambler throws dice at a
+    // craps table. It rattles in the hand, gets tossed up, and drops hard onto
+    // the felt. Then it bounces and tumbles toward you over its edges, each
+    // tumble slower than the last, until it comes to rest. The face it rests
+    // on is picked up front, and the whole throw is planned backwards from
+    // there, so the landing is real rather than a cut. Everything else on the
+    // page fades out while it's moving. Only this button does any of this:
+    // spinning the cube by hand never fades the page or opens a random face.
+
+    // How far the middle of the cube rises and moves forward as it tips `a`
+    // degrees over its front edge. A die pivots on the edge it's tipping over,
+    // so it climbs to the balance point and drops back down: the thunk.
+    function pivot(a, s) {
+      const r = a * Math.PI / 180;
+      return {
+        up: (s / 2) * (Math.cos(r) + Math.sin(r) - 1),
+        fwd: (s / 2) * (Math.sin(r) - Math.cos(r) + 1)
+      };
+    }
+    const lerp = (a, b, u) => a + (b - a) * u;
+    const easeOut = (u) => 1 - Math.pow(1 - u, 3);
+    const easeInOut = (u) => u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+
+    // The throw as a run of timed stages. Each stage is f(u, pose) for u in
+    // 0..1 and writes where the cube is at that point; the stages are planned
+    // backwards from the resting face, so they join up end to end.
+    function planThrow(home) {
+      const box = scene.getBoundingClientRect();
+      const s = box.width;
+      const side = Math.random() < 0.5 ? 1 : -1;            // which way it's thrown
+      const tips = 2 + Math.floor(Math.random() * 2);        // tumbles on the felt
+      const flips = 1 + Math.floor(Math.random() * 2);       // quarter turns in the bounce
+      const rockBack = Math.random() < 0.5;                  // the last tumble falls back
+      const STEP = 0.5 * s;          // forward travel per tumble (a real edge is s)
+      const BOUNCE_FWD = 0.45 * s;   // and over the bounce
+      const BOUNCE_UP = 0.3 * s;
+
+      // Where each stage starts, working back from the rest at (0, 0, 0).
+      // x is across the table, y is down the screen, z is toward you.
+      const tipX = side * 0.28 * s, tipZ = -tips * STEP;
+      const hitX = side * 0.5 * s, hitZ = tipZ - BOUNCE_FWD;
+      const hand = { x: 0, y: -0.24 * s, z: 0.2 * s };
+      const cocked = { x: -side * 0.04 * s, y: -0.1 * s, z: 0.3 * s };
+      // The toss goes as high as it can without losing the cube off the top
+      // of the screen for long. Up there it's further away and smaller, so it
+      // covers less of the screen than its height in px.
+      const high = Math.max(0.6 * s, Math.min(1.15 * s, (box.top + 0.35 * s) / 0.8));
+
+      // tx counts quarter tips toward you, so it falls to 0 on the rest face.
+      // Tipping toward you is a negative rotateX, so it counts down all the
+      // way from the hand, and the cube is always rolling the same way.
+      const txTips = 90 * tips;
+      const txHit = txTips + 90 * flips;
+      // the toss spins it forward one to two turns, from the cocked wrist
+      const COCK = 25;
+      const txBase = 360 * Math.ceil((txHit + 360 - COCK) / 360);
+      // the way it's heading over the felt, which it straightens out of
+      const heading = Math.atan2(-tipX, -tipZ) * 180 / Math.PI;
+
+      // the spin it's at now, and the same face-on orientation as the home
+      // one with a spare turn or so thrown in for the air
+      const rx0 = rx, ry0 = ry;
+      const rxHit = near(rx0, home.rx);
+      const ryHit = near(ry0, home.ry) + side * 360;
+      // from the moment it hits the felt, the spin is the home one and only
+      // the tumble moves (set by every stage after the toss, since a frame
+      // can skip right past the end of it)
+      const onFace = () => { rx = rxHit; ry = ryHit; };
+
+      const stages = [];
+      const add = (dur, f) => stages.push({ dur, f });
+
+      // 1. Pick it up and shake it. The hand pumps up and down while the die
+      //    rattles around inside it, then the wrist cocks back to throw.
+      add(150, (u, p) => {
+        const e = easeOut(u);
+        p.x = 0; p.y = hand.y * e; p.z = hand.z * e;
+        p.tx = txBase; p.ty = 0; p.tz = 0;
+      });
+      add(330, (u, p) => {
+        const t = u * 0.33;                       // seconds
+        const env = Math.sin(Math.PI * u);        // rattle builds and dies away
+        p.x = hand.x + 0.03 * s * Math.sin(2 * Math.PI * 4.5 * t) * env;
+        p.y = hand.y - 0.07 * s * Math.sin(2 * Math.PI * 9 * t) * env;
+        p.z = hand.z;
+        p.tx = txBase + 11 * Math.sin(2 * Math.PI * 17 * t) * env;
+        p.ty = 9 * Math.sin(2 * Math.PI * 13 * t + 2) * env;
+        p.tz = 8 * Math.sin(2 * Math.PI * 21 * t + 1) * env;
+      });
+      add(120, (u, p) => {
+        const e = easeInOut(u);
+        p.x = lerp(hand.x, cocked.x, e);
+        p.y = lerp(hand.y, cocked.y, e);
+        p.z = lerp(hand.z, cocked.z, e);
+        p.tx = txBase + COCK * e; p.ty = 0; p.tz = 0;
+      });
+
+      // 2. The toss: up, over, and down hard onto the far end of the felt,
+      //    turning over and over the whole way. It spins at a steady rate,
+      //    the way a thrown die does.
+      add(520, (u, p) => {
+        p.x = lerp(cocked.x, hitX, u);
+        p.z = lerp(cocked.z, hitZ, u);
+        // a parabola from the hand to the felt, peaking around `high`
+        p.y = lerp(cocked.y, 0, u) - 4 * (high + cocked.y / 2) * u * (1 - u);
+        p.tx = lerp(txBase + COCK, txHit, u);
+        p.ty = lerp(0, heading, u);
+        p.tz = side * 360 * u;
+        rx = lerp(rx0, rxHit, u);
+        ry = lerp(ry0, ryHit, u);
+      });
+
+      // 3. It hits, and kicks back up, flipping once or twice toward you.
+      add(300, (u, p) => {
+        onFace();
+        p.x = lerp(hitX, tipX, u);
+        p.z = lerp(hitZ, tipZ, u);
+        p.y = -4 * BOUNCE_UP * u * (1 - u);
+        p.tx = lerp(txHit, txTips, u);
+        p.ty = heading;
+        p.tz = side * 5 * Math.sin(Math.PI * u);
+        p.hit = u;                                // how far past the impact
+      });
+
+      // 4. Tumbles over its front edge, slower each time. Each tip rushes
+      //    over the edge, slows as it climbs to the balance point, then drops
+      //    flat. The last one only just makes it over, unless it's going to
+      //    rock back instead, in which case it rocks back after this.
+      const TIP_MS = tips === 2 ? [230, 330] : [180, 240, 330];
+      for (let i = 0; i < tips; i++) {
+        const last = i === tips - 1;
+        const hang = last && !rockBack;           // hangs at the balance point
+        const k = hang ? 0.93 : 0.35 + 0.15 * i;  // how much it slows at the top
+        add(TIP_MS[i] + (hang ? 200 : 0), (u, p) => {
+          onFace();
+          const a = 90 * (u + k * Math.sin(2 * Math.PI * u) / (2 * Math.PI));
+          const pv = pivot(a, s);
+          const done = (i + u) / tips;            // of the whole tumble
+          p.x = lerp(tipX, 0, done);
+          p.z = tipZ + (i * s + pv.fwd) * (STEP / s);
+          p.y = -pv.up;
+          p.tx = txTips - 90 * i - a;
+          p.ty = heading * (1 - easeInOut(done));
+          p.tz = 0;
+          if (i === 0) p.land = u;                // how far past coming down from the bounce
+        });
+      }
+
+      // 5. Or it climbs most of the way onto the next face, hangs there, and
+      //    falls back the way it came.
+      if (rockBack) {
+        add(480, (u, p) => {
+          onFace();
+          const a = 38 * Math.sin(Math.PI * Math.pow(u, 0.8));
+          const pv = pivot(a, s);
+          p.x = 0; p.y = -pv.up; p.z = pv.fwd * (STEP / s);
+          p.tx = -a; p.ty = 0; p.tz = 0;
+        });
+      }
+
+      // 6. It rocks a little on its face as it settles, and comes to rest.
+      const restAt = stages.reduce((t, st) => t + st.dur, 0);
+      add(260, (u, p) => {
+        onFace();
+        p.x = 0; p.y = 0; p.z = 0;
+        p.tx = 3.5 * Math.exp(-3 * u) * Math.sin(3 * Math.PI * u);
+        p.ty = 0; p.tz = 0;
+      });
+
+      // the start of every stage, so a frame can find the one it's in
+      let t = 0;
+      stages.forEach((st) => { st.t0 = t; t += st.dur; });
+      return { stages, dur: t, restAt, high, s };
+    }
+
+    // Where the throw has the cube `ms` into it.
+    function throwAt(plan, ms, p) {
+      let st = plan.stages[plan.stages.length - 1];
+      for (const cand of plan.stages) {
+        if (ms < cand.t0 + cand.dur) { st = cand; break; }
+      }
+      p.hit = p.land = undefined;
+      st.f(Math.min(1, Math.max(0, (ms - st.t0) / st.dur)), p);
+      // The table jumps when the cube slams down, and again, less, when it
+      // comes down from the bounce. hit and land come back as a share of
+      // their stage, and knock wants ms.
+      const knock = (amp, since) => amp * Math.exp(-since / 45) * Math.cos(2 * Math.PI * since / 95);
+      p.jolt = 0;
+      if (p.hit !== undefined) p.jolt = knock(0.03 * plan.s, p.hit * st.dur);
+      if (p.land !== undefined) p.jolt = knock(0.015 * plan.s, p.land * st.dur);
+    }
+
     function startRoll() {
       if (roll) return;
       const pick = FACES[Math.floor(Math.random() * FACES.length)];
       const home = FACE_HOME[pick.face];
-      const dir = Math.random() < 0.5 ? 1 : -1;
-      const now = performance.now();
-
-      roll = {
-        t0: now,
-        dur: reduce ? 1 : ROLL_MS,
-        fx: rx, fy: ry,
-        // whole extra turns on both axes, landing square on the chosen face
-        tx: near(rx, home.rx) - (1 + Math.floor(Math.random() * 2)) * 360,
-        ty: near(ry, home.ry) + dir * (2 + Math.floor(Math.random() * 2)) * 360,
-        face: pick.face,
-        id: pick.id,
-        name: pick.name
-      };
-      hopMax = reduce ? 0 : scene.getBoundingClientRect().width * 0.2;
       goal = null;
       vx = vy = 0;
-      scene.classList.add("rolling");
+      roll = { t0: performance.now(), face: pick.face, id: pick.id, name: pick.name };
       if (rollBtn) rollBtn.disabled = true;
+
+      // with reduced motion there's no throw: straight to the face and open it
+      if (reduce) {
+        rx = home.rx; ry = home.ry;
+        landRoll();
+        return;
+      }
+
+      roll.plan = planThrow(home);
+      roll.pose = { x: 0, y: 0, z: 0, tx: 0, ty: 0, tz: 0, jolt: 0 };
+      scene.classList.add("rolling");
+      // the page steps back and leaves the cube alone under a light
+      const box = scene.getBoundingClientRect();
+      document.body.style.setProperty("--spot-x", `${(box.left + box.width / 2).toFixed(0)}px`);
+      document.body.style.setProperty("--spot-y", `${(box.top + box.height * 0.7).toFixed(0)}px`);
+      document.body.style.setProperty("--spot-r", `${(box.width * 1.6).toFixed(0)}px`);
+      document.body.classList.add("dice-rolling");
       if (rollStatus) rollStatus.textContent = "Rolling…";
     }
 
     function landRoll() {
       const r = roll;
       roll = null;
-      hop = 0;
-      // the tumble left whole turns piled up on both axes — fold them away, so
-      // the tilt clamp and the arrow keys carry on from sensible numbers
+      // the throw left whole turns piled up everywhere: put the cube back on
+      // plain numbers, so the tilt clamp and the arrow keys carry on sensibly
       rx = FACE_HOME[r.face].rx;
-      ry = ((ry % 360) + 360) % 360;
+      ry = FACE_HOME[r.face].ry;
+      cube.style.translate = "";
+      scene.style.translate = "";
+      scene.style.removeProperty("--lift");
+      scene.style.removeProperty("--ground");
       apply();
       scene.classList.remove("rolling");
       if (rollBtn) {
@@ -428,11 +632,16 @@
       hold = HOLD;
       const face = cube.querySelector(`.cube-face[data-face="${r.face}"]`);
       if (face) face.classList.add("landed");
-      // a beat to watch it settle before the section covers it up
+      // a beat to see what it came up on before the section covers it; the
+      // page comes back once the section has started to cover it, so it
+      // fades in underneath rather than flashing up ahead of it
       setTimeout(() => {
         if (face) face.classList.remove("landed");
         openModal(r.id);
-      }, reduce ? 0 : 240);
+        setTimeout(() => {
+          if (!roll) document.body.classList.remove("dice-rolling");
+        }, reduce ? 0 : 200);
+      }, reduce ? 0 : LANDED_MS);
     }
 
     if (rollBtn) rollBtn.addEventListener("click", startRoll);
@@ -469,14 +678,17 @@
       if (dragging) return;             // pointermove drives it directly
 
       if (roll) {
-        const p = Math.min(1, (now - roll.t0) / roll.dur);
-        const e = 1 - Math.pow(1 - p, 4);   // fast out of the hand, slow to settle
-        rx = roll.fx + (roll.tx - roll.fx) * e;
-        ry = roll.fy + (roll.ty - roll.fy) * e;
-        // a couple of decaying bounces, flat again exactly as it stops turning
-        hop = -hopMax * Math.abs(Math.sin(Math.PI * p * 2.6)) * Math.pow(1 - p, 1.6);
+        if (!roll.plan) return;           // a reduced-motion roll lands at once
+        const ms = now - roll.t0;
+        throwAt(roll.plan, ms, roll.pose);
         apply();
-        if (p >= 1) landRoll();
+        // the face it came up on lights as soon as it's down, while it rocks
+        if (!roll.lit && ms >= roll.plan.restAt) {
+          roll.lit = true;
+          const face = cube.querySelector(`.cube-face[data-face="${roll.face}"]`);
+          if (face) face.classList.add("landed");
+        }
+        if (ms >= roll.plan.dur) landRoll();
         return;
       }
 
