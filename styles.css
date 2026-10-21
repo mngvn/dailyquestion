@@ -67,6 +67,10 @@ body {
 
 /* ---------- Top bar ---------- */
 .topbar {
+  /* a cube tumbling mid-roll reaches up this far — it passes behind the bar's
+     glass rather than over the top of it */
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -163,87 +167,322 @@ body {
 .streak-num { font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 1.5rem; }
 .streak-label { font-size: 0.66rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
 
-/* ---------- Main content: the section pie ---------- */
+/* ---------- Main content: the section cube ---------- */
+/* Six sections, one per face. Everything inside the cube is sized off
+   --cube so the whole thing scales as one object. */
 .content { display: flex; flex-direction: column; }
 
-.pie-stage { display: flex; justify-content: center; }
-.pie-wrap { width: min(92vw, 640px); }
-#pieSvg { display: block; width: 100%; height: auto; overflow: visible; }
+.cube-stage {
+  /* Sized off the viewport's height as well as its width: the cube and the
+     controls under it have to land above the fold on a laptop window, not
+     just on a tall screen. */
+  --cube: clamp(168px, min(52vw, 33vh), 340px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding-block: calc(var(--cube) * 0.06);
+}
 
-.pie-slice {
-  cursor: pointer;
-  transform-box: view-box;
-  transform-origin: 50% 50%;
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), filter 0.35s ease;
-  animation: sliceIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) backwards;
-  animation-delay: calc(var(--i, 0) * 0.12s + 0.25s);
-  outline: none;
+.cube-scene {
+  position: relative;
+  width: var(--cube);
+  height: var(--cube);
+  /* Perspective throws the near face a long way past the cube's own box, so
+     it needs room for its corners. Only the bottom margin has to hold all of
+     it — above, the cube passes behind the top bar's glass, which paints over
+     it, and that costs nothing. */
+  margin-block: calc(var(--cube) * 0.08) calc(var(--cube) * 0.3);
+  perspective: calc(var(--cube) * 3.6);
+  touch-action: none;   /* a drag here turns the cube, it doesn't scroll */
+  cursor: grab;
 }
-@keyframes sliceIn {
-  from { opacity: 0; transform: scale(0.3) rotate(-14deg); }
-  to   { opacity: 1; transform: none; }
-}
-/* the slice slides outward along its own mid-angle (set by app.js) */
-.pie-slice:hover,
-.pie-slice:focus-visible {
-  transform: translate(var(--ox, 0px), var(--oy, 0px));
-  filter: drop-shadow(0 14px 30px rgba(0, 0, 0, 0.55));
-}
-.pie-slice:focus-visible .slice-bg { stroke-width: 3; stroke-opacity: 1; }
+.cube-scene.dragging { cursor: grabbing; }
+.cube-scene.rolling { cursor: default; }
+.cube-scene.rolling .cube-face { pointer-events: none; }
 
-.slice-bg {
-  fill-opacity: 0.16;
-  stroke-width: 1.5;
-  stroke-opacity: 0.55;
-  transition: fill-opacity 0.35s ease, stroke-opacity 0.35s ease;
+.cube {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  /* Only the faces are meant to be clickable, so the box takes no pointer
+     events (it would otherwise sit over the button below the cube). */
+  pointer-events: none;
+  /* app.js writes the cube's rotation here every frame. Each face applies it
+     itself; the box never turns, because a box turned near edge-on stops the
+     browser hit-testing the faces inside it. */
+  --spin: rotateX(0deg);
 }
-.pie-slice:hover .slice-bg,
-.pie-slice:focus-visible .slice-bg { fill-opacity: 0.32; stroke-opacity: 0.9; }
 
-/* accuracy fill inside the puzzle and trivia slices */
-.slice-fill {
-  fill-opacity: 0.75;
+/* the patch of ground under the cube — it tightens and fades while the cube
+   is up in the air mid-roll (--lift is 0 on the ground, 1 at the top), and
+   follows it across the table (--ground) */
+.cube-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--cube) * -0.2);
+  z-index: -1;
+  width: 80%;
+  height: calc(var(--cube) * 0.14);
+  translate: var(--ground, 0);
+  transform: translateX(-50%) scale(calc(1 - var(--lift, 0) * 0.4));
+  opacity: calc(1 - var(--lift, 0) * 0.55);
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.6), transparent 72%);
+  filter: blur(7px);
   pointer-events: none;
 }
 
-.slice-label { pointer-events: none; }
-.slice-icon { font-size: 38px; }
-.slice-name {
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 21px; font-weight: 700; letter-spacing: 0.5px;
-  fill: var(--text);
+.cube-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--cube) * 0.024);
+  padding: calc(var(--cube) * 0.08);
+  font-family: inherit;
+  color: var(--text);
+  text-align: center;
+  cursor: pointer;
+  pointer-events: auto;
+  overflow: hidden;
+  border: 1px solid var(--edge);
+  border-radius: calc(var(--cube) * 0.07);
+  background: rgba(9, 9, 18, 0.93);
+  box-shadow: inset 0 0 calc(var(--cube) * 0.2) var(--edge);
+  /* a face facing away is hidden — and so is its click target */
+  backface-visibility: hidden;
+  transform: var(--spin) var(--rot) translateZ(calc(var(--cube) / 2));
+  /* The lift toward the viewer. It's on `translate`, which comes before the
+     spin and so moves straight out of the screen; a face only lifts once it's
+     facing you. The spin changes every frame, so `transform` takes no
+     transition. */
+  translate: 0 0 var(--pop, 0px);
+  transition: translate 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.35s ease, border-color 0.35s ease;
 }
-.slice-sub { font-size: 12.5px; fill: var(--muted); }
-.slice-acc { font-weight: 600; fill: var(--text); }
-/* these labels sit on top of the accuracy fills — keep them readable */
-.pie-slice[data-section="puzzle"] .slice-sub,
-.pie-slice[data-section="locate"] .slice-sub,
-.pie-slice[data-section="trivia"] .slice-sub { fill: var(--text); opacity: 0.78; }
+/* the six sides of the box */
+.cube-face[data-face="front"]  { --rot: rotateY(0deg); }
+.cube-face[data-face="right"]  { --rot: rotateY(90deg); }
+.cube-face[data-face="back"]   { --rot: rotateY(180deg); }
+.cube-face[data-face="left"]   { --rot: rotateY(-90deg); }
+.cube-face[data-face="top"]    { --rot: rotateX(90deg); }
+.cube-face[data-face="bottom"] { --rot: rotateX(-90deg); }
 
-/* central hub covering the point where the slices meet */
-.pie-hub { pointer-events: none; }
-.hub-disc {
-  fill: var(--panel);
-  stroke: var(--card-border);
-  stroke-width: 1.5;
+/* the section's own colour, washed over the face */
+.cube-face::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(150deg, var(--c1), var(--c2));
+  opacity: 0.3;
+  transition: opacity 0.35s ease;
 }
-.hub-ring {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 2;
-  opacity: 0.5;
-  animation: hubPulse 2.6s ease-in-out infinite;
+.cube-face > * { position: relative; z-index: 1; }
+
+/* pointing at a face lights it up. Only a keyboard-focused face (which has
+   been turned to the front) lifts off the box: lifting a face that's at an
+   angle slides it sideways on screen, out from under the pointer, and the
+   hover flickers on and off as you try to click it. */
+.cube-face:focus-visible { --pop: calc(var(--cube) * 0.055); }
+.cube-face:hover,
+.cube-face:focus-visible {
+  border-color: var(--c1);
+  box-shadow: inset 0 0 calc(var(--cube) * 0.34) var(--edge),
+              0 18px 44px -14px var(--edge);
 }
-@keyframes hubPulse {
-  0%, 100% { opacity: 0.5; stroke-width: 2; }
-  50%      { opacity: 0.15; stroke-width: 5; }
+.cube-face:hover::before,
+.cube-face:focus-visible::before { opacity: 0.5; }
+.cube-face:focus-visible { outline: 2px solid var(--text); outline-offset: calc(var(--cube) * -0.03); }
+
+.cube-face.landed {
+  --pop: calc(var(--cube) * 0.03);
+  border-color: var(--c1);
+  box-shadow: inset 0 0 calc(var(--cube) * 0.4) var(--edge),
+              0 0 calc(var(--cube) * 0.16) var(--edge);
 }
-.hub-top {
+.cube-face.landed::before { opacity: 0.6; }
+
+.face-icon {
+  font-size: calc(var(--cube) * 0.19);
+  line-height: 1;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.55));
+}
+.face-name {
   font-family: "Space Grotesk", sans-serif;
-  font-size: 19px; font-weight: 700; letter-spacing: 5px;
-  fill: var(--text);
+  font-size: calc(var(--cube) * 0.088);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  line-height: 1.15;
 }
-.hub-sub { font-size: 12px; fill: var(--muted); letter-spacing: 1px; }
+.face-sub {
+  font-size: calc(var(--cube) * 0.046);
+  line-height: 1.3;
+  color: var(--text);
+  opacity: 0.78;
+}
+
+/* how you're doing in this section, filling left to right */
+.face-meter {
+  display: block;
+  width: 70%;
+  height: calc(var(--cube) * 0.022);
+  margin-top: calc(var(--cube) * 0.02);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  overflow: hidden;
+}
+.face-meter-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--c1), var(--c2));
+  transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.face-acc {
+  font-size: calc(var(--cube) * 0.044);
+  font-weight: 600;
+}
+
+/* the plate under the cube, where the hub used to be */
+/* the cube hangs well outside its own box, so the things stacked under it sit
+   above it in paint order and stay clickable */
+.cube-plate,
+.roll-btn,
+.cube-hint {
+  position: relative;
+  z-index: 1;
+}
+
+.cube-plate {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.plate-top {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 4px;
+}
+.plate-sub { font-size: 0.74rem; color: var(--muted); letter-spacing: 1px; }
+.cube-hint {
+  max-width: 46ch;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* throw the cube like a die and go wherever it lands */
+.roll-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 4px;
+  padding: 10px 22px;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--text);
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  transition: background 0.25s ease, border-color 0.25s ease,
+              transform 0.25s ease, box-shadow 0.25s ease, opacity 0.45s ease;
+}
+.roll-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.13);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -14px var(--accent);
+}
+.roll-btn:active:not(:disabled) { transform: translateY(0) scale(0.97); }
+.roll-btn:disabled { opacity: 0.55; cursor: default; }
+.roll-die {
+  font-size: 1.15rem;
+  line-height: 1;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.roll-btn:hover:not(:disabled) .roll-die { transform: rotate(-22deg) scale(1.12); }
+/* while the throw is in the air the die keeps tumbling on the button too */
+.roll-btn:disabled .roll-die { animation: dieTumble 0.5s linear infinite; }
+@keyframes dieTumble {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* for the screen reader only: which face the throw came up on */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------- Movies to watch ---------- */
+.mv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: mv;
+}
+.mv-item {
+  position: relative;
+  counter-increment: mv;
+  padding: 12px 16px 12px 46px;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  transition: border-color 0.25s ease, transform 0.25s ease;
+}
+.mv-item:hover { border-color: var(--accent); transform: translateX(3px); }
+/* the running number, set in the gutter the padding leaves for it */
+.mv-item::before {
+  content: counter(mv);
+  position: absolute;
+  left: 16px;
+  top: 13px;
+  min-width: 18px;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.mv-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.mv-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.08rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.mv-year {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.mv-note {
+  margin-top: 4px;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
 
 /* ---------- Footer stats: one slim inline strip ---------- */
 .footer {
@@ -1218,15 +1457,74 @@ body.light .ff-card[data-cat="History"] { --ff-c: #9a6b00; }
 body.light .ff-card[data-cat="Misc"]    { --ff-c: #0b8459; }
 body.light .tv-chip { color: #c02a68; }
 body.light .controls { background: rgba(255, 255, 255, 0.7); }
+body.light .mv-item { background: rgba(255, 255, 255, 0.72); }
 body.light .modal { border-color: rgba(28, 34, 70, 0.16); }
 body.light .modal-icon { filter: none; }
-/* the pie reads a touch stronger on a light page */
-body.light .slice-bg { fill-opacity: 0.22; }
-body.light .pie-slice:hover .slice-bg,
-body.light .pie-slice:focus-visible .slice-bg { fill-opacity: 0.4; }
-body.light .pie-slice:hover,
-body.light .pie-slice:focus-visible {
-  filter: drop-shadow(0 14px 30px rgba(40, 50, 100, 0.35));
+/* the cube is a pale box with a lighter colour wash on a light page */
+body.light .cube-face {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: inset 0 0 calc(var(--cube) * 0.2) var(--edge),
+              0 10px 30px -18px rgba(40, 50, 100, 0.5);
+}
+body.light .cube-face::before { opacity: 0.22; }
+body.light .cube-face:hover,
+body.light .cube-face:focus-visible {
+  box-shadow: inset 0 0 calc(var(--cube) * 0.3) var(--edge),
+              0 18px 44px -16px rgba(40, 50, 100, 0.55);
+}
+body.light .cube-face:hover::before,
+body.light .cube-face:focus-visible::before { opacity: 0.38; }
+body.light .face-icon { filter: none; }
+body.light .roll-btn { background: rgba(255, 255, 255, 0.7); }
+
+/* ============================================================= *
+ *  A throw of the cube
+ * ============================================================= */
+/* While the Roll button's throw is in the air, everything but the cube fades
+   out, and the lights come down around it like a dice table under a lamp.
+   app.js adds .dice-rolling to <body> for the length of the throw. */
+.cube-plate,
+.cube-hint,
+.ripple-layer { transition: opacity 0.45s ease; }
+/* these keep their theme cross-fade and add the fade */
+body.theme-ready .topbar,
+body.theme-ready .footer,
+body.theme-ready .controls {
+  transition: background-color 0.45s ease, color 0.45s ease,
+              border-color 0.45s ease, opacity 0.45s ease;
+}
+body.dice-rolling :is(.topbar, .footer, .controls, .cube-plate, .roll-btn,
+                      .cube-hint, .fx-canvas, .pointer-glow, .ripple-layer) {
+  /* important: the top bar and footer hold their opacity in the fill of
+     their reveal animation, which a plain declaration can't override */
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+/* the lamp: a pool of light over the cube, with a hint of green felt, and
+   the rest of the room going dark. app.js centres it on the cube. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse var(--spot-r, 420px) calc(var(--spot-r, 420px) * 0.7)
+    at var(--spot-x, 50%) var(--spot-y, 45%),
+    rgba(30, 160, 100, 0.26), rgba(20, 90, 60, 0.08) 40%, rgba(0, 0, 0, 0) 60%, rgba(0, 0, 0, 0.62) 160%);
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+body.light::after {
+  background: radial-gradient(ellipse var(--spot-r, 420px) calc(var(--spot-r, 420px) * 0.7)
+    at var(--spot-x, 50%) var(--spot-y, 45%),
+    rgba(20, 140, 85, 0.2), rgba(20, 120, 80, 0.06) 40%, rgba(20, 24, 60, 0) 60%, rgba(20, 24, 60, 0.4) 170%);
+}
+body.dice-rolling::after { opacity: 1; }
+body.light .roll-btn:hover:not(:disabled) { background: #fff; }
+body.light .face-meter { background: rgba(28, 34, 80, 0.13); }
+body.light .cube-shadow {
+  background: radial-gradient(closest-side, rgba(40, 50, 100, 0.3), transparent 72%);
 }
 /* hard-coded light strokes/text inside puzzles, flipped for light mode */
 body.light .pz-seq { color: var(--text); }
