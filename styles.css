@@ -216,7 +216,8 @@ body {
 }
 
 /* the patch of ground under the cube — it tightens and fades while the cube
-   is up in the air mid-roll (--lift is 0 on the ground, 1 at the top) */
+   is up in the air mid-roll (--lift is 0 on the ground, 1 at the top), and
+   follows it across the table (--ground) */
 .cube-shadow {
   position: absolute;
   left: 50%;
@@ -224,6 +225,7 @@ body {
   z-index: -1;
   width: 80%;
   height: calc(var(--cube) * 0.14);
+  translate: var(--ground, 0);
   transform: translateX(-50%) scale(calc(1 - var(--lift, 0) * 0.4));
   opacity: calc(1 - var(--lift, 0) * 0.55);
   background: radial-gradient(closest-side, rgba(0, 0, 0, 0.6), transparent 72%);
@@ -392,7 +394,7 @@ body {
   border: 1px solid var(--card-border);
   border-radius: 999px;
   transition: background 0.25s ease, border-color 0.25s ease,
-              transform 0.25s ease, box-shadow 0.25s ease;
+              transform 0.25s ease, box-shadow 0.25s ease, opacity 0.45s ease;
 }
 .roll-btn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.13);
@@ -1478,6 +1480,51 @@ body.light .cube-face:hover::before,
 body.light .cube-face:focus-visible::before { opacity: 0.38; }
 body.light .face-icon { filter: none; }
 body.light .roll-btn { background: rgba(255, 255, 255, 0.7); }
+
+/* ============================================================= *
+ *  A throw of the cube
+ * ============================================================= */
+/* While the Roll button's throw is in the air, everything but the cube fades
+   out, and the lights come down around it like a dice table under a lamp.
+   app.js adds .dice-rolling to <body> for the length of the throw. */
+.cube-plate,
+.cube-hint,
+.ripple-layer { transition: opacity 0.45s ease; }
+/* these keep their theme cross-fade and add the fade */
+body.theme-ready .topbar,
+body.theme-ready .footer,
+body.theme-ready .controls {
+  transition: background-color 0.45s ease, color 0.45s ease,
+              border-color 0.45s ease, opacity 0.45s ease;
+}
+body.dice-rolling :is(.topbar, .footer, .controls, .cube-plate, .roll-btn,
+                      .cube-hint, .fx-canvas, .pointer-glow, .ripple-layer) {
+  /* important: the top bar and footer hold their opacity in the fill of
+     their reveal animation, which a plain declaration can't override */
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+/* the lamp: a pool of light over the cube, with a hint of green felt, and
+   the rest of the room going dark. app.js centres it on the cube. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse var(--spot-r, 420px) calc(var(--spot-r, 420px) * 0.7)
+    at var(--spot-x, 50%) var(--spot-y, 45%),
+    rgba(30, 160, 100, 0.26), rgba(20, 90, 60, 0.08) 40%, rgba(0, 0, 0, 0) 60%, rgba(0, 0, 0, 0.62) 160%);
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+body.light::after {
+  background: radial-gradient(ellipse var(--spot-r, 420px) calc(var(--spot-r, 420px) * 0.7)
+    at var(--spot-x, 50%) var(--spot-y, 45%),
+    rgba(20, 140, 85, 0.2), rgba(20, 120, 80, 0.06) 40%, rgba(20, 24, 60, 0) 60%, rgba(20, 24, 60, 0.4) 170%);
+}
+body.dice-rolling::after { opacity: 1; }
 body.light .roll-btn:hover:not(:disabled) { background: #fff; }
 body.light .face-meter { background: rgba(28, 34, 80, 0.13); }
 body.light .cube-shadow {
