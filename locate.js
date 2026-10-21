@@ -97,6 +97,35 @@ window.Locate = (function () {
     };
   }
 
+  // A few shapes cross the 180° meridian: the far east of Russia, an Arctic
+  // island, Fiji. Laid flat, their outlines jump from one edge of the map to
+  // the other, which fills a band straight across the world. So each one is
+  // unwrapped to run on past the edge instead, and drawn a second time a
+  // map-width over; the map's own frame crops the overhang on both sides.
+  let landD = null;
+  function landPath() {
+    if (landD) return landD;
+    landD = WORLD.d.split("Z").filter((ring) => ring.trim()).map((ring) => {
+      const n = ring.match(/-?\d+(?:\.\d+)?/g).map(Number);
+      const pts = [];
+      let shift = 0, lo = Infinity, hi = -Infinity;
+      for (let i = 0; i < n.length; i += 2) {
+        let x = n[i] + shift;
+        const prev = pts.length ? pts[pts.length - 1][0] : x;
+        if (Math.abs(x - prev) > WORLD.w / 2) {
+          shift += x > prev ? -WORLD.w : WORLD.w;
+          x = n[i] + shift;
+        }
+        pts.push([x, n[i + 1]]);
+        lo = Math.min(lo, x); hi = Math.max(hi, x);
+      }
+      const draw = (dx) => "M" + pts.map(([x, y]) => `${x + dx},${y}`).join("L") + "Z";
+      if (lo >= 0 && hi <= WORLD.w) return draw(0);
+      return draw(0) + draw(hi > WORLD.w ? -WORLD.w : WORLD.w);
+    }).join("");
+    return landD;
+  }
+
   function pointsFor(km) {
     return Math.round(MAX_POINTS * Math.exp(-km / FALLOFF_KM));
   }
@@ -161,7 +190,7 @@ window.Locate = (function () {
     });
     mapSvg.setAttribute("aria-label", "World map — click to place your guess");
     mapSvg.append(svg("rect", { class: "loc-sea", x: 0, y: 0, width: WORLD.w, height: WORLD.h }));
-    mapSvg.append(svg("path", { class: "loc-land", d: WORLD.d }));
+    mapSvg.append(svg("path", { class: "loc-land", d: landPath() }));
     const marks = svg("g", { class: "loc-marks" });
     mapSvg.append(marks);
     mapBox.append(mapSvg);
