@@ -82,6 +82,7 @@
   // Trivia is a three-question run built by trivia.js; the day's questions and
   // their order are decided there so they stay identical across reloads.
   const TRIVIA_ROUNDS = (typeof Trivia !== "undefined") ? Trivia.ROUNDS : 3;
+  const TRIVIA_VERSION = (typeof Trivia !== "undefined") ? Trivia.VERSION : 0;
 
   // ----- Stats store -----
   function loadStats() {
@@ -114,10 +115,12 @@
   stats.triviaBest = stats.triviaBest || 0;
 
   // Today's run: which question we're on, what it has scored, whether the
-  // 50:50 has been spent, and the per-question results. Reset at midnight —
-  // trivia.js reads and mutates this object directly.
-  if (!stats.run || stats.run.key !== dayKey || !Array.isArray(stats.run.results)) {
-    stats.run = { key: dayKey, i: 0, score: 0, fifty: false, results: [] };
+  // 50:50 has been spent, and the per-question results. Reset at midnight, and
+  // when it was saved against an older shape of the bank, since its answers
+  // belong to different questions. trivia.js reads and mutates this object.
+  if (!stats.run || stats.run.key !== dayKey || !Array.isArray(stats.run.results) ||
+      stats.run.v !== TRIVIA_VERSION) {
+    stats.run = { key: dayKey, v: TRIVIA_VERSION, i: 0, score: 0, fifty: false, results: [] };
   }
   const runDone = () => stats.run.i >= TRIVIA_ROUNDS;
 

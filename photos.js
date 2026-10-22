@@ -18,6 +18,9 @@
 // Everything here is best-effort. If the network is unavailable, or nothing
 // suitable comes back, the caller is told so and falls back to the written
 // clues — the game still works with no pictures at all.
+//
+// The trivia picture round borrows the same machinery through forArticle: the
+// lead photo of any article, credited from the file's own page.
 
 window.Photos = (function () {
   "use strict";
@@ -25,6 +28,7 @@ window.Photos = (function () {
   const COMMONS = "https://commons.wikimedia.org/w/api.php";
   const WIKI = "https://en.wikipedia.org/w/api.php";
   const CACHE_KEY = "daily.placeimg.v1";
+  const ARTICLE_KEY = "daily.articleimg.v1";
   const RETRY_MS = 7 * 24 * 60 * 60 * 1000;   // re-ask about a miss after a week
   const RADIUS_M = 4000;                       // how close the photo must be taken
   const TIMEOUT = 8000;
@@ -36,11 +40,11 @@ window.Photos = (function () {
 
   const isFree = (u) => typeof u === "string" && u.indexOf("/wikipedia/commons/") !== -1;
 
-  function loadCache() {
-    try { return JSON.parse(localStorage.getItem(CACHE_KEY)) || {}; } catch (e) { return {}; }
+  function loadCache(key) {
+    try { return JSON.parse(localStorage.getItem(key)) || {}; } catch (e) { return {}; }
   }
-  function saveCache(c) {
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify(c)); } catch (e) { /* ignore */ }
+  function saveCache(key, c) {
+    try { localStorage.setItem(key, JSON.stringify(c)); } catch (e) { /* ignore */ }
   }
 
   function fetchJSON(url) {
@@ -123,7 +127,7 @@ window.Photos = (function () {
    * Only "unavailable" is cached; an outage must not be remembered as a fact.
    */
   function find(place) {
-    const cache = loadCache();
+    const cache = loadCache(CACHE_KEY);
     const hit = cache[place.city];
     if (hit && (hit.src || Date.now() - hit.t < RETRY_MS)) {
       return Promise.resolve(hit.src
@@ -141,11 +145,11 @@ window.Photos = (function () {
         const pick = (list && list.length)
           ? list[Math.floor(Math.random() * list.length)]
           : null;
-        const c = loadCache();
+        const c = loadCache(CACHE_KEY);
         c[place.city] = pick
           ? { src: pick.src, credit: pick.credit, licence: pick.licence, t: Date.now() }
           : { src: null, t: Date.now() };
-        saveCache(c);
+        saveCache(CACHE_KEY, c);
         return pick
           ? { src: pick.src, credit: pick.credit, licence: pick.licence, status: "ok" }
           : { src: null, status: "unavailable" };
@@ -153,5 +157,54 @@ window.Photos = (function () {
       .catch(() => ({ src: null, status: "error" }));
   }
 
-  return { find: find };
+  /**
+   * The lead photo of a Wikipedia article, for the trivia picture round.
+   * Resolves like find(), with the photographer and licence for the credit.
+   * Only "unavailable" is cached as a miss, for the same reason.
+   */
+  function forArticle(title) {
+    const hit = loadCache(ARTICLE_KEY)[title];
+    if (hit && (hit.src || Date.now() - hit.t < RETRY_MS)) {
+      return Promise.resolve(hit.src
+        ? { src: hit.src, credit: hit.credit || "", licence: hit.licence || "", status: "ok" }
+        : { src: null, status: "unavailable" });
+    }
+
+    // the article names its lead image; the file's own page has the credit
+    return fetchJSON(urlFor(WIKI, {
+      titles: title, redirects: "1", prop: "pageimages", piprop: "name"
+    })).then((json) => {
+      const pages = json && json.query && json.query.pages;
+      if (!pages) return null;                        // no reply at all
+      const page = pages[Object.keys(pages)[0]];
+      if (!page || !page.pageimage) return { src: null };
+      return fetchJSON(urlFor(WIKI, {
+        titles: "File:" + page.pageimage,
+        prop: "imageinfo", iiprop: "url|extmetadata", iiurlwidth: "900"
+      })).then((j) => {
+        const files = j && j.query && j.query.pages;
+        if (!files) return null;
+        const file = files[Object.keys(files)[0]];
+        const info = file && file.imageinfo && file.imageinfo[0];
+        const src = info && (info.thumburl || info.url);
+        if (!isFree(src)) return { src: null };
+        const meta = info.extmetadata || {};
+        return {
+          src: src,
+          credit: (meta.Artist && strip(meta.Artist.value)) || "",
+          licence: (meta.LicenseShortName && strip(meta.LicenseShortName.value)) || ""
+        };
+      });
+    }).then((found) => {
+      if (!found) return { src: null, status: "error" };
+      const c = loadCache(ARTICLE_KEY);
+      c[title] = Object.assign({ t: Date.now() }, found);
+      saveCache(ARTICLE_KEY, c);
+      return found.src
+        ? Object.assign({ status: "ok" }, found)
+        : { src: null, status: "unavailable" };
+    }).catch(() => ({ src: null, status: "error" }));
+  }
+
+  return { find: find, forArticle: forArticle };
 })();
