@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Rare Air — a strange little detour</title>
+  <meta name="description" content="A cave dive where every junction is a question. Common answers keep you in the shallows; rare ones open the passages that go deep. How far down can you get?" />
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="cave.css" />
+</head>
+<body class="cave-body">
+  <canvas id="caveCanvas" aria-hidden="true"></canvas>
+
+  <a class="cave-back" href="index.html" aria-label="Back to Daily">← Back</a>
+  <div class="cave-chip" id="caveChip" aria-hidden="true">🔦 rare air</div>
+
+  <div class="cave-hud" id="caveHud" hidden>
+    <div class="cave-stat">Depth <b id="caveDepth">0</b><span>m</span></div>
+    <div class="cave-stat cave-air" id="caveAirWrap">Air
+      <span class="cave-tank" aria-hidden="true"><span id="caveAirBar"></span></span>
+      <b id="caveAir">100</b>
+    </div>
+    <div class="cave-stat cave-zone"><b id="caveZone">The Cenote</b></div>
+    <div class="cave-stat cave-best">Best <b id="caveBest">0</b><span>m</span></div>
+  </div>
+
+  <!-- the junction: a prompt, a box to answer it, and the lamp running down -->
+  <div class="cave-panel" id="cavePanel" hidden>
+    <div class="cave-ask" id="caveAsk">
+      <div class="cave-meta">
+        <span id="caveJunction">Junction 1</span>
+        <span class="cave-squeeze" id="caveSqueeze" hidden>Squeeze</span>
+      </div>
+      <h2 class="cave-q" id="caveQ">—</h2>
+      <p class="cave-rule" id="caveRule" hidden></p>
+      <form class="cave-form" id="caveForm" autocomplete="off">
+        <input class="cave-input" id="caveInput" type="text" maxlength="48" placeholder="Your answer"
+          aria-label="Your answer" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" />
+        <button class="cave-btn" id="caveGo" type="submit">Dive ↓</button>
+      </form>
+      <div class="cave-lamp" aria-hidden="true"><span id="caveLamp"></span></div>
+      <p class="cave-note" id="caveNote" role="status" aria-live="polite"></p>
+    </div>
+    <div class="cave-result" id="caveResult" hidden aria-live="polite">
+      <div class="cave-tier" id="caveTier"></div>
+      <p class="cave-story" id="caveStory"></p>
+      <p class="cave-gain" id="caveGain"></p>
+      <p class="cave-trodden" id="caveTrodden"></p>
+      <button class="cave-btn" id="caveNext" type="button">Keep diving ↓</button>
+    </div>
+  </div>
+
+  <!-- intro -->
+  <div class="cave-overlay" id="caveIntro">
+    <h2>🔦 Rare Air</h2>
+    <p>You're cave diving. Every <b>junction</b> is a question, and your answer picks the passage.
+      Give the answer everyone gives and you follow the <b>main tunnel</b>: shallow, crowded, and it
+      narrows into a <b>squeeze</b>. Give a <b>rare</b> one and the cave opens up beneath you.</p>
+    <ul class="cave-legend" aria-label="How far each kind of answer takes you">
+      <li><span>🟫</span> Common <em>+10 m</em></li>
+      <li><span>👣</span> Too clever <em>+15 m</em></li>
+      <li><span>🟩</span> Uncommon <em>+30 m</em></li>
+      <li><span>🟦</span> Rare <em>+60 m · air</em></li>
+      <li><span>🟪</span> Deep cut <em>+85 m · air</em></li>
+      <li><span>💎</span> Uncharted <em>+100 m · ?</em></li>
+    </ul>
+    <p class="cave-sub">Every junction costs <b>air</b>, and you breathe faster the deeper you go. Rare answers
+      find air pockets. An answer that isn't on the map is a <b>dead end</b>: you back out, lose air, and try again.
+      In a squeeze your answer has to obey a rule, and your lamp burns down faster.</p>
+    <div class="cave-btn-row">
+      <button class="cave-btn" id="caveDaily" type="button">▶ Today's dive</button>
+      <button class="cave-btn ghost" id="caveFree" type="button">Free dive</button>
+    </div>
+    <p class="cave-sub" id="caveIntroBest">Everyone gets the same cave each day. Free dives are random.</p>
+  </div>
+
+  <!-- the end of a dive: the map, a card to share, and the route you took -->
+  <div class="cave-overlay cave-overlay-soft" id="caveOver" hidden>
+    <h2 id="caveOverTitle">—</h2>
+    <p id="caveOverMsg"></p>
+    <img class="cave-card" id="caveCard" alt="" />
+    <p class="cave-sub" id="caveOverStats"></p>
+    <div class="cave-btn-row">
+      <button class="cave-btn" id="caveCopy" type="button">Copy result</button>
+      <button class="cave-btn" id="caveShare" type="button">Save map image</button>
+    </div>
+    <div class="cave-btn-row">
+      <button class="cave-btn ghost" id="caveAgain" type="button">Free dive</button>
+      <button class="cave-btn ghost" id="caveHome" type="button">↑ Surface</button>
+    </div>
+    <details class="cave-recap">
+      <summary>Your route</summary>
+      <ol id="caveRecap"></ol>
+    </details>
+  </div>
+
+  <script src="deck.js"></script>
+  <script src="crossroads.js"></script>
+  <script src="cave.js"></script>
+</body>
+</html>
