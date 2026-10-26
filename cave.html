@@ -20,7 +20,7 @@
 
   <div class="cave-hud" id="caveHud" hidden>
     <div class="cave-stat">Depth <b id="caveDepth">0</b><span>m</span></div>
-    <div class="cave-stat cave-air" id="caveAirWrap">Air
+    <div class="cave-stat cave-air" id="caveAirWrap">O₂
       <span class="cave-tank" aria-hidden="true"><span id="caveAirBar"></span></span>
       <b id="caveAir">100</b>
     </div>
@@ -31,12 +31,8 @@
   <!-- the junction: a prompt, a box to answer it, and the lamp running down -->
   <div class="cave-panel" id="cavePanel" hidden>
     <div class="cave-ask" id="caveAsk">
-      <div class="cave-meta">
-        <span id="caveJunction">Junction 1</span>
-        <span class="cave-squeeze" id="caveSqueeze" hidden>Squeeze</span>
-      </div>
+      <div class="cave-meta"><span id="caveJunction">Junction 1</span></div>
       <h2 class="cave-q" id="caveQ">—</h2>
-      <p class="cave-rule" id="caveRule" hidden></p>
       <form class="cave-form" id="caveForm" autocomplete="off">
         <input class="cave-input" id="caveInput" type="text" maxlength="48" placeholder="Your answer"
           aria-label="Your answer" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" />
@@ -57,20 +53,21 @@
   <!-- intro -->
   <div class="cave-overlay" id="caveIntro">
     <h2>🔦 Rare Air</h2>
-    <p>You're cave diving. Every <b>junction</b> is a question, and your answer picks the passage.
-      Give the answer everyone gives and you follow the <b>main tunnel</b>: shallow, crowded, and it
-      narrows into a <b>squeeze</b>. Give a <b>rare</b> one and the cave opens up beneath you.</p>
+    <p>You're cave diving. Every <b>junction</b> is a question, and your answer picks the tunnel.
+      Give the answer everyone gives and you follow the <b>crowd</b> down a short tunnel where everyone
+      is breathing the same <b>stale oxygen</b>. Give a <b>rare</b> one and you find a tunnel nobody has
+      breathed in: <b>fresh air</b>, and it goes deep.</p>
     <ul class="cave-legend" aria-label="How far each kind of answer takes you">
-      <li><span>🟫</span> Common <em>+10 m</em></li>
-      <li><span>👣</span> Too clever <em>+15 m</em></li>
+      <li><span>🟫</span> Common <em>+10 m · crowded</em></li>
+      <li><span>👣</span> Too clever <em>+15 m · crowded</em></li>
       <li><span>🟩</span> Uncommon <em>+30 m</em></li>
-      <li><span>🟦</span> Rare <em>+60 m · air</em></li>
-      <li><span>🟪</span> Deep cut <em>+85 m · air</em></li>
+      <li><span>🟦</span> Rare <em>+60 m · fresh air</em></li>
+      <li><span>🟪</span> Deep cut <em>+85 m · fresh air</em></li>
       <li><span>💎</span> Uncharted <em>+100 m · ?</em></li>
     </ul>
-    <p class="cave-sub">Every junction costs <b>air</b>, and you breathe faster the deeper you go. Rare answers
-      find air pockets. An answer that isn't on the map is a <b>dead end</b>: you back out, lose air, and try again.
-      In a squeeze your answer has to obey a rule, and your lamp burns down faster.</p>
+    <p class="cave-sub">Every junction uses <b>oxygen</b>, and you breathe faster the deeper you go. You'll see
+      the divers who gave worse answers turn back in shallower tunnels. An answer that isn't on the map is a
+      <b>dead end</b>: the tunnel caves in, you lose oxygen, and you try again.</p>
     <div class="cave-btn-row">
       <button class="cave-btn" id="caveDaily" type="button">▶ Today's dive</button>
       <button class="cave-btn ghost" id="caveFree" type="button">Free dive</button>

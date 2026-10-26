@@ -1,21 +1,23 @@
 // cave.js — "Rare Air". A cave dive where every junction is a prompt ("Name a
-// fruit") and the rarer your answer, the deeper the passage it opens.
+// fruit") and the rarer your answer, the deeper the tunnel it opens.
 //
 // Rarity comes from crossroads.js, where each prompt's answers are sorted into
 // tiers by how often people give them. Those tiers are an estimate, not a
 // count: rarityOf() is the one place to blend in live answer counts later.
 //
-// Air is the clock. Every junction costs air, and breathing gets dearer the
-// deeper you go (gas use scales with pressure); rare answers find air pockets.
-// A common answer leads into a squeeze: the next prompt comes with a rule
-// ("…without the letter E") and a lamp that burns down faster. An answer that
-// isn't on the map is a dead end — you back out, lose air, and try the same
-// junction again. Let the lamp run out and you lose more air and get pushed
-// down a different, tighter passage.
+// Oxygen is the clock. Every junction costs some, and you breathe faster the
+// deeper you go (gas use scales with pressure). Common answers lead down
+// crowded tunnels where everyone is breathing the same stale air, so they cost
+// more; rare answers find tunnels nobody has breathed in, and give some back.
+// An answer that isn't on the map is a dead end — one of the tunnels caves in —
+// and you lose oxygen and try the same junction again. Let the lamp run out
+// and you lose more and face a different question.
 //
-// The map is a side-view cross-section drawn on the canvas: every passage you
-// took, the ones you didn't, the dead ends, and your guideline through it all.
-// At the end it becomes a card to share.
+// Every junction opens a fan of tunnels, all heading down. Answer, and you
+// swim yours while the divers who gave worse answers swim theirs: shorter
+// tunnels, so yours always goes furthest. They fade when the next question
+// comes up. What stays is a side-view map of your route, which becomes a card
+// to share at the end.
 //
 // The daily dive deals the same prompts to everyone and is saved after every
 // move, so a reload picks up where you were. Free dives are random.
@@ -30,52 +32,51 @@
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // ---- tiers ---------------------------------------------------------------
-  // depth   metres the passage drops
-  // air     refill from an air pocket at the bottom
-  // squeeze the next junction is a squeeze
+  // depth  metres the tunnel drops
+  // o2     oxygen on top of breathing: crowded tunnels cost it, fresh ones give it
+  // crowd  how many other divers went the same way
   const TIERS = {
-    common:    { label: "Common",     emoji: "🟫", color: "#c4a984", depth: 10,  air: 0,  squeeze: true },
-    clever:    { label: "Too clever", emoji: "👣", color: "#e3cf9f", depth: 15,  air: 0,  squeeze: true },
-    uncommon:  { label: "Uncommon",   emoji: "🟩", color: "#5fd38d", depth: 30,  air: 0 },
-    rare:      { label: "Rare",       emoji: "🟦", color: "#4fb3ff", depth: 60,  air: 8 },
-    deep:      { label: "Deep cut",   emoji: "🟪", color: "#b98bff", depth: 85,  air: 15 },
-    uncharted: { label: "Uncharted",  emoji: "💎", color: "#7df2ff", depth: 100, air: 25 },
+    common:    { label: "Common",     emoji: "🟫", color: "#c4a984", depth: 10,  o2: -5, crowd: 6 },
+    clever:    { label: "Too clever", emoji: "👣", color: "#e3cf9f", depth: 15,  o2: -3, crowd: 4 },
+    uncommon:  { label: "Uncommon",   emoji: "🟩", color: "#5fd38d", depth: 30,  o2: 0,  crowd: 2 },
+    rare:      { label: "Rare",       emoji: "🟦", color: "#4fb3ff", depth: 60,  o2: 7,  crowd: 0 },
+    deep:      { label: "Deep cut",   emoji: "🟪", color: "#b98bff", depth: 85,  o2: 13, crowd: 0 },
+    uncharted: { label: "Uncharted",  emoji: "💎", color: "#7df2ff", depth: 100, o2: 22, crowd: 0 },
   };
   const ORDER = ["common", "clever", "uncommon", "rare", "deep", "uncharted"];
   const DEAD_EMOJI = "🧱", LAMP_EMOJI = "🕯️";
 
   const STORIES = {
     common: [
-      "You take the main tunnel. Fin scuffs everywhere — everybody comes this way. Ahead, it pinches into a squeeze.",
-      "The obvious way. The silt is churned up by a thousand divers before you, and the walls start closing in.",
+      "The main tunnel, packed with divers who all said the same thing. Everyone's breathing the same stale air.",
+      "You follow the crowd. The tunnel is short, the silt is churned up, and the oxygen is already thin.",
     ],
     clever: [
-      "A secret shortcut! …with a guideline already tied off in it. Everyone thought of that one. It narrows to a squeeze.",
-      "You were sure nobody else would think of it. The fin marks say otherwise — and the passage tightens.",
+      "You were sure nobody else would say it. Half the cave did. The tunnel's crowded and the air is stale.",
+      "A “secret” tunnel with a queue of divers in it. Everyone thought of that one.",
     ],
     uncommon: [
-      "You slip into a side passage. Fewer fin marks here.",
-      "A side tunnel most divers swim straight past. It slopes down into the dark.",
+      "A side tunnel with only a couple of other divers in it. The air's still decent.",
+      "Fewer fins have been through here. It slopes away into the dark.",
     ],
     rare: [
-      "A narrow chimney drops away beneath you. At the bottom, a shimmering air pocket.",
-      "You squeeze through a crack nobody else noticed and find a pocket of trapped air.",
+      "A tunnel almost nobody takes. The water is clear, and there's fresh air trapped in the ceiling.",
+      "Nobody has breathed down here in a long time. You find a pocket of fresh air.",
     ],
     deep: [
-      "You catch an underground river and ride the current down into the dark. There's air trapped in the ceiling where it slows.",
-      "The floor gives way to a flooded shaft. You sink past rock no lamp has lit in years, and find a dome of air at the bottom.",
+      "An empty underground river carries you down. The air in the domes above it has never been breathed.",
+      "The floor drops into a flooded shaft nobody else found. Fresh, cold air waits at the bottom.",
     ],
     uncharted: [
-      "An uncharted chamber. No guideline has ever been laid here, so it's yours to name: the {name}.",
+      "An uncharted chamber. No one has ever breathed this air, so it's yours to name: the {name}.",
     ],
   };
 
   // ---- the dive --------------------------------------------------------------
   const AIR_MAX = 100;
-  const DEAD_END_AIR = 6;           // backing out of a dead end
+  const DEAD_END_AIR = 6;           // backing out of a tunnel that caved in
   const LAMP_OUT_AIR = 12;          // letting the lamp run out at a junction
-  const LAMP_TIME = 25;             // seconds to answer…
-  const SQUEEZE_TIME = 16;          // …or in a squeeze
+  const LAMP_TIME = 25;             // seconds to answer
   const breath = (depth) => 8 + depth / 70;
 
   const ZONES = [
@@ -93,7 +94,7 @@
   const now = new Date();
   const dayNumber = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000;
   const diveNo = dayNumber - Date.UTC(2026, 9, 26) / 86400000 + 1;   // launch day is dive #1
-  const DAILY_KEY = "cave.daily.v1";   // { day, run } — today's dive, saved as it goes
+  const DAILY_KEY = "cave.daily.v2";   // { day, run } — today's dive, saved as it goes
   const BEST_KEY = "cave.best.v1";     // { daily, free } — deepest metres
 
   function load(key) { try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; } }
@@ -150,7 +151,7 @@
 
   // The answer `text` names in prompt `p`, or null if it's not on the map.
   // Returns { entry: { tier, name, key }, key } where key is the spelling that
-  // matched (a squeeze's rule is checked against what was written).
+  // matched.
   //
   // This is the seam for live rarity: once answers are counted somewhere, the
   // tier can come from the share of divers who gave entry.name instead.
@@ -175,80 +176,78 @@
     return found && !tie ? found : null;
   }
 
-  // ---- squeezes --------------------------------------------------------------
-  // A rule only makes a squeeze if plenty of answers survive it but at least
-  // half of the obvious ones don't.
-  const ruleCache = new Map();
-  function rulesFor(p) {
-    let rules = ruleCache.get(p);
-    if (rules) return rules;
-    const all = [];
-    "aeiorsntl".split("").forEach((ch) =>
-      all.push({ text: `without the letter ${ch.toUpperCase()}`, test: (w) => !w.includes(ch) }));
-    "abcdefghiklmnoprstw".split("").forEach((ch) =>
-      all.push({ text: `starting with ${ch.toUpperCase()}`, test: (w) => w[0] === ch }));
-    [7, 9].forEach((n) => all.push({ text: `at least ${n} letters long`, test: (w) => w.length >= n }));
-    [4, 5].forEach((n) => all.push({ text: `${n} letters or fewer`, test: (w) => w.length <= n }));
-    "aey".split("").forEach((ch) =>
-      all.push({ text: `ending in ${ch.toUpperCase()}`, test: (w) => w.endsWith(ch) }));
-    const entries = indexOf(p).entries;
-    const commons = entries.filter((e) => e.tier === "common");
-    rules = all.filter((r) => {
-      const fits = entries.filter((e) => r.test(e.key)).length;
-      const easy = commons.filter((e) => r.test(e.key)).length;
-      return fits >= 6 && easy <= commons.length / 2;
-    });
-    ruleCache.set(p, rules);
-    return rules;
+  // The best-known answer of a tier, to name the divers who gave it.
+  function example(p, tier) {
+    const e = indexOf(p).entries.find((x) => x.tier === tier);
+    return e ? e.name : TIERS[tier].label;
   }
 
   // ---- map geometry ----------------------------------------------------------
-  // World units are pixels at scale 1; one metre of depth is YM pixels down.
-  const YM = 2;
-  const SURF = -120;                  // the jungle floor the cenote opens from
-  const SHAPE = {                     // sideways travel and start/end width
-    common:    { dx: [130, 170], w: [30, 14] },
-    clever:    { dx: [110, 140], w: [24, 14] },
-    uncommon:  { dx: [70, 100],  w: [22, 18] },
-    rare:      { dx: [8, 26],    w: [14, 18] },
-    deep:      { dx: [40, 80],   w: [24, 28] },
-    uncharted: { dx: [20, 50],   w: [20, 24] },
-  };
-  // The three passage mouths at a junction — level, sloping, and a drop —
-  // and which one each tier takes.
-  const MOUTHS = [[0.98, 0.18], [0.7, 0.72], [0.12, 0.99]];
-  const MOUTH_OF = { common: 0, clever: 0, uncommon: 1, rare: 2, deep: 2, uncharted: 2 };
-  // Dead ends fan out up and back, away from the mouths.
-  const DEAD_DIRS = [[-0.9, -0.45], [0.95, -0.3], [-0.6, -0.8], [0.55, -0.85], [-1, 0.05], [0.2, -1]];
+  // World units are pixels at scale 1, y pointing down. Height on the map isn't
+  // linear in metres: every tunnel drops 50 px plus 2.6 px a metre, so a 10 m
+  // tunnel is still long enough to see and a 100 m one is four times as long.
+  const drop = (m) => 50 + 2.6 * m;
+  const SURF = -150;                 // the jungle floor the cenote opens from
+  const FAN = 1.05;                  // mouths spread this far either side of straight down (radians)
+  const STEER = 0.8;                 // your own tunnel keeps within this of straight down
+  const NODE_R = 26;                 // the small chamber at every junction
+  const WIDTH = { common: 46, clever: 40, uncommon: 36, rare: 30, deep: 40, uncharted: 34 };
+  const MOUTH_W = [28, 12];          // an unexplored mouth, fading into the rock
 
   const rand = (a, b) => a + Math.random() * (b - a);
   const r1 = (n) => Math.round(n * 10) / 10;
 
-  // A passage from `from` that ends exactly at from + (dx, dy), with a gentle
-  // bend so it doesn't look ruled.
-  function passage(from, dx, dy, bend) {
-    const len = Math.hypot(dx, dy) || 1;
+  // A tunnel from `from`, heading `a` radians off straight down until it has
+  // dropped `dy`, with a gentle bend so it doesn't look ruled. Its y never
+  // decreases: tunnels only ever go down.
+  function tunnel(from, a, dy, bend) {
+    const dx = Math.tan(a) * dy;
+    const len = Math.hypot(dx, dy);
     const nx = -dy / len, ny = dx / len;
-    const amp = rand(-1, 1) * Math.min(bend, len * 0.12);
-    const n = Math.max(3, Math.round(len / 24));
+    const amp = rand(-1, 1) * Math.min(bend, len * 0.1);
+    const n = Math.max(3, Math.round(len / 26));
+    const end = [from[0] + dx, from[1] + dy];
     const pts = [];
     for (let i = 0; i <= n; i++) {
       const t = i / n;
-      const w = Math.sin(Math.PI * t) * amp + (i && i < n ? rand(-2.5, 2.5) : 0);
-      pts.push([r1(from[0] + dx * t + nx * w), r1(from[1] + dy * t + ny * w)]);
+      const w = Math.sin(Math.PI * t) * amp + (i && i < n ? rand(-2, 2) : 0);
+      let x = from[0] + dx * t + nx * w, y = from[1] + dy * t + ny * w;
+      if (i) y = Math.min(end[1], Math.max(y, pts[i - 1][1]));
+      if (i === n) { x = end[0]; y = end[1]; }
+      pts.push([r1(x), r1(y)]);
     }
     return pts;
   }
 
+  // One mouth per kind of answer this prompt has, plus a spare for dead ends,
+  // spread evenly across the fan.
+  function makeMouths(p) {
+    const n = ORDER.filter((t) => p[t]).length + 1;
+    return Array.from({ length: n }, (_, i) => ({
+      a: Math.round((-FAN + (2 * FAN * i) / (n - 1) + rand(-0.06, 0.06)) * 100) / 100,
+      len: Math.round(rand(70, 88)),
+      dead: false,
+    }));
+  }
+  const mouthPts = (m) => tunnel([run.nx, run.ny], m.a, m.len * Math.cos(m.a), 3);
+
+  // Where the route wants to be at junction j: it snakes from side to side, so
+  // the dive sweeps across the screen instead of falling down one column.
+  const meander = (j) => 230 * Math.sin(j * 0.8 + run.wave);
+
   // ---- state -----------------------------------------------------------------
   let run = null;
   let phase = "intro";               // intro | ask | result | over
-  let lampT = 0, lampMax = LAMP_TIME;
-  let anim = null;                   // the diver swimming a passage
+  let lampT = 0;
+  let anim = null;                   // you swimming a tunnel: { pts, t, dur, back, seg }
   let resultAt = 0;
+  // The tunnels open at a junction and the other divers in them. They fade
+  // when the next question comes up, and are never saved.
+  let fans = [];
   const diver = { x: 0, y: 0, a: Math.PI / 2 };
-  const cam = { x: 0, y: SURF / 2, s: 1 };
+  const cam = { x: 0, y: SURF / 2, s: 1, ay: 400 };
   let bubbles = [], bubbleClock = 0, clock = 0;
+  const silt = [];
 
   function newRun(mode) {
     const n = PROMPTS.length;
@@ -262,25 +261,13 @@
       }
     }
     return {
-      v: 1, mode, day: dayNumber, order, ptr: 0,
-      depth: 0, air: AIR_MAX, junction: 1,
-      tight: false, rule: null, dir: 1, mouths: null,
+      v: 2, mode, day: dayNumber, order, ptr: 0,
+      depth: 0, air: AIR_MAX, junction: 1, wave: rand(0, Math.PI * 2), mouths: null,
       tried: [], log: [], segs: [], nx: 0, ny: 0, over: false,
     };
   }
 
   const current = () => PROMPTS[run.order[run.ptr % run.order.length] % PROMPTS.length];
-  function currentRule() {
-    if (!run.rule) return null;
-    return rulesFor(current()).find((r) => r.text === run.rule) || null;
-  }
-  function pickRule(p) {
-    const rules = rulesFor(p);
-    if (!rules.length) return null;
-    const r = run.mode === "daily" ? Deck.rng(dayNumber * 31 + run.ptr * 977 + 7)() : Math.random();
-    return rules[Math.floor(r * rules.length)].text;
-  }
-  const promptLabel = () => current().q + (run.rule ? ` — ${run.rule}` : "");
 
   function persist() {
     if (run && run.mode === "daily") save(DAILY_KEY, { day: dayNumber, run });
@@ -288,26 +275,25 @@
 
   // ---- the junction ----------------------------------------------------------
   const panel = $("cavePanel"), input = $("caveInput");
+  const openFan = () => fans.find((f) => f.kind === "mouths" && f.target === 1);
 
   function openJunction() {
     if (!run.mouths) {
-      // keep the route on screen: head back toward the middle when it strays
-      if (Math.abs(run.nx) > 220) run.dir = run.nx > 0 ? -1 : 1;
-      else if (run.junction > 1 && Math.random() < 0.35) run.dir = -run.dir;
-      run.mouths = MOUTHS.map(([mx, my]) => {
-        const len = rand(38, 50);
-        return passage([run.nx, run.ny], mx * run.dir * len, my * len, 4);
-      });
+      run.mouths = makeMouths(current());
       persist();
     }
+    // the last junction's tunnels and divers fade as this one opens
+    const open = openFan();
+    if (!open || open.x !== run.nx || open.y !== run.ny) {
+      fans.forEach((f) => { f.target = 0; });
+      fans.push({
+        kind: "mouths", x: run.nx, y: run.ny, alpha: 0, target: 1, t: 0, divers: [],
+        items: run.mouths.map((m) => ({ kind: "mouth", m, pts: mouthPts(m), w0: MOUTH_W[0], w1: MOUTH_W[1] })),
+      });
+    }
     $("caveJunction").textContent = `Junction ${run.junction}`;
-    $("caveSqueeze").hidden = !run.tight;
     $("caveQ").textContent = current().q;
-    const rule = $("caveRule");
-    rule.hidden = !run.rule;
-    rule.textContent = run.rule ? `…${run.rule}` : "";
-    lampMax = run.tight ? SQUEEZE_TIME : LAMP_TIME;
-    lampT = lampMax;
+    lampT = LAMP_TIME;
     phase = "ask";
     $("caveAsk").hidden = false;
     $("caveResult").hidden = true;
@@ -340,84 +326,138 @@
       return;
     }
     const hit = rarityOf(current(), typed);
-    const rule = currentRule();
-    if (!hit) deadEnd(typed, `Dead end. “${typed}” isn't on any map. Back out and try another way.`);
-    else if (rule && !rule.test(hit.key)) deadEnd(typed, `Too tight. In this squeeze it has to be ${rule.text}.`);
-    else advance(hit, typed, rule);
+    if (hit) advance(hit, typed);
+    else deadEnd(typed);
   }
 
-  function deadEnd(typed, msg) {
+  // You swim into one of the open mouths and find it caved in. The outer ones
+  // go first, and one is always left open for a real answer; after that you
+  // just bump into rubble you've already found.
+  function deadEnd(typed) {
     run.air = Math.max(0, run.air - DEAD_END_AIR);
     run.tried.push(compact(typed));
-    run.log.push({ q: promptLabel(), a: typed, tier: "dead" });
-    const k = run.segs.filter((s) => s.kind === "dead" && s.j === run.junction).length;
-    const [dx, dy] = DEAD_DIRS[k % DEAD_DIRS.length];
-    const len = rand(44, 60);
-    const pts = passage([run.nx, run.ny], dx * run.dir * len, dy * len, 6);
-    run.segs.push({ kind: "dead", j: run.junction, pts, w0: 14, w1: 7 });
-    anim = { pts, t: 0, dur: reduceMotion ? 0.01 : 1.1, back: true };
+    run.log.push({ q: current().q, a: typed, tier: "dead" });
+    const open = run.mouths.filter((m) => !m.dead).sort((a, b) => Math.abs(b.a) - Math.abs(a.a));
+    let pts;
+    if (open.length > 1) {
+      const m = open[Math.floor(Math.random() * Math.min(2, open.length - 1))];
+      m.dead = true;
+      const fan = openFan();
+      const item = fan && fan.items.find((it) => it.m === m);
+      pts = item ? item.pts : mouthPts(m);
+      run.segs.push({ kind: "dead", j: run.junction, pts, w0: MOUTH_W[0], w1: 18 });
+    } else {
+      const here = run.segs.filter((s) => s.kind === "dead" && s.j === run.junction);
+      pts = here.length ? here[Math.floor(Math.random() * here.length)].pts : mouthPts(open[0]);
+    }
+    anim = { pts, t: 0, u: 0, dur: reduceMotion ? 0.01 : 1.1, back: true };
     persist();
     hud();
     input.value = "";
-    note(msg, true);
+    note(`Dead end. “${typed}” isn't on any map, and that tunnel caved in. Back out and try another way.`, true);
     shake();
     if (run.air <= 0) finish();
   }
 
   function lampOut() {
     run.air = Math.max(0, run.air - LAMP_OUT_AIR);
-    run.log.push({ q: promptLabel(), a: "", tier: "lamp" });
+    run.log.push({ q: current().q, a: "", tier: "lamp" });
     run.ptr++;
-    run.tight = true;
-    run.rule = pickRule(current());
     run.tried = [];
     persist();
     if (run.air <= 0) { hud(); finish(); return; }
     openJunction();
-    note("Your lamp gutters out. You feel your way to a different passage — a tight one.", true);
+    note("Your lamp gutters out. By the time it flickers back, you're facing a different question.", true);
     shake();
   }
 
-  function advance(hit, typed, rule) {
+  function swimTime(pts) {
+    let len = 0;
+    for (let i = 1; i < pts.length; i++) len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    return reduceMotion ? 0.01 : 0.9 + len / 230;
+  }
+
+  const SUITS = ["#8fb3c9", "#b7a6d9", "#9fd1b5", "#d9b38c", "#c9c9c9", "#e39b9b"];
+  function crowd(item, pts, count, dur, w) {
+    return Array.from({ length: count }, () => ({
+      item, pts,
+      delay: rand(0, 0.7),
+      dur: dur * rand(0.9, 1.2),
+      stop: rand(0.68, 0.95),
+      off: rand(-0.3, 0.3) * w,
+      suit: SUITS[Math.floor(Math.random() * SUITS.length)],
+      x: pts[0][0], y: pts[0][1], a: Math.PI / 2, u: 0,
+    }));
+  }
+
+  function advance(hit, typed) {
     const tier = hit.entry.tier;
     const T = TIERS[tier];
     const p = current();
-    const label = promptLabel();
-    const used = breath(run.depth);
-    const s = SHAPE[tier];
-    const pts = passage([run.nx, run.ny], run.dir * rand(s.dx[0], s.dx[1]), T.depth * YM, 18);
-    const seg = { kind: "path", tier, pts, w0: s.w[0], w1: s.w[1], label: hit.entry.name, dir: run.dir };
-    if (T.air) seg.pocket = true;
+    const node = [run.nx, run.ny];
+    const before = run.air;
+
+    // your tunnel: the open mouth that best keeps the route snaking across the screen
+    const free = run.mouths.filter((m) => !m.dead);
+    const dy = drop(T.depth);
+    const goal = meander(run.junction);
+    const steerable = free.filter((m) => Math.abs(m.a) <= STEER);
+    const miss = (m) => Math.abs(node[0] + Math.tan(m.a) * dy - goal);
+    const mine = (steerable.length ? steerable : free).reduce((b, m) => (miss(m) < miss(b) ? m : b));
+    const pts = tunnel(node, mine.a, dy, 16);
+    const end = pts[pts.length - 1];
+    const seg = {
+      kind: "path", tier, pts, w0: WIDTH[tier], w1: WIDTH[tier] * 0.9, label: hit.entry.name,
+      side: end[0] >= node[0] ? 1 : -1, d0: run.depth, d1: run.depth + T.depth,
+    };
+    if (T.o2 > 0) seg.pocket = true;
     if (tier === "uncharted") seg.chamber = chamberName(hit.entry.name);
-    // the passages you didn't take stay on the map
-    (run.mouths || []).forEach((m, i) => {
-      if (i !== MOUTH_OF[tier]) run.segs.push({ kind: "stub", pts: m, w0: 13, w1: 4 });
-    });
     run.segs.push(seg);
 
-    const end = pts[pts.length - 1];
+    // Everyone who gave a worse answer takes a shorter tunnel of their own;
+    // the crowds go to the mouths furthest from yours. Mouths for better
+    // answers stay dark.
+    const fan = { kind: "result", x: node[0], y: node[1], alpha: 1, target: 1, t: 0, items: [], divers: [] };
+    const old = openFan();
+    const others = free.filter((m) => m !== mine).sort((a, b) => Math.abs(b.a - mine.a) - Math.abs(a.a - mine.a));
+    const lesser = ORDER.filter((t) => p[t] && ORDER.indexOf(t) < ORDER.indexOf(tier)).slice(0, others.length);
+    others.forEach((m, i) => {
+      const t = lesser[i];
+      if (t) {
+        const tp = tunnel(node, m.a, drop(TIERS[t].depth), 10);
+        const item = { kind: "lesser", tier: t, pts: tp, w0: WIDTH[t], w1: WIDTH[t] * 0.9, label: example(p, t), reveal: 0 };
+        fan.items.push(item);
+        fan.divers.push(...crowd(item, tp, Math.max(1, TIERS[t].crowd), swimTime(tp), WIDTH[t]));
+      } else {
+        const was = old && old.items.find((it) => it.m === m);
+        fan.items.push({ kind: "mouth", m, pts: was ? was.pts : mouthPts(m), w0: MOUTH_W[0], w1: MOUTH_W[1] });
+      }
+    });
+    const dur = swimTime(pts);
+    fan.divers.push(...crowd(null, pts, T.crowd, dur, WIDTH[tier]));
+    fans = fans.filter((f) => f !== old);
+    fans.push(fan);
+
     run.nx = end[0];
     run.ny = end[1];
     run.depth += T.depth;
-    run.air = Math.max(0, Math.min(AIR_MAX, run.air - used + T.air));
-    run.log.push({ q: label, a: hit.entry.name, tier });
+    run.air = Math.max(0, Math.min(AIR_MAX, run.air - breath(seg.d0) + T.o2));
+    run.log.push({ q: p.q, a: hit.entry.name, tier });
     run.junction++;
     run.ptr++;
     run.tried = [];
     run.mouths = null;
-    run.tight = !!T.squeeze;
-    run.rule = run.tight ? pickRule(current()) : null;
     persist();
 
-    anim = { pts, t: 0, dur: reduceMotion ? 0.01 : 1.4 };
-    showResult(tier, hit.entry.name, typed, used, p, rule, seg.chamber);
+    anim = { pts, t: 0, u: 0, dur, seg };
+    showResult(tier, hit.entry.name, typed, run.air - before, lesser.map((t) => example(p, t)), p, seg.chamber);
   }
 
   function chamberName(name) {
     return name.replace(/\b[a-z]/g, (c) => c.toUpperCase()) + " Chamber";
   }
 
-  function showResult(tier, name, typed, used, p, rule, chamber) {
+  function showResult(tier, name, typed, change, behind, p, chamber) {
     const T = TIERS[tier];
     phase = "result";
     $("caveAsk").hidden = true;
@@ -433,22 +473,21 @@
     const lines = STORIES[tier];
     $("caveStory").textContent = lines[Math.floor(Math.random() * lines.length)].replace("{name}", chamber || "");
 
-    const gain = [`+${T.depth} m`, `breathed ${Math.round(used)} air`];
-    if (T.air) gain.push(`air pocket +${T.air}`);
-    if (T.squeeze) gain.push("squeeze ahead");
+    const delta = Math.round(change);
+    const gain = [`+${T.depth} m`, `oxygen ${delta >= 0 ? "+" : "−"}${Math.abs(delta)}`];
+    if (T.o2 < 0) gain.push(`${T.crowd} divers sharing your air`);
+    if (T.o2 > 0) gain.push(`fresh air +${T.o2}`);
     $("caveGain").textContent = gain.join(" · ");
 
-    // the answers most divers would have given here
-    const trodden = indexOf(p).entries
-      .filter((e) => e.tier === "common" && (!rule || rule.test(e.key)))
-      .slice(0, 3).map((e) => e.name);
-    $("caveTrodden").textContent = !trodden.length ? ""
-      : tier === "common" ? `You and most divers: ${trodden.join(" · ")}`
-      : `The well-trodden way: ${trodden.join(" · ")}`;
+    // who went where
+    const trodden = indexOf(p).entries.filter((e) => e.tier === "common").slice(0, 3).map((e) => e.name);
+    $("caveTrodden").textContent = tier === "common" ? `You and most divers: ${trodden.join(" · ")}`
+      : behind.length ? `Turned back shallower: divers who said ${behind.join(", ")}`
+      : "";
 
     resultAt = performance.now();
     const next = $("caveNext");
-    next.textContent = run.air <= 0 ? "Tank's on reserve — head up ↑" : "Keep diving ↓";
+    next.textContent = run.air <= 0 ? "Out of oxygen — head up ↑" : "Keep diving ↓";
     next.focus({ preventScroll: true });
     hud();
   }
@@ -476,13 +515,14 @@
   // ---- starting & ending -----------------------------------------------------
   function todaysRun() {
     const saved = load(DAILY_KEY);
-    return saved && saved.day === dayNumber && saved.run && saved.run.v === 1 ? saved.run : null;
+    return saved && saved.day === dayNumber && saved.run && saved.run.v === 2 ? saved.run : null;
   }
 
   function intro() {
     phase = "intro";
     run = null;
     anim = null;
+    fans = [];
     $("caveOver").hidden = true;
     panel.hidden = true;
     $("caveHud").hidden = true;
@@ -506,6 +546,8 @@
     diver.x = run.nx;
     diver.y = run.ny;
     bubbles = [];
+    fans = [];
+    anim = null;
     if (run.over || run.air <= 0) { finish(); return; }
     $("caveHud").hidden = false;
     panel.hidden = false;
@@ -516,6 +558,7 @@
   function finish() {
     run.over = true;
     phase = "over";
+    fans.forEach((f) => { f.target = 0; });
     persist();
     if (run.depth > (best[run.mode] || 0)) {
       best[run.mode] = run.depth;
@@ -539,13 +582,13 @@
     const top = rarest();
     const chambers = run.segs.filter((s) => s.chamber).map((s) => s.chamber);
     const deadEnds = run.log.filter((l) => l.tier === "dead").length;
-    const passages = run.log.filter((l) => TIERS[l.tier]).length;
+    const tunnels = run.log.filter((l) => TIERS[l.tier]).length;
 
     $("caveOverTitle").textContent = `${run.depth} m down`;
     $("caveOverMsg").textContent = run.depth
-      ? `Your tank hit reserve in the ${zoneAt(run.depth).replace(/^The /, "")}, and you followed your guideline back to daylight.`
-      : "Your tank hit reserve before you found a way down. The cave will be here tomorrow.";
-    const stats = [`${passages} passage${passages === 1 ? "" : "s"}`, `${deadEnds} dead end${deadEnds === 1 ? "" : "s"}`];
+      ? `You ran low on oxygen in the ${zoneAt(run.depth).replace(/^The /, "")}, and followed your guideline back to daylight.`
+      : "You ran low on oxygen before you found a way down. The cave will be here tomorrow.";
+    const stats = [`${tunnels} tunnel${tunnels === 1 ? "" : "s"}`, `${deadEnds} dead end${deadEnds === 1 ? "" : "s"}`];
     if (top) stats.push(`rarest find: “${top.a}” (${TIERS[top.tier].label})`);
     if (chambers.length) stats.push(`named ${chambers.join(", ")}`);
     $("caveOverStats").textContent = stats.join(" · ");
@@ -650,15 +693,15 @@
   }
 
   // ---- drawing ---------------------------------------------------------------
-  const WATER = [[0, [46, 134, 140]], [100, [30, 96, 120]], [300, [18, 60, 92]], [700, [10, 34, 62]], [1500, [6, 18, 38]]];
-  const ROCK = [[0, [74, 62, 50]], [150, [56, 47, 39]], [500, [38, 32, 28]], [1200, [24, 21, 19]], [3000, [14, 12, 11]]];
-  function mixAt(stops, d, dim) {
-    let i = 0;
-    while (i < stops.length - 2 && d > stops[i + 1][0]) i++;
-    const [d0, c0] = stops[i], [d1, c1] = stops[i + 1];
-    const t = Math.max(0, Math.min(1, (d - d0) / (d1 - d0)));
-    const k = dim || 1;
-    return `rgb(${c0.map((v, j) => Math.round((v + (c1[j] - v) * t) * k)).join(",")})`;
+  // colours by height on the map (world y), darkening as the cave goes down
+  const WATER = [[SURF, [70, 170, 172]], [0, [46, 134, 140]], [500, [30, 96, 120]], [1400, [18, 60, 92]], [3000, [10, 34, 62]], [6000, [6, 18, 38]]];
+  const ROCK = [[SURF, [78, 66, 53]], [400, [58, 49, 40]], [1300, [40, 34, 29]], [3000, [26, 22, 20]], [6000, [15, 13, 12]]];
+  const RIM = "rgba(150,128,104,0.6)";
+  function gradientOf(g, stops) {
+    const y0 = stops[0][0], y1 = stops[stops.length - 1][0];
+    const grad = g.createLinearGradient(0, y0, 0, y1);
+    stops.forEach(([y, c]) => grad.addColorStop((y - y0) / (y1 - y0), `rgb(${c.join(",")})`));
+    return grad;
   }
 
   // Speckled rock, tiled. Built once.
@@ -688,7 +731,7 @@
   let rockPattern = null;
 
   const hash = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
-  // a passage's own seed, so its decorations don't change as others scroll in and out of view
+  // a tunnel's own seed, so its shape and decorations stay put as others scroll in and out of view
   const seedOf = (s) => Math.round(s.pts[0][0] * 13 + s.pts[0][1] * 7);
 
   const bboxes = new WeakMap();
@@ -700,36 +743,99 @@
         b.x0 = Math.min(b.x0, x); b.x1 = Math.max(b.x1, x);
         b.y0 = Math.min(b.y0, y); b.y1 = Math.max(b.y1, y);
       });
-      const pad = Math.max(seg.w0, seg.w1) + (seg.chamber ? 80 : 20);
-      b.x0 -= pad; b.y0 -= pad + (seg.pocket ? 20 : 0); b.x1 += pad; b.y1 += pad;
+      const pad = Math.max(seg.w0, seg.w1, NODE_R * 2) + (seg.chamber ? 80 : 20);
+      b.x0 -= pad; b.y0 -= pad; b.x1 += pad; b.y1 += pad;
       bboxes.set(seg, b);
     }
     return b;
   }
 
-  function strokeTaper(g, pts, w0, w1, pad, min) {
+  // Where you are `u` of the way along a tunnel (by length), which way it
+  // heads there, and the index of the stretch you're on.
+  function pointAlong(pts, u) {
+    let total = 0;
+    const lens = [];
     for (let i = 1; i < pts.length; i++) {
-      const t = (i - 0.5) / (pts.length - 1);
-      g.lineWidth = Math.max(w0 + (w1 - w0) * t, min || 0) + pad;
-      g.beginPath();
-      g.moveTo(pts[i - 1][0], pts[i - 1][1]);
-      g.lineTo(pts[i][0], pts[i][1]);
-      g.stroke();
+      const l = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+      lens.push(l);
+      total += l;
     }
+    let d = Math.max(0, Math.min(1, u)) * total;
+    for (let i = 0; i < lens.length; i++) {
+      if (d <= lens[i] || i === lens.length - 1) {
+        const t = lens[i] ? Math.min(1, d / lens[i]) : 0;
+        const [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
+        return { x: x0 + (x1 - x0) * t, y: y0 + (y1 - y0) * t, a: Math.atan2(y1 - y0, x1 - x0), i };
+      }
+      d -= lens[i];
+    }
+    return { x: pts[0][0], y: pts[0][1], a: Math.PI / 2, i: 0 };
   }
 
-  const SHAFT = { kind: "shaft", pts: [[0, SURF], [0, SURF / 2], [0, 0]], w0: 110, w1: 46 };
-  const midDepth = (seg) => (seg.pts[0][1] + seg.pts[seg.pts.length - 1][1]) / 2 / YM;
+  // The part of a tunnel opened up so far.
+  function partial(pts, u) {
+    if (u >= 1) return pts;
+    const p = pointAlong(pts, u);
+    return pts.slice(0, p.i + 1).concat([[p.x, p.y]]);
+  }
+
+  // Adds a tunnel's rock-cut outline to `path`: two ragged walls either side of
+  // its line, joined smoothly, with a rounded end. Every shape added to a path
+  // winds the same way, so overlapping tunnels merge instead of cancelling.
+  function addTunnel(path, s, minW, u) {
+    if (u <= 0) return;
+    const full = s.pts, pts = partial(full, u);
+    if (pts.length < 2) return;
+    const seed = seedOf(s);
+    const left = [], right = [];
+    const n = full.length - 1;
+    pts.forEach((p, i) => {
+      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+      const nx = -(b[1] - a[1]) / len, ny = (b[0] - a[0]) / len;
+      const t = Math.min(1, i / n);
+      const w = Math.max(minW, s.w0 + (s.w1 - s.w0) * t) / 2;
+      const wl = w * (0.84 + 0.32 * hash(seed + i * 7.3)), wr = w * (0.84 + 0.32 * hash(seed + i * 3.1 + 50));
+      left.push([p[0] + nx * wl, p[1] + ny * wl]);
+      right.push([p[0] - nx * wr, p[1] - ny * wr]);
+    });
+    smoothClosed(path, left.concat(right.reverse()));
+    if (s.kind === "mouth") return;                // unexplored: no end, it just vanishes
+    const [ex, ey] = pts[pts.length - 1];
+    const er = Math.max(minW, s.w0 + (s.w1 - s.w0) * Math.min(1, (pts.length - 1) / n)) / 2;
+    path.moveTo(ex + er, ey);
+    path.arc(ex, ey, er, 0, Math.PI * 2, true);
+  }
+
+  function smoothClosed(path, P) {
+    const n = P.length;
+    const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    const m0 = mid(P[n - 1], P[0]);
+    path.moveTo(m0[0], m0[1]);
+    for (let i = 0; i < n; i++) {
+      const m = mid(P[i], P[(i + 1) % n]);
+      path.quadraticCurveTo(P[i][0], P[i][1], m[0], m[1]);
+    }
+    path.closePath();
+  }
+
+  function addCircle(path, x, y, rx, ry) {
+    path.moveTo(x + rx, y);
+    path.ellipse(x, y, rx, ry || rx, 0, 0, Math.PI * 2, true);
+  }
+
+  const SHAFT = { kind: "shaft", pts: [[0, SURF], [0, SURF / 2], [0, 0]], w0: 120, w1: 56 };
 
   // Draws the cave into `g`. v maps the world onto a screen rectangle:
   //   rect {x, y, w, h}, anchor {ax, ay} inside it, world point (cx, cy), scale s
-  // o.live adds the diver and the open mouths. For the card (not live), o.ui
-  // fixes text and lines at a pixel size however far the map is zoomed out,
-  // o.minW keeps passages visible, and o.maxLabels names only the rarest finds.
+  // o.live adds the open tunnels at the junction, the other divers and you.
+  // For the card (not live), o.ui fixes text and lines at a pixel size however
+  // far the map is zoomed out, o.minW keeps tunnels visible, and o.maxLabels
+  // names only the rarest finds.
   function paint(g, v, o) {
     const segs = run ? run.segs : [];
     const px = (n) => (o.live ? n : (n * (o.ui || 1)) / v.s);
-    const minW = (s) => (o.live ? 0 : ((o.minW || 0) / v.s) * (s.kind === "path" || s.kind === "shaft" ? 1 : 0.6));
+    const minW = o.live ? 0 : (o.minW || 0) / v.s;
     let labelled = null;
     if (!o.live && o.maxLabels) {
       const paths = segs.filter((s) => s.kind === "path");
@@ -738,6 +844,9 @@
     const vx0 = v.cx - v.ax / v.s, vx1 = v.cx + (v.w - v.ax) / v.s;
     const vy0 = v.cy - v.ay / v.s, vy1 = v.cy + (v.h - v.ay) / v.s;
     const seen = (s) => { const b = bbox(s); return b.x1 > vx0 && b.x0 < vx1 && b.y1 > vy0 && b.y0 < vy1; };
+    // the tunnel you're swimming opens up just ahead of you
+    const swimming = o.live && anim && !anim.back ? anim.seg : null;
+    const opened = (s) => (s === swimming ? Math.min(1, anim.u + 0.08) : 1);
 
     g.save();
     g.beginPath();
@@ -747,12 +856,10 @@
     g.scale(v.s, v.s);
     g.translate(-v.cx, -v.cy);
 
-    // rock, darkening with depth
+    // rock
     const rockTop = Math.max(vy0, SURF);
     if (vy1 > rockTop) {
-      const grad = g.createLinearGradient(0, SURF, 0, 3000 * YM);
-      ROCK.forEach(([d, c]) => grad.addColorStop(Math.max(0, (d * YM - SURF) / (3000 * YM - SURF)), `rgb(${c.join(",")})`));
-      g.fillStyle = grad;
+      g.fillStyle = gradientOf(g, ROCK);
       g.fillRect(vx0, rockTop, vx1 - vx0, vy1 - rockTop);
       if (!rockPattern) rockPattern = g.createPattern(texture, "repeat");
       g.globalAlpha = 0.9;
@@ -771,7 +878,7 @@
       g.beginPath();
       g.moveTo(vx0, SURF + 2);
       for (let x = Math.floor(vx0 / 18) * 18; x <= vx1 + 18; x += 18) {
-        if (Math.abs(x) < 64) { g.lineTo(x, SURF + 2); continue; }
+        if (Math.abs(x) < 70) { g.lineTo(x, SURF + 2); continue; }
         g.lineTo(x, SURF - 4 - hash(x) * 22 - (hash(x * 3) > 0.8 ? 26 : 0));
       }
       g.lineTo(vx1, SURF + 2);
@@ -779,151 +886,162 @@
       g.fill();
     }
 
+    // below the surface, everything is clipped flat at the waterline
     g.save();
     g.beginPath();
     g.rect(vx0, SURF, vx1 - vx0, Math.max(0, vy1 - SURF));
     g.clip();
-
-    const drawn = [SHAFT].concat(segs.filter(seen));
-    const mouths = o.live && run && run.mouths && (phase === "ask") ? run.mouths : [];
-    g.lineCap = "round";
     g.lineJoin = "round";
+    const waterFill = gradientOf(g, WATER);
 
-    // passage walls, then the water inside them
-    g.strokeStyle = "rgba(150,128,104,0.55)";
-    drawn.forEach((s) => strokeTaper(g, s.pts, s.w0, s.w1, 7, minW(s)));
-    mouths.forEach((m) => strokeTaper(g, m, 16, 6, 6));
-    drawn.forEach((s) => {
-      if (s.chamber) {
-        const [x, y] = s.pts[s.pts.length - 1];
-        g.fillStyle = "rgba(150,128,104,0.55)";
-        g.beginPath(); g.ellipse(x, y, 78, 50, 0, 0, Math.PI * 2); g.fill();
-      }
-    });
-    drawn.forEach((s) => {
-      g.strokeStyle = mixAt(WATER, s.kind === "shaft" ? 0 : midDepth(s), s.kind === "stub" ? 0.7 : 1);
-      strokeTaper(g, s.pts, s.w0, s.w1, 0, minW(s));
-      if (s.chamber) {
-        const [x, y] = s.pts[s.pts.length - 1];
-        g.fillStyle = mixAt(WATER, midDepth(s));
-        g.beginPath(); g.ellipse(x, y, 72, 44, 0, 0, Math.PI * 2); g.fill();
-      }
-    });
-    if (mouths.length) {
-      g.strokeStyle = mixAt(WATER, run.depth, 0.8);
-      mouths.forEach((m) => strokeTaper(g, m, 16, 6, 0));
-    }
+    // the tunnels open at the junction, under the map so the junction covers their mouths
+    if (o.live) fans.forEach((f) => drawFan(g, f, waterFill, px));
 
-    // light falling into the cenote
-    if (vy0 < 20) {
+    // the map: the cenote, every tunnel you took, the dead ends, the chambers
+    const drawn = segs.filter(seen);
+    const water = new Path2D();
+    addTunnel(water, SHAFT, 0, 1);
+    addCircle(water, 0, 0, NODE_R);
+    drawn.forEach((s) => {
+      addTunnel(water, s, minW, opened(s));
+      if (s.kind !== "path" || opened(s) < 1) return;
+      const [x, y] = s.pts[s.pts.length - 1];
+      if (s.chamber) addCircle(water, x, y, 78, 50);
+      else addCircle(water, x, y, Math.max(NODE_R, minW / 2));
+    });
+    g.strokeStyle = RIM;
+    g.lineWidth = 8;
+    g.stroke(water);
+    g.fillStyle = waterFill;
+    g.fill(water);
+
+    // inside the water: daylight in the cenote, silt, and the river in the deep cuts
+    g.save();
+    g.clip(water);
+    if (vy0 < 40) {
       g.save();
       g.globalCompositeOperation = "lighter";
-      const rays = g.createLinearGradient(0, SURF, 0, 0);
-      rays.addColorStop(0, "rgba(190,240,230,0.2)");
+      const rays = g.createLinearGradient(0, SURF, 0, 30);
+      rays.addColorStop(0, "rgba(190,240,230,0.22)");
       rays.addColorStop(1, "rgba(190,240,230,0)");
       g.fillStyle = rays;
-      [[-46, -30, -22, -10], [-14, 4, -6, 8], [16, 36, 6, 20]].forEach(([a, b, c, d], i) => {
-        const sway = Math.sin(clock * 0.6 + i * 2) * 3;
+      [[-52, -34, -24, -8], [-16, 6, -6, 10], [18, 42, 8, 24]].forEach(([a, b, c, d], i) => {
+        const sway = Math.sin(clock * 0.6 + i * 2) * 4;
         g.beginPath();
-        g.moveTo(a, SURF); g.lineTo(b, SURF); g.lineTo(d + sway, 0); g.lineTo(c + sway, 0);
+        g.moveTo(a, SURF); g.lineTo(b, SURF); g.lineTo(d + sway, 30); g.lineTo(c + sway, 30);
         g.closePath(); g.fill();
       });
       g.restore();
+    }
+    if (o.live) {
+      g.fillStyle = "rgba(220,235,240,0.35)";
+      silt.forEach((p) => { g.beginPath(); g.arc(p.x, p.y, p.r, 0, Math.PI * 2); g.fill(); });
+    }
+    g.setLineDash([px(7), px(15)]);
+    g.lineDashOffset = -clock * 30;
+    g.strokeStyle = "rgba(160,220,255,0.35)";
+    g.lineWidth = px(1.8);
+    drawn.forEach((s) => {
+      if (s.tier !== "deep") return;
+      [-0.18, 0.18].forEach((k) => {
+        g.beginPath();
+        s.pts.forEach(([x, y], i) => (i ? g.lineTo(x + k * s.w0, y) : g.moveTo(x + k * s.w0, y)));
+        g.stroke();
+      });
+    });
+    g.setLineDash([]);
+    g.restore();
+    if (vy0 < SURF + 10) {
       g.strokeStyle = "rgba(210,250,245,0.6)";
       g.lineWidth = 2;
-      g.beginPath(); g.moveTo(-54, SURF + 3); g.lineTo(54, SURF + 3); g.stroke();
+      g.beginPath(); g.moveTo(-60, SURF + 3); g.lineTo(60, SURF + 3); g.stroke();
     }
 
-    // stalactites and stalagmites along the flatter passages
-    g.fillStyle = "rgba(96,82,68,0.95)";
+    // stalactites hang from the ceiling of sloping tunnels; stalagmites rise from the floor
+    g.fillStyle = "rgba(110,94,78,0.95)";
     drawn.forEach((s) => {
-      if (s.kind !== "path") return;
+      if (s.kind !== "path" || opened(s) < 1) return;
       const si = seedOf(s);
-      const [ax, ay] = s.pts[0], [bx, by] = s.pts[s.pts.length - 1];
-      if (Math.abs(by - ay) > Math.abs(bx - ax) * 0.8) return;
       for (let i = 1; i < s.pts.length - 1; i++) {
-        const [x, y] = s.pts[i];
-        const w = s.w0 + (s.w1 - s.w0) * (i / (s.pts.length - 1));
-        const h1 = 3 + hash(si * 31 + i) * 7, h2 = 2 + hash(si * 17 + i * 3) * 5;
-        g.beginPath(); g.moveTo(x - 3, y - w / 2 - 1); g.lineTo(x + 3, y - w / 2 - 1); g.lineTo(x, y - w / 2 + h1); g.fill();
-        if (hash(si + i * 7) > 0.5) {
-          g.beginPath(); g.moveTo(x - 3 + 6, y + w / 2 + 1); g.lineTo(x + 3 + 6, y + w / 2 + 1); g.lineTo(x + 6, y + w / 2 - h2); g.fill();
+        const [ax, ay] = s.pts[i - 1], [x, y] = s.pts[i], [bx, by] = s.pts[i + 1];
+        const len = Math.hypot(bx - ax, by - ay) || 1;
+        const nx = -(by - ay) / len, ny = (bx - ax) / len;
+        if (Math.abs(ny) < 0.3) continue;              // walls of a steep shaft, not a ceiling
+        const w = (s.w0 + (s.w1 - s.w0) * (i / (s.pts.length - 1))) / 2 - 3;
+        const up = ny < 0 ? 1 : -1;                    // which normal points at the ceiling
+        const cx = x + nx * w * up, cy = y + ny * w * up;
+        const fx = x - nx * w * up, fy = y - ny * w * up;
+        const h1 = 5 + hash(si * 31 + i) * 9, h2 = 3 + hash(si * 17 + i * 3) * 6;
+        g.beginPath(); g.moveTo(cx - 3.5, cy - 2); g.lineTo(cx + 3.5, cy - 2); g.lineTo(cx, cy + h1); g.fill();
+        if (hash(si + i * 7) > 0.45) {
+          g.beginPath(); g.moveTo(fx - 3.5, fy + 2); g.lineTo(fx + 3.5, fy + 2); g.lineTo(fx, fy - h2); g.fill();
         }
       }
     });
 
-    // rubble at the end of each dead end
+    // rubble where a tunnel caved in
     drawn.forEach((s) => {
       if (s.kind !== "dead") return;
       const si = seedOf(s);
       const [x, y] = s.pts[s.pts.length - 1];
-      g.fillStyle = "rgba(120,104,88,1)";
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 6; i++) {
+        g.fillStyle = i % 2 ? "rgba(132,114,96,1)" : "rgba(98,84,70,1)";
         g.beginPath();
-        g.arc(x + (hash(si * 9 + i) - 0.5) * 9, y + (hash(si * 5 + i * 2) - 0.5) * 7, 2 + hash(si + i) * 2.4, 0, Math.PI * 2);
+        g.arc(x + (hash(si * 9 + i) - 0.5) * 16, y + (hash(si * 5 + i * 2) - 0.5) * 12, 3 + hash(si + i) * 4, 0, Math.PI * 2);
         g.fill();
       }
     });
 
-    // an underground river runs through the deep cuts
-    g.save();
-    g.setLineDash([7, 15]);
-    g.lineDashOffset = -clock * 26;
-    g.strokeStyle = "rgba(160,220,255,0.35)";
-    g.lineWidth = 1.6;
+    // fresh air trapped in the ceiling at the end of the rare tunnels
     drawn.forEach((s) => {
-      if (s.tier !== "deep") return;
-      g.beginPath();
-      s.pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
-      g.stroke();
-    });
-    g.restore();
-
-    // air pockets trapped in the ceiling
-    drawn.forEach((s) => {
-      if (!s.pocket) return;
+      if (!s.pocket || opened(s) < 1) return;
       const [x, y] = s.pts[s.pts.length - 1];
-      const top = y - s.w1 / 2 - (s.chamber ? 38 : 2);
-      g.fillStyle = "rgba(205,235,255,0.28)";
-      g.beginPath(); g.ellipse(x, top + 4, 16, 9, 0, Math.PI, 0); g.fill();
-      g.strokeStyle = "rgba(225,245,255,0.7)";
-      g.lineWidth = 1.2;
-      g.beginPath(); g.moveTo(x - 15, top + 4); g.lineTo(x + 15, top + 4); g.stroke();
+      const top = y - (s.chamber ? 46 : NODE_R - 4);
+      g.fillStyle = "rgba(205,235,255,0.3)";
+      g.beginPath(); g.ellipse(x, top + 6, 20, 11, 0, Math.PI, 0); g.fill();
+      g.strokeStyle = "rgba(225,245,255,0.75)";
+      g.lineWidth = 1.4;
+      g.beginPath(); g.moveTo(x - 19, top + 6); g.lineTo(x + 19, top + 6); g.stroke();
     });
 
     // crystals in an uncharted chamber
     drawn.forEach((s) => {
-      if (!s.chamber) return;
+      if (!s.chamber || opened(s) < 1) return;
       const si = seedOf(s);
       const [cx, cy] = s.pts[s.pts.length - 1];
-      for (let i = 0; i < 14; i++) {
+      for (let i = 0; i < 16; i++) {
         const a = hash(si * 13 + i) * Math.PI * 2;
-        const x = cx + Math.cos(a) * 70, y = cy + Math.sin(a) * 42;
+        const x = cx + Math.cos(a) * 72, y = cy + Math.sin(a) * 45;
         const tw = 0.55 + 0.45 * Math.sin(clock * 2 + i);
         g.fillStyle = `rgba(125,242,255,${0.35 + 0.5 * tw})`;
-        const h = 5 + hash(i * 3 + si) * 7;
-        g.beginPath(); g.moveTo(x, y - h); g.lineTo(x + 2.4, y); g.lineTo(x, y + h * 0.4); g.lineTo(x - 2.4, y); g.closePath(); g.fill();
+        const h = 6 + hash(i * 3 + si) * 8;
+        g.beginPath(); g.moveTo(x, y - h); g.lineTo(x + 2.8, y); g.lineTo(x, y + h * 0.4); g.lineTo(x - 2.8, y); g.closePath(); g.fill();
       }
     });
 
-    // depth zones
+    // depth zones, marked where your route crossed them
     g.font = `600 ${px(11)}px Inter, sans-serif`;
     g.textAlign = "left";
-    ZONES.slice(1).forEach((z) => {
-      const y = z.from * YM;
-      if (y < vy0 || y > vy1) return;
-      g.strokeStyle = "rgba(125,242,255,0.16)";
-      g.lineWidth = px(1);
-      g.setLineDash([px(5), px(7)]);
-      g.beginPath(); g.moveTo(vx0, y); g.lineTo(vx1, y); g.stroke();
-      g.setLineDash([]);
-      g.fillStyle = "rgba(170,220,230,0.5)";
-      g.fillText(`${z.from} m · ${z.name}`, vx0 + 12 / v.s, y - px(5));
+    segs.forEach((s) => {
+      if (s.kind !== "path" || opened(s) < 1) return;
+      ZONES.slice(1).forEach((z) => {
+        if (!(z.from > s.d0 && z.from <= s.d1)) return;
+        const y0 = s.pts[0][1], y1 = s.pts[s.pts.length - 1][1];
+        const y = y0 + ((y1 - y0) * (z.from - s.d0)) / (s.d1 - s.d0);
+        if (y < vy0 || y > vy1) return;
+        g.strokeStyle = "rgba(125,242,255,0.18)";
+        g.lineWidth = px(1);
+        g.setLineDash([px(5), px(7)]);
+        g.beginPath(); g.moveTo(vx0, y); g.lineTo(vx1, y); g.stroke();
+        g.setLineDash([]);
+        g.fillStyle = "rgba(170,220,230,0.55)";
+        g.fillText(`${z.from} m · ${z.name}`, vx0 + 12 / v.s, y - px(5));
+      });
     });
 
-    // the guideline, tied off at the surface and run through every passage
+    // the guideline, tied off at the surface and run through every tunnel you took
     const route = [[0, SURF + 8], [0, 0]];
-    segs.forEach((s) => { if (s.kind === "path") route.push(...s.pts.slice(1)); });
+    segs.forEach((s) => { if (s.kind === "path") route.push(...partial(s.pts, opened(s)).slice(1)); });
     g.strokeStyle = "rgba(255,214,110,0.85)";
     g.lineWidth = px(1.4);
     g.beginPath();
@@ -933,7 +1051,7 @@
     g.fillStyle = "rgba(255,214,110,0.9)";
     segs.forEach((s) => {
       if (s.kind !== "path" || !seen(s)) return;
-      const [x0, y0] = s.pts[0], [x1, y1] = s.pts[1];
+      const [x0, y0] = s.pts[1], [x1, y1] = s.pts[2] || s.pts[1];
       const a = Math.atan2(y0 - y1, x0 - x1);
       g.save(); g.translate((x0 + x1) / 2, (y0 + y1) / 2); g.rotate(a); g.scale(px(1), px(1));
       g.beginPath(); g.moveTo(5, 0); g.lineTo(-3, -3.5); g.lineTo(-3, 3.5); g.closePath(); g.fill();
@@ -944,55 +1062,102 @@
     const font = `600 ${px(13)}px Inter, sans-serif`;
     g.font = font;
     segs.forEach((s) => {
-      if (s.kind !== "path" || !seen(s)) return;
+      if (s.kind !== "path" || !seen(s) || opened(s) < 1) return;
       const [x, y] = s.pts[s.pts.length - 1];
       g.fillStyle = TIERS[s.tier].color;
-      g.beginPath(); g.arc(x, y, px(2.6), 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.arc(x, y, px(2.8), 0, Math.PI * 2); g.fill();
       if (s.chamber) {
         g.textAlign = "center";
         g.font = `italic ${font}`;
-        g.fillText(s.chamber, x, y + 50 + px(14));
+        g.fillText(s.chamber, x, y + 50 + px(16));
         g.font = font;
         return;
       }
       if (labelled && !labelled.has(s)) return;
-      g.textAlign = s.dir > 0 ? "left" : "right";
-      g.fillText(s.label, x + s.dir * (s.w1 / 2 + px(6)), y - s.w1 / 2 - px(5));
+      g.textAlign = s.side > 0 ? "left" : "right";
+      g.fillText(s.label, x + s.side * (NODE_R + px(6)), y - px(4));
     });
 
     if (o.live && run) {
-      // the mouths glow faintly where they open into the dark
-      mouths.forEach((m, i) => {
-        const [x, y] = m[m.length - 1];
-        g.fillStyle = `rgba(125,242,255,${0.12 + 0.1 * Math.sin(clock * 2.4 + i * 2)})`;
-        g.beginPath(); g.arc(x, y, 9, 0, Math.PI * 2); g.fill();
-      });
+      fans.forEach((f) => f.divers.forEach((d) => {
+        if (d.u > 0) drawDiver(g, d.x, d.y, d.a, d.suit, f.alpha * 0.9, d.u < d.stop - 0.01);
+      }));
       bubbles.forEach((b) => {
         g.strokeStyle = `rgba(220,245,255,${0.55 * (1 - b.age / b.life)})`;
         g.lineWidth = 1;
         g.beginPath(); g.arc(b.x, b.y, b.r, 0, Math.PI * 2); g.stroke();
       });
-      drawDiver(g);
+      drawDiver(g, diver.x, diver.y, diver.a, "#f2b84b", 1, !!anim);
     }
     g.restore();      // waterline clip
     g.restore();
   }
 
-  function drawDiver(g) {
+  // The tunnels open at a junction. Before you answer, they're dark mouths;
+  // after, the ones for worse answers open up behind the divers swimming them.
+  function drawFan(g, f, waterFill, px) {
+    if (f.alpha < 0.01) return;
+    const lit = new Path2D(), dark = new Path2D();
+    f.items.forEach((it) => {
+      if (it.m && it.m.dead) return;
+      if (it.kind === "lesser") addTunnel(lit, it, 0, Math.min(1, it.reveal));
+      else addTunnel(dark, it, 0, 1);
+    });
     g.save();
-    g.translate(diver.x, diver.y);
-    g.rotate(diver.a);
+    g.globalAlpha = f.alpha;
+    g.strokeStyle = RIM;
+    g.lineWidth = 7;
+    g.stroke(lit);
+    g.fillStyle = waterFill;
+    g.fill(lit);
+    // unexplored mouths: open at the junction, fading into the rock
+    const fade = (rgb, a) => {
+      const gr = g.createRadialGradient(f.x, f.y, NODE_R * 0.8, f.x, f.y, 92);
+      gr.addColorStop(0, `rgba(${rgb},${a})`);
+      gr.addColorStop(0.55, `rgba(${rgb},${a * 0.6})`);
+      gr.addColorStop(1, `rgba(${rgb},0)`);
+      return gr;
+    };
+    g.strokeStyle = fade("150,128,104", 0.6);
+    g.stroke(dark);
+    g.fillStyle = fade("16,46,62", 1);
+    g.fill(dark);
+    // a faint breath of light at the far end of each
+    f.items.forEach((it, i) => {
+      if (it.kind !== "mouth" || (it.m && it.m.dead)) return;
+      const [x, y] = it.pts[it.pts.length - 1];
+      g.fillStyle = `rgba(125,242,255,${0.05 + 0.05 * Math.sin(clock * 2.2 + i * 1.7)})`;
+      g.beginPath(); g.arc(x, y, 9, 0, Math.PI * 2); g.fill();
+    });
+    // name each crowd once its divers reach the end of their tunnel
+    g.font = `600 ${px(12)}px Inter, sans-serif`;
+    g.textAlign = "center";
+    f.items.forEach((it) => {
+      if (it.kind !== "lesser" || it.reveal < 0.95) return;
+      const [x, y] = it.pts[it.pts.length - 1];
+      g.globalAlpha = f.alpha * Math.min(1, (it.reveal - 0.95) * 20);
+      g.fillStyle = TIERS[it.tier].color;
+      g.fillText(it.label, x, y + it.w1 / 2 + px(16));
+    });
+    g.restore();
+  }
+
+  function drawDiver(g, x, y, a, suit, alpha, moving) {
+    g.save();
+    g.globalAlpha *= alpha;
+    g.translate(x, y);
+    g.rotate(a);
     // lamp beam
     const beam = g.createLinearGradient(0, 0, 90, 0);
-    beam.addColorStop(0, "rgba(255,226,150,0.32)");
+    beam.addColorStop(0, "rgba(255,226,150,0.3)");
     beam.addColorStop(1, "rgba(255,226,150,0)");
     g.fillStyle = beam;
     g.beginPath(); g.moveTo(6, 0); g.lineTo(90, -26); g.lineTo(90, 26); g.closePath(); g.fill();
     // fins, body, tank, head
-    const kick = Math.sin(clock * (anim ? 14 : 5)) * 3;
+    const kick = Math.sin(clock * (moving ? 14 : 5) + x) * 3;
     g.fillStyle = "#1b2a33";
     g.beginPath(); g.moveTo(-9, 0); g.lineTo(-17, -4 + kick); g.lineTo(-17, 4 + kick); g.closePath(); g.fill();
-    g.fillStyle = "#f2b84b";
+    g.fillStyle = suit;
     g.beginPath(); g.ellipse(-1, 0, 9, 3.6, 0, 0, Math.PI * 2); g.fill();
     g.fillStyle = "#8fa3ad";
     g.fillRect(-6, -5.6, 8, 2.6);
@@ -1005,7 +1170,7 @@
 
   // ---- the share card --------------------------------------------------------
   function routeBounds() {
-    const b = { x0: -90, x1: 90, y0: SURF - 40, y1: 40 };
+    const b = { x0: -100, x1: 100, y0: SURF - 40, y1: 40 };
     run.segs.forEach((s) => {
       const k = bbox(s);
       b.x0 = Math.min(b.x0, k.x0); b.x1 = Math.max(b.x1, k.x1);
@@ -1062,8 +1227,7 @@
     g.save();
     roundRect(g, box.x, box.y, box.w, box.h, 28);
     g.clip();
-    const b = routeBounds();
-    paint(g, fitView(box, b, 2.2), { live: false, ui: 1.7, minW: 9, maxLabels: 10 });
+    paint(g, fitView(box, routeBounds(), 2), { live: false, ui: 1.7, minW: 9, maxLabels: 10 });
     g.restore();
     g.strokeStyle = "rgba(255,255,255,0.14)";
     g.lineWidth = 2;
@@ -1097,57 +1261,71 @@
 
   // ---- the loop --------------------------------------------------------------
   let W = 0, H = 0, dpr = 1;
+  const shadeCanvas = document.createElement("canvas");
+  const shade = shadeCanvas.getContext("2d");
   function resize() {
     dpr = Math.min(2, window.devicePixelRatio || 1);
     W = window.innerWidth;
     H = window.innerHeight;
-    canvas.width = Math.round(W * dpr);
-    canvas.height = Math.round(H * dpr);
+    canvas.width = shadeCanvas.width = Math.round(W * dpr);
+    canvas.height = shadeCanvas.height = Math.round(H * dpr);
   }
   window.addEventListener("resize", resize);
   resize();
 
-  function pointAlong(pts, u) {
-    let total = 0;
-    const lens = [];
-    for (let i = 1; i < pts.length; i++) {
-      const l = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
-      lens.push(l);
-      total += l;
-    }
-    let d = u * total;
-    for (let i = 0; i < lens.length; i++) {
-      if (d <= lens[i] || i === lens.length - 1) {
-        const t = lens[i] ? Math.min(1, d / lens[i]) : 0;
-        const [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
-        return { x: x0 + (x1 - x0) * t, y: y0 + (y1 - y0) * t, a: Math.atan2(y1 - y0, x1 - x0) };
-      }
-      d -= lens[i];
-    }
-    return { x: pts[0][0], y: pts[0][1], a: diver.a };
-  }
-
   const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
   const turnTo = (a, b, k) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * k;
+
+  // ---- the camera ------------------------------------------------------------
+  // It frames what matters and fits it into the part of the screen between the
+  // HUD and the panel: the cenote before you start, the junction and its mouths
+  // while you answer, the whole fan of tunnels while the divers swim it, and
+  // your whole route at the end.
+  const MAX_SCALE = 1.5, MIN_SCALE = 0.5;
+  function region() {
+    if (phase === "over" || phase === "intro") return { top: 0, bottom: H };
+    const hud = $("caveHud").getBoundingClientRect(), box = panel.getBoundingClientRect();
+    const top = hud.bottom + 8, bottom = box.top - 8;
+    return { top, bottom: Math.max(top + 160, bottom) };
+  }
+  function boxAround(lists, pad) {
+    const b = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+    lists.forEach((pts) => pts.forEach(([x, y]) => {
+      b.x0 = Math.min(b.x0, x); b.x1 = Math.max(b.x1, x);
+      b.y0 = Math.min(b.y0, y); b.y1 = Math.max(b.y1, y);
+    }));
+    return { x0: b.x0 - pad, y0: b.y0 - pad, x1: b.x1 + pad, y1: b.y1 + pad };
+  }
+  function focus() {
+    if (!run) return { x0: -230, y0: SURF - 90, x1: 230, y1: 150 };
+    if (phase === "over") return routeBounds();
+    const fan = fans.find((f) => f.kind === "result" && f.target === 1);
+    if (phase === "result" && fan) {
+      const mine = run.segs.filter((s) => s.kind === "path").pop();
+      return boxAround(fan.items.map((it) => it.pts).concat([mine.pts]), 70);
+    }
+    return { x0: run.nx - 230, y0: run.ny - 120, x1: run.nx + 230, y1: run.ny + 170 };
+  }
 
   let last = performance.now();
   function frame(t) {
     const dt = Math.min(0.1, (t - last) / 1000);   // a hidden tab doesn't eat the lamp
     last = t;
     clock += dt;
+    const reg = region();          // measured before anything on the page is touched this frame
 
     if (phase === "ask") {
       lampT -= dt;
-      $("caveLamp").style.width = `${Math.max(0, lampT / lampMax) * 100}%`;
+      $("caveLamp").style.width = `${Math.max(0, lampT / LAMP_TIME) * 100}%`;
       if (lampT <= 0) lampOut();
     }
 
-    // the diver swims the passage it just chose, or idles at the junction
+    // you swim the tunnel you chose; at a junction you look around the mouths
     if (anim) {
       anim.t += dt;
       const k = Math.min(1, anim.t / anim.dur);
-      const u = anim.back ? (1 - Math.abs(1 - 2 * k)) * 0.85 : ease(k);
-      const p = pointAlong(anim.pts, u);
+      anim.u = anim.back ? (1 - Math.abs(1 - 2 * k)) * 0.8 : ease(k);
+      const p = pointAlong(anim.pts, anim.u);
       diver.x = p.x;
       diver.y = p.y;
       diver.a = turnTo(diver.a, anim.back && k > 0.5 ? p.a + Math.PI : p.a, 0.2);
@@ -1155,10 +1333,32 @@
     } else if (run) {
       diver.x += (run.nx - diver.x) * 0.2;
       diver.y += (run.ny - diver.y) * 0.2 + Math.sin(clock * 1.6) * 0.05;
-      diver.a = turnTo(diver.a, Math.atan2(0.9, 0.45 * run.dir), 0.04);
+      const look = phase === "ask" ? Math.sin(clock * 0.7) * 0.9 : 0;
+      diver.a = turnTo(diver.a, Math.PI / 2 + look, 0.05);
     }
 
-    // bubbles rise from the diver
+    // the other divers swim their tunnels and gather near the end
+    fans.forEach((f) => {
+      f.t += dt;
+      f.alpha += (f.target - f.alpha) * Math.min(1, dt * (f.target ? 6 : 2.5));
+      f.divers.forEach((d) => {
+        const k = Math.max(0, Math.min(1, (f.t - d.delay) / d.dur));
+        d.u = ease(k) * d.stop;
+        if (d.u <= 0) return;
+        const p = pointAlong(d.pts, d.u);
+        d.x = p.x - Math.sin(p.a) * d.off;
+        d.y = p.y + Math.cos(p.a) * d.off + (k >= 1 ? Math.sin(clock * 1.3 + d.off) * 1.5 : 0);
+        d.a = turnTo(d.a, k < 1 ? p.a : Math.PI / 2 + Math.sin(clock * 0.6 + d.off) * 0.7, 0.12);
+        if (d.item) d.item.reveal = k >= 1 ? 1 : Math.max(d.item.reveal, Math.min(1, d.u + 0.12));
+        if (!reduceMotion && f.target && Math.random() < dt * (k < 1 ? 3 : 0.8)) {
+          bubbles.push({ x: d.x, y: d.y - 4, r: rand(0.8, 2.2), age: 0, life: rand(1.2, 2.2), vx: rand(-5, 5) });
+        }
+      });
+      if (f.kind === "result" && f.t > 4) f.items.forEach((it) => { if (it.kind === "lesser") it.reveal = 1; });
+    });
+    fans = fans.filter((f) => f.target > 0 || f.alpha > 0.02);
+
+    // bubbles rise from you
     if (run && phase !== "over") {
       bubbleClock -= dt;
       if (bubbleClock <= 0 && !reduceMotion) {
@@ -1166,24 +1366,28 @@
         bubbles.push({ x: diver.x + Math.cos(diver.a) * 8, y: diver.y - 4, r: rand(1, 2.8), age: 0, life: rand(1.6, 2.6), vx: rand(-6, 6) });
       }
     }
-    bubbles = bubbles.filter((b) => (b.age += dt) < b.life);
+    bubbles = bubbles.filter((b) => (b.age += dt) < b.life).slice(-240);
     bubbles.forEach((b) => { b.y -= 26 * dt; b.x += Math.sin(clock * 3 + b.r * 7) * 6 * dt + b.vx * dt; });
 
-    // camera: follow the diver; pull back to the whole route when the dive ends
-    let tx, ty, ts;
-    const base = Math.max(0.75, Math.min(1.35, Math.min(W, H) / 640));
-    if (phase === "over" && run) {
-      const v = fitView({ x: 0, y: 0, w: W, h: H }, routeBounds(), base);
-      tx = v.cx; ty = v.cy; ts = v.s;
-    } else if (run) {
-      tx = diver.x; ty = diver.y; ts = base;
-    } else {
-      tx = 0; ty = SURF * 0.4; ts = base;
-    }
-    const k = reduceMotion ? 1 : Math.min(1, dt * 3);
-    cam.x += (tx - cam.x) * k;
-    cam.y += (ty - cam.y) * k;
+    const b = focus();
+    const ts = Math.max(MIN_SCALE, Math.min(MAX_SCALE, (W * 0.94) / (b.x1 - b.x0), (reg.bottom - reg.top) / (b.y1 - b.y0)));
+    const k = reduceMotion ? 1 : Math.min(1, dt * 2.4);
+    cam.x += ((b.x0 + b.x1) / 2 - cam.x) * k;
+    cam.y += ((b.y0 + b.y1) / 2 - cam.y) * k;
     cam.s += (ts - cam.s) * k;
+    cam.ay += ((reg.top + reg.bottom) / 2 - cam.ay) * k;
+
+    // silt drifting in the water around you
+    const vw = W / cam.s, vh = H / cam.s;
+    const left = cam.x - vw / 2, top = cam.y - cam.ay / cam.s;
+    while (silt.length < 90) silt.push({ x: 0, y: 0, r: 0, vx: 0, vy: 0, dead: true });
+    silt.forEach((p) => {
+      if (p.dead || p.x < left - 40 || p.x > left + vw + 40 || p.y < top - 40 || p.y > top + vh + 40) {
+        Object.assign(p, { x: left + Math.random() * vw, y: top + Math.random() * vh, r: rand(0.5, 1.6), vx: rand(-4, 4), vy: rand(-3, 5), dead: false });
+      }
+      p.x += (p.vx + Math.sin(clock * 0.5 + p.y * 0.01) * 3) * dt;
+      p.y += p.vy * dt;
+    });
 
     draw();
     requestAnimationFrame(frame);
@@ -1194,24 +1398,60 @@
     ctx.fillStyle = "#05080f";
     ctx.fillRect(0, 0, W, H);
     const over = phase === "over";
-    const ay = over ? H / 2 : H * 0.36;
-    paint(ctx, { x: 0, y: 0, w: W, h: H, ax: W / 2, ay, cx: cam.x, cy: cam.y, s: cam.s }, { live: !over });
+    const ay = cam.ay;
+    const view = { x: 0, y: 0, w: W, h: H, ax: W / 2, ay, cx: cam.x, cy: cam.y, s: cam.s };
+    paint(ctx, view, { live: !over });
+    if (over) return;
 
-    // darkness, held back by the lamp; the lamp dims as the time runs down
-    if (!over) {
-      const depth = run ? run.depth : 0;
-      const dark = Math.min(0.93, 0.42 + depth / 420);
-      let lamp = Math.min(W, H) * 0.46 * (run && run.tight ? 0.8 : 1);
-      if (phase === "ask") lamp *= 0.55 + 0.45 * Math.max(0, lampT / lampMax);
-      const sx = W / 2 + (diver.x - cam.x) * cam.s, sy = ay + (diver.y - cam.y) * cam.s;
-      const shade = ctx.createRadialGradient(sx, sy, lamp * 0.2, sx, sy, lamp);
-      const d = run ? dark : 0.35;
-      shade.addColorStop(0, "rgba(3,6,12,0)");
-      shade.addColorStop(0.55, `rgba(3,6,12,${d * 0.55})`);
-      shade.addColorStop(1, `rgba(3,6,12,${d})`);
-      ctx.fillStyle = shade;
-      ctx.fillRect(0, 0, W, H);
+    // Darkness, cut away by lamps: your beam (dimming as the lamp runs down),
+    // the other divers' lamps, daylight in the cenote, and the glow of crystals.
+    const sx = (x) => W / 2 + (x - cam.x) * cam.s, sy = (y) => ay + (y - cam.y) * cam.s;
+    const depth = run ? run.depth : 0;
+    shade.setTransform(dpr, 0, 0, dpr, 0, 0);
+    shade.globalCompositeOperation = "source-over";
+    shade.clearRect(0, 0, W, H);
+    shade.fillStyle = `rgba(3,6,12,${run ? Math.min(0.9, 0.52 + depth / 800) : 0.45})`;
+    shade.fillRect(0, 0, W, H);
+    shade.globalCompositeOperation = "destination-out";
+    const light = (x, y, r, a) => {
+      const gr = shade.createRadialGradient(x, y, 0, x, y, r);
+      gr.addColorStop(0, `rgba(0,0,0,${a})`);
+      gr.addColorStop(0.55, `rgba(0,0,0,${a * 0.6})`);
+      gr.addColorStop(1, "rgba(0,0,0,0)");
+      shade.fillStyle = gr;
+      shade.beginPath(); shade.arc(x, y, r, 0, Math.PI * 2); shade.fill();
+    };
+    const lampK = phase === "ask" ? 0.5 + 0.5 * Math.max(0, lampT / LAMP_TIME) : 1;
+    const dx = sx(diver.x), dy = sy(diver.y);
+    light(dx, dy, 120 * cam.s, 1);
+    // the beam: a cone of light the way you're facing
+    const reach = 430 * cam.s * lampK, spread = 0.55;
+    const beam = shade.createRadialGradient(dx, dy, 0, dx, dy, reach);
+    beam.addColorStop(0, "rgba(0,0,0,1)");
+    beam.addColorStop(0.6, "rgba(0,0,0,0.75)");
+    beam.addColorStop(1, "rgba(0,0,0,0)");
+    shade.fillStyle = beam;
+    shade.beginPath();
+    shade.moveTo(dx, dy);
+    shade.arc(dx, dy, reach, diver.a - spread, diver.a + spread);
+    shade.closePath();
+    shade.fill();
+    fans.forEach((f) => f.divers.forEach((d) => { if (d.u > 0) light(sx(d.x), sy(d.y), 70 * cam.s, 0.85 * f.alpha); }));
+    if (run) run.segs.forEach((s) => {
+      if (!s.chamber) return;
+      const [x, y] = s.pts[s.pts.length - 1];
+      light(sx(x), sy(y), 110 * cam.s, 0.7);
+    });
+    const surf = sy(SURF);
+    if (surf > -400) {
+      const day = shade.createLinearGradient(0, surf - 300 * cam.s, 0, sy(140));
+      day.addColorStop(0, "rgba(0,0,0,1)");
+      day.addColorStop(0.65, "rgba(0,0,0,0.9)");
+      day.addColorStop(1, "rgba(0,0,0,0)");
+      shade.fillStyle = day;
+      shade.fillRect(0, 0, W, Math.max(0, sy(140)));
     }
+    ctx.drawImage(shadeCanvas, 0, 0, W, H);
   }
 
   // ---- wiring ----------------------------------------------------------------
