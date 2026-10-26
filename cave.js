@@ -92,7 +92,7 @@
   // hour can push two days onto the same number.
   const now = new Date();
   const dayNumber = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000;
-  const diveNo = dayNumber - Date.UTC(2026, 9, 25) / 86400000 + 1;
+  const diveNo = dayNumber - Date.UTC(2026, 9, 26) / 86400000 + 1;   // launch day is dive #1
   const DAILY_KEY = "cave.daily.v1";   // { day, run } — today's dive, saved as it goes
   const BEST_KEY = "cave.best.v1";     // { daily, free } — deepest metres
 
