@@ -515,6 +515,12 @@ body {
 }
 .egg-link-2 { right: 40px; }
 .egg-link-3 { right: 68px; }
+.egg-link-4 { right: 96px; }
+/* on a phone the stats wrap onto two rows that reach the corner; keep the
+   entrances on a strip of their own beneath them */
+@media (max-width: 640px) {
+  .footer { padding-bottom: 34px; }
+}
 .egg-link:hover,
 .egg-link:focus-visible {
   opacity: 1;
