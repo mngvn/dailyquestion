@@ -136,13 +136,6 @@
   font-size: 0.66rem; letter-spacing: 1.4px; text-transform: uppercase;
   color: var(--muted);
 }
-.cave-squeeze {
-  color: #1b1204;
-  background: var(--lamp);
-  padding: 2px 8px;
-  border-radius: 99px;
-  font-weight: 700;
-}
 .cave-q {
   font-family: "Space Grotesk", sans-serif;
   font-size: clamp(1.3rem, 4.4vw, 1.75rem);
@@ -150,8 +143,6 @@
   margin: 6px 0 2px;
   line-height: 1.2;
 }
-.cave-rule { margin: 0 0 4px; color: var(--lamp); font-weight: 600; }
-.cave-rule[hidden] { display: none; }
 
 .cave-form { display: flex; gap: 10px; margin-top: 12px; }
 .cave-input {
