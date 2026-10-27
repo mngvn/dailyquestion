@@ -1,0 +1,386 @@
+/* home.css — the home page. Loaded after styles.css, which still carries the
+   inside of every section (puzzles, trivia, the map, the artwork card) and the
+   secret pages' shared base. Everything here is scoped to body.home, and the
+   tokens below are re-pointed so those sections pick up the same palette. */
+
+body.home {
+  --bg: #0b0806;
+  --surface: rgba(255, 240, 220, 0.03);
+  --surface-hover: rgba(255, 240, 220, 0.06);
+  --border: rgba(255, 230, 200, 0.09);
+  --border-strong: rgba(255, 230, 200, 0.18);
+  --text: #f6efe4;
+  --muted: #b3a593;
+  --subtle: #7d705f;
+  --desk: rgba(255, 255, 255, 0.035);
+  --glow-a: rgba(255, 140, 50, 0.14);
+  --glow-b: rgba(160, 70, 20, 0.12);
+
+  /* the section internals in styles.css read these */
+  --card: var(--surface);
+  --card-border: var(--border);
+  --panel: #15100c;
+  --accent: #c8963e;
+  --accent-2: #0ea5e9;
+  --accent-3: #f43f5e;
+  --good: #22c55e;
+  --bad: #f43f5e;
+  --radius: 20px;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 24px 60px -32px rgba(0, 0, 0, 0.8);
+  --font-display: "Geist", system-ui, sans-serif;
+  --font-sans: "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+
+  max-width: none;
+  padding: 0;
+  display: block;
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+body.home.light {
+  --bg: #f4eee3;
+  --surface: #fbf7ef;
+  --surface-hover: #fffaf0;
+  --border: rgba(60, 40, 20, 0.12);
+  --border-strong: rgba(60, 40, 20, 0.24);
+  --text: #1f1710;
+  --muted: #5e5040;
+  --subtle: #8a7a66;
+  --desk: rgba(9, 9, 11, 0.03);
+  --glow-a: rgba(200, 150, 62, 0.12);
+  --glow-b: rgba(120, 80, 40, 0.08);
+  --card: #fbf7ef;
+  --card-border: var(--border);
+  --panel: #fbf7ef;
+  --shadow: 0 1px 2px rgba(9, 9, 11, 0.04), 0 18px 40px -28px rgba(9, 9, 11, 0.25);
+}
+
+body.home ::selection { background: rgba(200, 150, 62, 0.4); }
+
+/* ---------- Backdrop: a soft aurora over a dot grid ---------- */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.aurora {
+  position: absolute;
+  inset: -20% -10% auto;
+  height: 80vh;
+  background:
+    radial-gradient(40% 50% at 30% 30%, var(--glow-a), transparent 70%),
+    radial-gradient(35% 45% at 70% 20%, var(--glow-b), transparent 70%);
+  filter: blur(40px);
+  animation: aurora 22s ease-in-out infinite alternate;
+}
+@keyframes aurora {
+  from { transform: translate3d(-4%, 0, 0) scale(1); }
+  to   { transform: translate3d(4%, 3%, 0) scale(1.08); }
+}
+.dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(var(--border-strong) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(ellipse 70% 55% at 50% 0%, #000 30%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 55% at 50% 0%, #000 30%, transparent 75%);
+  opacity: 0.5;
+}
+
+/* ---------- Nav ---------- */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  height: 64px;
+  padding-inline: max(16px, calc((100% - 1120px) / 2));
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  border-bottom: 1px solid var(--border);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  justify-self: start;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.brand-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: radial-gradient(circle at 50% 70%, #ffd27a 0 18%, #f08a24 30%, #7a3410 62%, #2a1206 100%);
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  box-shadow: 0 0 0 1px var(--border-strong) inset;
+}
+.nav-day {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: end;
+}
+
+.streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.streak-icon { width: 15px; height: 15px; fill: var(--subtle); transition: fill 0.3s ease; }
+.streak-icon.lit { fill: #f97316; filter: drop-shadow(0 0 6px rgba(249, 115, 22, 0.55)); }
+.streak-num { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.icon-btn:hover { color: var(--text); background: var(--surface-hover); border-color: var(--border-strong); }
+.icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.icon-btn svg, .card svg, .modal-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.icon-sun { display: none; }
+body.light .icon-sun { display: block; }
+body.light .icon-moon { display: none; }
+
+/* ---------- Page ---------- */
+.page {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.hero {
+  padding: clamp(40px, 7vw, 76px) 0 clamp(24px, 3vw, 36px);
+  text-align: center;
+}
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 10px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+}
+.hero-title {
+  margin: 22px auto 0;
+  max-width: 14ch;
+  font-family: "IM Fell English", Georgia, serif;
+  font-size: clamp(2.4rem, 6.6vw, 4.8rem);
+  font-weight: 400;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.blur-word {
+  display: inline-block;
+  animation: blurIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i) * 0.07s + 0.1s);
+}
+@keyframes blurIn {
+  from { opacity: 0; filter: blur(12px); transform: translateY(10px); }
+  to   { opacity: 1; filter: blur(0); transform: none; }
+}
+.hero-date {
+  margin-top: 18px;
+  font-family: "IM Fell English", Georgia, serif;
+  font-style: italic;
+  font-size: clamp(1.2rem, 2.3vw, 1.5rem);
+  color: var(--muted);
+  animation: fadeUp 0.8s 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.hero-sub {
+  margin-top: 8px;
+  font-size: 0.95rem;
+  color: var(--subtle);
+  animation: fadeUp 0.8s 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 14px;
+  font: 500 0.86rem/1 var(--font-sans);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.15s ease;
+}
+.btn:active { transform: scale(0.97); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn-ghost {
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+.btn-solid {
+  color: var(--bg);
+  background: var(--text);
+  border: 1px solid var(--text);
+}
+.btn-solid:hover { opacity: 0.88; }
+.btn.copied { color: var(--good); border-color: var(--good); }
+
+/* the buttons inside the sections, brought in line */
+body.home .ghost-btn {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  border-radius: 10px;
+  background: transparent;
+  border-color: var(--border);
+}
+body.home .ghost-btn:hover { background: var(--surface-hover); border-color: var(--border-strong); transform: none; }
+
+/* ---------- Footer ---------- */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 1120px;
+  margin: clamp(56px, 8vw, 88px) auto 0;
+  padding: 24px 16px 32px;
+  border-top: 1px solid var(--border);
+  font-size: 0.84rem;
+  color: var(--subtle);
+}
+/* the secret pages: four faint marks in the corner, for whoever looks */
+.eggs { display: flex; gap: 10px; }
+.egg-link {
+  font-size: 0.9rem;
+  line-height: 1;
+  text-decoration: none;
+  opacity: 0.2;
+  filter: grayscale(1);
+  transition: opacity 0.3s ease, transform 0.3s ease, filter 0.3s ease;
+}
+.egg-link:hover,
+.egg-link:focus-visible {
+  opacity: 1;
+  filter: none;
+  transform: translateY(-2px) scale(1.15);
+  outline: none;
+}
+
+/* ---------- The section modal, restyled ---------- */
+body.home .modal-overlay {
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+body.home.light .modal-overlay { background: rgba(9, 9, 11, 0.25); }
+body.home .modal {
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 24px;
+  box-shadow: 0 40px 100px -30px rgba(0, 0, 0, 0.7);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+body.home .modal::before {
+  height: 1px;
+  border-radius: 0;
+  left: 24px;
+  right: 24px;
+  background: linear-gradient(90deg, transparent, var(--mc1, var(--accent)), transparent);
+}
+body.home .modal[data-section="puzzle"]  { --mc1: #b2552c; }
+body.home .modal[data-section="artwork"] { --mc1: #c8963e; }
+body.home .modal[data-section="locate"]  { --mc1: #3f7f68; }
+body.home .modal[data-section="trivia"]  { --mc1: #2f6f8a; }
+body.home .modal[data-section="movies"]  { --mc1: #9c7428; }
+body.home .modal-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  font-size: 1rem;
+  color: var(--mc1, var(--accent));
+  background: color-mix(in srgb, var(--mc1, var(--accent)) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mc1, var(--accent)) 22%, transparent);
+  border-radius: 12px;
+  filter: none;
+}
+body.home .modal-title { font-family: "IM Fell English", Georgia, serif; font-size: 1.6rem; font-weight: 400; letter-spacing: 0; }
+body.home .modal-close {
+  width: 36px;
+  height: 36px;
+  font-size: 1.3rem;
+  border-radius: 10px;
+  background: transparent;
+  border-color: var(--border);
+}
+body.home .modal-close:hover {
+  transform: none;
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+
+/* ---------- Small screens ---------- */
+@media (max-width: 640px) {
+  .nav { grid-template-columns: 1fr auto; }
+  .nav-day, .streak-label { display: none; }
+  .footer { flex-direction: column; }
+}

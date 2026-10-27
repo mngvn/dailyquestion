@@ -1,7 +1,7 @@
 // theme.js — light / dark mode for the home page. The choice is persisted to
 // localStorage; with no saved choice we follow the OS preference. The mode is
-// reflected on <body> via the `light` class and read by styles.css and
-// trail.js so the whole page (and its effects) adapt.
+// reflected on <body> via the `light` class, which styles.css and home.css
+// read; the toggle shows a sun or a moon to match.
 
 (function () {
   "use strict";
@@ -15,7 +15,6 @@
     const light = theme === "light";
     body.classList.toggle("light", light);
     if (btn) {
-      btn.textContent = light ? "☀️" : "🌙";
       btn.setAttribute("aria-pressed", String(light));
       btn.title = light ? "Switch to dark mode" : "Switch to light mode";
     }

@@ -1,0 +1,676 @@
+/* desk.css — the chart room: a cartographer's desk lit by a single candle.
+   Laid out on a grid: the sea chart and the two notes in the middle, the
+   candle above them, the props down either side and along the bottom.
+   candle.js feeds the light in through --cx/--cy (the wick), --px/--py (the
+   pointer) and --flick (how hard the flame is burning this instant). */
+
+/* ---------- The room and the desk ---------- */
+.room { padding: 8px 16px 0; }
+
+.desk {
+  --ink: #3b2a12;
+  position: relative;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 30px;
+  border-radius: 26px;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='320'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.004 0.11' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.12 0 0 0 0 0.06 0 0 0 0 0.02 0 0 0 1.3 -0.4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E"),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0 2px, transparent 2px 168px),
+    linear-gradient(100deg, #6e452a, #5a371f 40%, #6a4228 70%, #4e2f1a);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 220, 180, 0.08),
+    inset 0 0 90px rgba(0, 0, 0, 0.45),
+    0 50px 100px -40px rgba(0, 0, 0, 0.9);
+}
+
+.desk-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(180px, 230px) minmax(0, 1fr) minmax(0, 1fr) minmax(180px, 230px);
+  grid-template-rows: 150px 520px auto;
+  column-gap: 20px;
+  row-gap: 4px;
+}
+
+/* the sea chart, spread under the notes */
+.chart {
+  position: relative;
+  z-index: 0;
+  grid-column: 2 / 4;
+  grid-row: 1 / 4;
+  margin: 6px -14px 4px;
+  border-radius: 6px;
+  overflow: hidden;
+  transform: rotate(-0.6deg);
+  background: radial-gradient(ellipse at 50% 45%, #f1e5c6 0%, #e4d2a6 55%, #c9ad74 100%);
+  box-shadow:
+    inset 0 0 70px rgba(120, 70, 20, 0.45),
+    inset 0 0 6px rgba(80, 40, 10, 0.6),
+    0 30px 50px -25px rgba(0, 0, 0, 0.8);
+}
+.chart-art { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+.desk-left  { grid-column: 1; grid-row: 1 / 4; }
+.desk-right { grid-column: 4; grid-row: 1 / 4; }
+.desk-side {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-around;
+  gap: 22px;
+  padding: 8px 0;
+}
+.desk-candle {
+  position: relative;
+  z-index: 7;          /* above the lighting, so the flame is never dimmed */
+  grid-column: 2 / 4;
+  grid-row: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+}
+.note-fact    { grid-column: 2; grid-row: 2; }
+.note-history { grid-column: 3; grid-row: 2; }
+.desk-bottom {
+  position: relative;
+  z-index: 1;
+  grid-column: 2 / 4;
+  grid-row: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 24px;
+  padding: 8px 20px 20px;
+}
+
+/* ---------- The candle ---------- */
+.candle {
+  position: relative;
+  width: 130px;
+  height: 150px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.candle:focus-visible { outline: 2px dashed #e0b45a; outline-offset: 4px; border-radius: 50%; }
+.candle-dish {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  width: 112px;
+  height: 112px;
+  margin-left: -56px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #f6dc8e, #b98c35 45%, #6b4a17 75%, #3d2a0c);
+  box-shadow:
+    0 16px 24px -6px rgba(0, 0, 0, 0.65),
+    inset 0 0 0 5px rgba(60, 40, 10, 0.35),
+    inset 0 0 0 8px rgba(255, 230, 160, 0.3);
+}
+/* the finger ring on the side of the dish */
+.candle-dish::after {
+  content: "";
+  position: absolute;
+  top: 40px;
+  right: -22px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 7px solid #a77e30;
+  box-shadow: 0 6px 8px -3px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(60, 40, 10, 0.5);
+}
+.candle-wax {
+  position: absolute;
+  left: 50%;
+  bottom: 30px;
+  width: 60px;
+  height: 60px;
+  margin-left: -30px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 45% 40%, #fff8e6, #efe0bf 60%, #d4bc90);
+  box-shadow:
+    0 0 0 3px #e9d9b6,
+    3px 6px 0 -1px #e2cfa8,
+    -6px 4px 0 -2px #e6d4ae,
+    inset 0 -4px 8px rgba(150, 110, 60, 0.35);
+}
+.candle-wick {
+  position: absolute;
+  left: 50%;
+  bottom: 58px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: #1a1008;
+  transition: background 0.4s ease, box-shadow 0.4s ease;
+}
+.desk[data-lit="false"] .candle-wick { background: #ff6a2a; box-shadow: 0 0 6px 2px rgba(255, 110, 40, 0.8); }
+
+/* The flame stands on the wick and leans and stretches with candle.js; the
+   dance inside it is pure CSS. */
+.flame {
+  --f1: #fff4cf; --f2: #ffc861; --f3: #ff8a1f; --f4: rgba(200, 60, 10, 0);
+  --core: rgba(110, 150, 255, 0.7);
+  --halo: rgba(255, 170, 70, 0.5);
+  position: absolute;
+  left: 50%;
+  bottom: 56px;
+  width: 34px;
+  height: 80px;
+  margin-left: -17px;
+  transform-origin: 50% 100%;
+  transform: rotate(var(--lean, 0deg)) scaleY(calc(0.92 + var(--flick, 1) * 0.1));
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+body.light .flame {
+  --f1: #000000; --f2: #120822; --f3: #2a1446; --f4: rgba(40, 20, 70, 0);
+  --core: rgba(150, 100, 255, 0.55);
+  --halo: rgba(20, 10, 35, 0.55);
+}
+.flame-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.flame-halo {
+  position: absolute;
+  left: 50%;
+  bottom: -30px;
+  width: 150px;
+  height: 150px;
+  margin-left: -75px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--halo), transparent 65%);
+  filter: blur(6px);
+  opacity: calc(0.6 + var(--flick, 1) * 0.35);
+}
+.flame-outer, .flame-inner, .flame-core { transform-box: fill-box; transform-origin: 50% 100%; }
+.flame-outer { animation: flameDance 1.1s ease-in-out infinite alternate; }
+.flame-inner { animation: flameDance 0.7s ease-in-out infinite alternate-reverse; }
+.flame-core  { fill: var(--core); animation: flameCore 0.45s ease-in-out infinite alternate; }
+.fo1 { stop-color: var(--f1); } .fo2 { stop-color: var(--f2); }
+.fo3 { stop-color: var(--f3); } .fo4 { stop-color: var(--f4); }
+@keyframes flameDance {
+  0%   { transform: scale(1, 1) skewX(-2deg); }
+  50%  { transform: scale(0.94, 1.07) skewX(2.5deg); }
+  100% { transform: scale(1.03, 0.96) skewX(-1deg); }
+}
+@keyframes flameCore {
+  from { transform: scale(1, 1); opacity: 0.8; }
+  to   { transform: scale(0.85, 1.12); opacity: 1; }
+}
+.desk[data-lit="false"] .flame { opacity: 0; }
+.candle.relight .flame { animation: flare 0.7s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes flare {
+  0%   { opacity: 0; transform: scale(0.2, 0.2); }
+  40%  { opacity: 1; transform: scale(1.25, 1.35); }
+  100% { transform: rotate(var(--lean, 0deg)) scaleY(1); }
+}
+
+/* ---------- The light ---------- */
+/* Dark mode: the room is black except where the candle reaches, and a little
+   pool around the pointer. Two holes cut in one sheet of darkness. */
+.desk-dark,
+.desk-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.desk-dark {
+  --R: 860px;
+  z-index: 5;
+  background: rgba(6, 3, 1, 0.88);
+  -webkit-mask-image:
+    radial-gradient(circle calc(var(--R) * var(--flick, 1)) at var(--cx, 50%) var(--cy, 120px),
+      transparent 0%, rgba(0, 0, 0, 0.22) 20%, rgba(0, 0, 0, 0.7) 50%, #000 85%),
+    radial-gradient(circle 190px at var(--px, -999px) var(--py, -999px),
+      transparent 0%, rgba(0, 0, 0, 0.55) 55%, #000 100%);
+  mask-image:
+    radial-gradient(circle calc(var(--R) * var(--flick, 1)) at var(--cx, 50%) var(--cy, 120px),
+      transparent 0%, rgba(0, 0, 0, 0.22) 20%, rgba(0, 0, 0, 0.7) 50%, #000 85%),
+    radial-gradient(circle 190px at var(--px, -999px) var(--py, -999px),
+      transparent 0%, rgba(0, 0, 0, 0.55) 55%, #000 100%);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+/* and a warm wash of candlelight over everything it reaches */
+.desk-glow {
+  z-index: 6;
+  mix-blend-mode: screen;
+  background: radial-gradient(circle calc(640px * var(--flick, 1)) at var(--cx, 50%) var(--cy, 120px),
+    rgba(255, 150, 55, 0.4), rgba(255, 110, 30, 0.14) 38%, transparent 70%);
+}
+/* Light mode: the room is in daylight, and the flame gives off darkness. */
+body.light .desk-dark { display: none; }
+body.light .desk-glow {
+  mix-blend-mode: multiply;
+  background: radial-gradient(circle calc(250px * var(--flick, 1)) at var(--cx, 50%) var(--cy, 120px),
+    rgba(25, 12, 40, 0.62), rgba(25, 12, 40, 0.28) 35%, rgba(25, 12, 40, 0.08) 62%, transparent 78%);
+}
+
+/* ---------- The notes ---------- */
+.note {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.note-head {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 10px;
+  padding-top: 6px;
+  font-family: "IM Fell English SC", Georgia, serif;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+.note-count {
+  font-family: "IM Fell English", Georgia, serif;
+  font-style: italic;
+  font-size: 0.92rem;
+  color: #6e5634;
+}
+.paper-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  touch-action: none;
+}
+.paper-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+.paper-hit {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  border-radius: 18px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.paper-hit[data-held="true"] { cursor: grabbing; }
+.paper-hit:disabled { cursor: default; }
+.paper-hit:focus { outline: none; }
+.paper-hit:focus-visible { outline: 2px dashed #7d1d12; outline-offset: 6px; }
+.paper-hit[data-pointer="true"]:focus-visible { outline: none; }
+
+/* while the wad is being solved: a faint smudge where it will be */
+.paper-skeleton {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 110px;
+  height: 110px;
+  margin: -55px 0 0 -55px;
+  border-radius: 46% 54% 50% 50%;
+  background: radial-gradient(circle at 40% 35%, rgba(255, 250, 235, 0.7), rgba(120, 90, 50, 0.15) 70%);
+  animation: breathe 1.6s ease-in-out infinite;
+}
+.paper-stage[data-status] .paper-skeleton { display: none; }
+@keyframes breathe {
+  0%, 100% { transform: scale(0.92); opacity: 0.5; }
+  50%      { transform: scale(1); opacity: 0.9; }
+}
+
+/* no WebGL: the note is simply laid on the chart, open */
+.paper-flat {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(320px, calc(100% - 40px));
+  height: auto;
+  transform: translate(-50%, -50%) rotate(-1.2deg);
+  box-shadow: 0 18px 30px -16px rgba(0, 0, 0, 0.6);
+}
+
+.note-foot { position: relative; height: 52px; }
+.note-hint,
+.note-actions {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.note-hint {
+  font-family: "IM Fell English", Georgia, serif;
+  font-style: italic;
+  font-size: 0.98rem;
+  color: #4a3418;
+}
+.note-meter {
+  flex: 0 0 90px;
+  height: 2px;
+  background: rgba(59, 42, 18, 0.2);
+  overflow: hidden;
+}
+.note-meter span {
+  display: block;
+  height: 100%;
+  width: calc(var(--progress, 0) * 100%);
+  background: #7d1d12;
+  transition: width 0.15s linear;
+}
+.note-actions { opacity: 0; transform: translateY(8px); pointer-events: none; }
+.note[data-state="open"] .note-hint { opacity: 0; transform: translateY(-8px); pointer-events: none; }
+.note[data-state="open"] .note-actions { opacity: 1; transform: none; pointer-events: auto; }
+.note[data-state="loading"] .note-hint-text { opacity: 0.5; }
+
+/* the note's buttons are ink on the chart, whatever the theme */
+.note .btn {
+  height: 34px;
+  font-family: "IM Fell English SC", Georgia, serif;
+  font-size: 0.95rem;
+  border-radius: 4px;
+}
+.note .btn-ghost {
+  color: var(--ink);
+  background: rgba(255, 248, 230, 0.55);
+  border-color: rgba(59, 42, 18, 0.45);
+}
+.note .btn-ghost:hover { background: rgba(255, 248, 230, 0.85); border-color: var(--ink); }
+.note .btn-solid { color: #f3e6c4; background: var(--ink); border-color: var(--ink); }
+
+/* ---------- Things on the desk ---------- */
+.prop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.prop:focus { outline: none; }
+.prop:focus-visible { outline: 2px dashed #e0b45a; outline-offset: 8px; border-radius: 8px; }
+.prop-art {
+  display: block;
+  transform: rotate(var(--tilt, 0deg));
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.4s ease;
+  filter: drop-shadow(0 10px 10px rgba(0, 0, 0, 0.4));
+}
+.prop:hover .prop-art,
+.prop:focus-visible .prop-art {
+  transform: rotate(var(--tilt, 0deg)) translateY(-7px) scale(1.04);
+  filter: drop-shadow(0 22px 18px rgba(0, 0, 0, 0.5)) brightness(1.08);
+}
+.prop-art svg { display: block; overflow: visible; }
+
+/* a parchment tag pinned beside each object */
+.prop-tag {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  max-width: 200px;
+  padding: 8px 14px 9px;
+  color: var(--ink);
+  text-align: center;
+  background: linear-gradient(180deg, #f3e8cc, #e6d6ad);
+  border-radius: 2px;
+  box-shadow: 0 6px 10px -4px rgba(0, 0, 0, 0.55);
+  transform: rotate(calc(var(--tilt, 0deg) * -0.25));
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.prop-tag::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  margin-left: -4.5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f6dc8e, #8c6423);
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.5);
+}
+.prop:hover .prop-tag { transform: rotate(0deg) translateY(-2px); }
+.prop-name { font-family: "IM Fell English SC", Georgia, serif; font-size: 1rem; line-height: 1.15; }
+.prop-sub {
+  font-family: "IM Fell English", Georgia, serif;
+  font-style: italic;
+  font-size: 0.82rem;
+  line-height: 1.2;
+  color: #5a4220;
+}
+.prop-meter {
+  width: 100%;
+  height: 2px;
+  margin-top: 6px;
+  background: rgba(59, 42, 18, 0.2);
+  overflow: hidden;
+}
+.prop-meter-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: #7d1d12;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.prop-acc {
+  margin-top: 3px;
+  font-family: "IM Fell English SC", Georgia, serif;
+  font-size: 0.74rem;
+  color: #6e5634;
+}
+
+/* the gilt frame */
+.frame {
+  display: block;
+  width: 168px;
+  height: 208px;
+  padding: 14px;
+  border-radius: 3px;
+  background: linear-gradient(135deg, #7a5a1f, #e7c873 22%, #9c7a33 46%, #f2d98b 68%, #6e4e18);
+  box-shadow:
+    inset 0 0 0 2px rgba(60, 40, 10, 0.7),
+    inset 0 0 0 6px rgba(255, 230, 160, 0.35),
+    inset 0 0 0 8px rgba(60, 40, 10, 0.55);
+}
+.frame-canvas {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #2a1d10 var(--art, none) center / cover no-repeat;
+  box-shadow: inset 0 0 0 2px rgba(40, 25, 5, 0.8), inset 0 0 18px rgba(0, 0, 0, 0.55);
+}
+.frame-canvas > svg { width: 100%; height: 100%; display: block; }
+.frame-canvas.has-art > svg { display: none; }
+.frame-canvas::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), transparent 40%);
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.5);
+}
+
+/* the captain's log */
+.book {
+  position: relative;
+  display: block;
+  width: 150px;
+  height: 196px;
+  border-radius: 4px 10px 10px 4px;
+  background: radial-gradient(ellipse at 30% 20%, #8a4b2a, #5c2e17 60%, #3e1d0e);
+  box-shadow:
+    inset 12px 0 0 rgba(0, 0, 0, 0.28),
+    inset 13px 0 0 rgba(255, 220, 180, 0.06),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+.book::before {
+  content: "";
+  position: absolute;
+  inset: 9px 9px 9px 20px;
+  border: 1.5px dashed rgba(230, 190, 120, 0.45);
+  border-radius: 4px;
+}
+.book-title {
+  position: absolute;
+  top: 46px;
+  left: 20px;
+  right: 10px;
+  text-align: center;
+  font-family: "IM Fell English SC", Georgia, serif;
+  font-size: 1.2rem;
+  line-height: 1.1;
+  color: #e3bd6c;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+}
+.book-rule { position: absolute; top: 104px; left: 44px; right: 32px; height: 1px; background: #e3bd6c; opacity: 0.6; }
+.book-day {
+  position: absolute;
+  top: 112px;
+  left: 20px;
+  right: 10px;
+  text-align: center;
+  font-family: "IM Fell English", Georgia, serif;
+  font-style: italic;
+  font-size: 0.86rem;
+  color: #d9b46a;
+}
+.book-strap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 22px;
+  width: 10px;
+  background: linear-gradient(90deg, #1e0f07, #3a2010, #1e0f07);
+}
+.book-ribbon {
+  position: absolute;
+  bottom: -24px;
+  left: 50px;
+  width: 11px;
+  height: 36px;
+  z-index: -1;
+  background: #8e2a1e;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
+}
+
+.globe { width: 168px; height: 168px; }
+.globe-spin { animation: globeSpin 90s linear infinite; }
+@keyframes globeSpin { to { transform: translateX(-720px); } }
+.bottle { width: 200px; height: auto; }
+.spyglass { width: 240px; height: auto; }
+.decor { display: block; position: relative; z-index: 1; }
+.decor-compass svg { width: 118px; height: 118px; display: block; }
+.decor-quill svg { width: 140px; height: auto; display: block; transform: rotate(8deg); }
+
+/* ---------- The brass plaque with the stats ---------- */
+.plaque {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  padding: 12px 26px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #f2d78c, #c39a45 45%, #9c7428 62%, #d9b562);
+  box-shadow:
+    inset 0 0 0 1px rgba(60, 40, 10, 0.6),
+    inset 0 0 0 4px rgba(255, 240, 190, 0.28),
+    0 12px 18px -6px rgba(0, 0, 0, 0.6);
+}
+.plaque::before,
+.plaque::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff1c2, #6b4a17);
+  box-shadow: inset 0 0 0 1px rgba(40, 25, 5, 0.6);
+}
+.plaque::before { left: 9px; }
+.plaque::after { right: 9px; }
+.plaque .stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 16px;
+  border-left: 1px solid rgba(60, 40, 10, 0.35);
+}
+.plaque .stat:first-child { border-left: 0; }
+.plaque .stat-num {
+  font-family: "IM Fell English", Georgia, serif;
+  font-size: 1.6rem;
+  line-height: 1.1;
+  color: #3a2608;
+  text-shadow: 0 1px 0 rgba(255, 240, 200, 0.6);
+  font-variant-numeric: tabular-nums;
+}
+.plaque .stat-label {
+  font-family: "IM Fell English SC", Georgia, serif;
+  font-size: 0.78rem;
+  color: #4f3810;
+  white-space: nowrap;
+}
+
+/* ---------- Smoke ---------- */
+.wisps {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 60;
+  pointer-events: none;
+}
+
+/* ---------- Narrower rooms ---------- */
+@media (max-width: 1060px) {
+  .desk { padding: 22px; }
+  .desk-grid {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 150px 500px 500px auto auto;
+  }
+  .chart { grid-column: 1 / 3; grid-row: 1 / 4; margin: 6px -4px 0; }
+  .desk-candle { grid-column: 1 / 3; grid-row: 1; }
+  .note-fact { grid-column: 1 / 3; grid-row: 2; }
+  .note-history { grid-column: 1 / 3; grid-row: 3; }
+  .desk-left { grid-column: 1; grid-row: 4; }
+  .desk-right { grid-column: 2; grid-row: 4; }
+  .desk-bottom { grid-column: 1 / 3; grid-row: 5; flex-wrap: wrap; }
+  .desk-side { padding: 28px 0 8px; }
+  .desk-dark { --R: 1400px; background: rgba(6, 3, 1, 0.78); }
+}
+@media (max-width: 600px) {
+  .room { padding: 4px 10px 0; }
+  .desk { padding: 14px; border-radius: 18px; }
+  .desk-grid { grid-template-columns: 1fr; grid-template-rows: 140px 450px 450px auto auto auto; }
+  .chart, .desk-candle, .note-fact, .note-history, .desk-left, .desk-right, .desk-bottom { grid-column: 1; }
+  .desk-left { grid-row: 4; }
+  .desk-right { grid-row: 5; }
+  .desk-bottom { grid-row: 6; padding: 8px 0 16px; }
+  .desk-side { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+  .plaque { grid-template-columns: 1fr 1fr; row-gap: 10px; }
+  .plaque .stat:nth-child(3) { border-left: 0; }
+  .desk-dark { --R: 1600px; background: rgba(6, 3, 1, 0.7); }
+}

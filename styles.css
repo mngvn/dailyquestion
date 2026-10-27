@@ -14,6 +14,9 @@
   --panel: #14141f;
   --radius: 22px;
   --shadow: 0 24px 70px -24px rgba(0, 0, 0, 0.75);
+  /* the home page swaps these for its own faces in home.css */
+  --font-display: "Space Grotesk", sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -21,7 +24,7 @@
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: "Inter", system-ui, sans-serif;
+  font-family: var(--font-sans);
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
@@ -52,369 +55,6 @@ body {
   inset: 0;
   opacity: 0.05;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-/* ---------- Reveal animation ---------- */
-.reveal {
-  opacity: 0;
-  transform: translateY(26px);
-  animation: rise 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  animation-delay: calc(var(--i, 0) * 0.09s + 0.05s);
-}
-@keyframes rise {
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* ---------- Top bar ---------- */
-.topbar {
-  /* a cube tumbling mid-roll reaches up this far — it passes behind the bar's
-     glass rather than over the top of it */
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 16px;
-  padding: clamp(14px, 2vw, 22px) clamp(18px, 3vw, 32px);
-  background: var(--card);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius);
-  backdrop-filter: blur(14px);
-  box-shadow: var(--shadow);
-}
-.brand { display: flex; align-items: center; gap: 10px; }
-.logo-dot {
-  width: 14px; height: 14px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  box-shadow: 0 0 18px var(--accent);
-  animation: pulse 2.4s ease-in-out infinite;
-}
-@keyframes pulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.35); opacity: 0.7; }
-}
-.brand-name {
-  font-family: "Space Grotesk", sans-serif;
-  font-weight: 700; font-size: 1.25rem; letter-spacing: 0.5px;
-}
-.date-block { text-align: center; }
-.weekday {
-  text-transform: uppercase; letter-spacing: 4px;
-  font-size: 0.72rem; color: var(--accent-2); font-weight: 600;
-}
-
-/* ---------- The animated date ---------- */
-/* Each character is its own element: the outer .dchar rides a staggered wave
-   forever, while the inner .dchar-in flips in on load and carries a gradient
-   shimmer that sweeps along the line, character by character. */
-.date-main {
-  font-family: "Space Grotesk", sans-serif;
-  font-weight: 700;
-  font-size: clamp(1.5rem, 4vw, 2.8rem);
-  line-height: 1.15;
-  white-space: nowrap;
-}
-.dchar {
-  display: inline-block;
-  white-space: pre;
-  perspective: 340px;
-  animation: charFloat 3.4s ease-in-out infinite;
-  animation-delay: calc(var(--ci, 0) * 0.11s);
-  will-change: transform;
-}
-.dchar-in {
-  display: inline-block;
-  background: linear-gradient(120deg,
-    #fff 8%, #b9a8ff 32%, #8af0e3 55%, #ff9ac9 78%, #fff 96%);
-  background-size: 340% 100%;
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent; color: transparent;
-  animation:
-    charIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards,
-    charShimmer 6s linear infinite;
-  animation-delay: calc(var(--ci, 0) * 45ms + 0.15s), calc(var(--ci, 0) * -140ms);
-}
-@keyframes charIn {
-  from { opacity: 0; transform: translateY(26px) rotateX(-100deg) scale(0.6); filter: blur(6px); }
-  to   { opacity: 1; transform: none; filter: blur(0); }
-}
-@keyframes charFloat {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-4px); }
-}
-@keyframes charShimmer {
-  to { background-position: -340% 0; }
-}
-.day-counter { font-size: 0.74rem; color: var(--muted); margin-top: 4px; letter-spacing: 1px; }
-
-.streak-pill {
-  justify-self: end;
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 18px;
-  background: rgba(124, 92, 255, 0.12);
-  border: 1px solid rgba(124, 92, 255, 0.3);
-  border-radius: 999px;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-.streak-pill:hover { transform: translateY(-2px); box-shadow: 0 10px 30px -10px var(--accent); }
-.flame { font-size: 1.5rem; display: inline-block; }
-.flame.lit { animation: flicker 1.4s ease-in-out infinite; filter: drop-shadow(0 0 8px #ff9a3c); }
-@keyframes flicker {
-  0%, 100% { transform: scale(1) rotate(-2deg); }
-  50% { transform: scale(1.15) rotate(3deg); }
-}
-.streak-meta { display: flex; flex-direction: column; line-height: 1; }
-.streak-num { font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 1.5rem; }
-.streak-label { font-size: 0.66rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
-
-/* ---------- Main content: the section cube ---------- */
-/* Six sections, one per face. Everything inside the cube is sized off
-   --cube so the whole thing scales as one object. */
-.content { display: flex; flex-direction: column; }
-
-.cube-stage {
-  /* Sized off the viewport's height as well as its width: the cube and the
-     controls under it have to land above the fold on a laptop window, not
-     just on a tall screen. */
-  --cube: clamp(168px, min(52vw, 33vh), 340px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding-block: calc(var(--cube) * 0.06);
-}
-
-.cube-scene {
-  position: relative;
-  width: var(--cube);
-  height: var(--cube);
-  /* Perspective throws the near face a long way past the cube's own box, so
-     it needs room for its corners. Only the bottom margin has to hold all of
-     it — above, the cube passes behind the top bar's glass, which paints over
-     it, and that costs nothing. */
-  margin-block: calc(var(--cube) * 0.08) calc(var(--cube) * 0.3);
-  perspective: calc(var(--cube) * 3.6);
-  touch-action: none;   /* a drag here turns the cube, it doesn't scroll */
-  cursor: grab;
-}
-.cube-scene.dragging { cursor: grabbing; }
-.cube-scene.rolling { cursor: default; }
-.cube-scene.rolling .cube-face { pointer-events: none; }
-
-.cube {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  transform-style: preserve-3d;
-  /* Only the faces are meant to be clickable, so the box takes no pointer
-     events (it would otherwise sit over the button below the cube). */
-  pointer-events: none;
-  /* app.js writes the cube's rotation here every frame. Each face applies it
-     itself; the box never turns, because a box turned near edge-on stops the
-     browser hit-testing the faces inside it. */
-  --spin: rotateX(0deg);
-}
-
-/* the patch of ground under the cube — it tightens and fades while the cube
-   is up in the air mid-roll (--lift is 0 on the ground, 1 at the top), and
-   follows it across the table (--ground) */
-.cube-shadow {
-  position: absolute;
-  left: 50%;
-  bottom: calc(var(--cube) * -0.2);
-  z-index: -1;
-  width: 80%;
-  height: calc(var(--cube) * 0.14);
-  translate: var(--ground, 0);
-  transform: translateX(-50%) scale(calc(1 - var(--lift, 0) * 0.4));
-  opacity: calc(1 - var(--lift, 0) * 0.55);
-  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.6), transparent 72%);
-  filter: blur(7px);
-  pointer-events: none;
-}
-
-.cube-face {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: calc(var(--cube) * 0.024);
-  padding: calc(var(--cube) * 0.08);
-  font-family: inherit;
-  color: var(--text);
-  text-align: center;
-  cursor: pointer;
-  pointer-events: auto;
-  overflow: hidden;
-  border: 1px solid var(--edge);
-  border-radius: calc(var(--cube) * 0.07);
-  background: rgba(9, 9, 18, 0.93);
-  box-shadow: inset 0 0 calc(var(--cube) * 0.2) var(--edge);
-  /* a face facing away is hidden — and so is its click target */
-  backface-visibility: hidden;
-  transform: var(--spin) var(--rot) translateZ(calc(var(--cube) / 2));
-  /* The lift toward the viewer. It's on `translate`, which comes before the
-     spin and so moves straight out of the screen; a face only lifts once it's
-     facing you. The spin changes every frame, so `transform` takes no
-     transition. */
-  translate: 0 0 var(--pop, 0px);
-  transition: translate 0.35s cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 0.35s ease, border-color 0.35s ease;
-}
-/* the six sides of the box */
-.cube-face[data-face="front"]  { --rot: rotateY(0deg); }
-.cube-face[data-face="right"]  { --rot: rotateY(90deg); }
-.cube-face[data-face="back"]   { --rot: rotateY(180deg); }
-.cube-face[data-face="left"]   { --rot: rotateY(-90deg); }
-.cube-face[data-face="top"]    { --rot: rotateX(90deg); }
-.cube-face[data-face="bottom"] { --rot: rotateX(-90deg); }
-
-/* the section's own colour, washed over the face */
-.cube-face::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(150deg, var(--c1), var(--c2));
-  opacity: 0.3;
-  transition: opacity 0.35s ease;
-}
-.cube-face > * { position: relative; z-index: 1; }
-
-/* pointing at a face lights it up. Only a keyboard-focused face (which has
-   been turned to the front) lifts off the box: lifting a face that's at an
-   angle slides it sideways on screen, out from under the pointer, and the
-   hover flickers on and off as you try to click it. */
-.cube-face:focus-visible { --pop: calc(var(--cube) * 0.055); }
-.cube-face:hover,
-.cube-face:focus-visible {
-  border-color: var(--c1);
-  box-shadow: inset 0 0 calc(var(--cube) * 0.34) var(--edge),
-              0 18px 44px -14px var(--edge);
-}
-.cube-face:hover::before,
-.cube-face:focus-visible::before { opacity: 0.5; }
-.cube-face:focus-visible { outline: 2px solid var(--text); outline-offset: calc(var(--cube) * -0.03); }
-
-.cube-face.landed {
-  --pop: calc(var(--cube) * 0.03);
-  border-color: var(--c1);
-  box-shadow: inset 0 0 calc(var(--cube) * 0.4) var(--edge),
-              0 0 calc(var(--cube) * 0.16) var(--edge);
-}
-.cube-face.landed::before { opacity: 0.6; }
-
-.face-icon {
-  font-size: calc(var(--cube) * 0.19);
-  line-height: 1;
-  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.55));
-}
-.face-name {
-  font-family: "Space Grotesk", sans-serif;
-  font-size: calc(var(--cube) * 0.088);
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  line-height: 1.15;
-}
-.face-sub {
-  font-size: calc(var(--cube) * 0.046);
-  line-height: 1.3;
-  color: var(--text);
-  opacity: 0.78;
-}
-
-/* how you're doing in this section, filling left to right */
-.face-meter {
-  display: block;
-  width: 70%;
-  height: calc(var(--cube) * 0.022);
-  margin-top: calc(var(--cube) * 0.02);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
-  overflow: hidden;
-}
-.face-meter-fill {
-  display: block;
-  width: 0;
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--c1), var(--c2));
-  transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.face-acc {
-  font-size: calc(var(--cube) * 0.044);
-  font-weight: 600;
-}
-
-/* the plate under the cube, where the hub used to be */
-/* the cube hangs well outside its own box, so the things stacked under it sit
-   above it in paint order and stay clickable */
-.cube-plate,
-.roll-btn,
-.cube-hint {
-  position: relative;
-  z-index: 1;
-}
-
-.cube-plate {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-.plate-top {
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 0.9rem;
-  font-weight: 700;
-  letter-spacing: 4px;
-}
-.plate-sub { font-size: 0.74rem; color: var(--muted); letter-spacing: 1px; }
-.cube-hint {
-  max-width: 46ch;
-  font-size: 0.72rem;
-  line-height: 1.5;
-  text-align: center;
-  color: var(--muted);
-}
-
-/* throw the cube like a die and go wherever it lands */
-.roll-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  margin-top: 4px;
-  padding: 10px 22px;
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 0.86rem;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-  color: var(--text);
-  cursor: pointer;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--card-border);
-  border-radius: 999px;
-  transition: background 0.25s ease, border-color 0.25s ease,
-              transform 0.25s ease, box-shadow 0.25s ease, opacity 0.45s ease;
-}
-.roll-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.13);
-  border-color: var(--accent);
-  transform: translateY(-2px);
-  box-shadow: 0 12px 30px -14px var(--accent);
-}
-.roll-btn:active:not(:disabled) { transform: translateY(0) scale(0.97); }
-.roll-btn:disabled { opacity: 0.55; cursor: default; }
-.roll-die {
-  font-size: 1.15rem;
-  line-height: 1;
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.roll-btn:hover:not(:disabled) .roll-die { transform: rotate(-22deg) scale(1.12); }
-/* while the throw is in the air the die keeps tumbling on the button too */
-.roll-btn:disabled .roll-die { animation: dieTumble 0.5s linear infinite; }
-@keyframes dieTumble {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
 }
 
 /* for the screen reader only: which face the throw came up on */
@@ -454,7 +94,7 @@ body {
   left: 16px;
   top: 13px;
   min-width: 18px;
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--muted);
@@ -467,7 +107,7 @@ body {
   gap: 10px;
 }
 .mv-title {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: 1.08rem;
   font-weight: 600;
   color: var(--text);
@@ -483,61 +123,6 @@ body {
   line-height: 1.5;
   color: var(--muted);
 }
-
-/* ---------- Footer stats: one slim inline strip ---------- */
-.footer {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: baseline;
-  gap: clamp(20px, 5vw, 64px);
-  padding: clamp(14px, 2vw, 20px) clamp(18px, 3vw, 32px);
-  background: var(--card);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius);
-  backdrop-filter: blur(14px);
-  box-shadow: var(--shadow);
-  text-align: center;
-}
-
-/* hidden Easter-egg entrance: a faint drain in the corner of the footer */
-.egg-link {
-  position: absolute;
-  right: 12px;
-  bottom: 8px;
-  font-size: 0.95rem;
-  line-height: 1;
-  text-decoration: none;
-  opacity: 0.22;
-  filter: grayscale(0.4);
-  transition: opacity 0.3s ease, transform 0.3s ease, filter 0.3s ease;
-}
-.egg-link-2 { right: 40px; }
-.egg-link-3 { right: 68px; }
-.egg-link-4 { right: 96px; }
-/* on a phone the stats wrap onto two rows that reach the corner; keep the
-   entrances on a strip of their own beneath them */
-@media (max-width: 640px) {
-  .footer { padding-bottom: 34px; }
-}
-.egg-link:hover,
-.egg-link:focus-visible {
-  opacity: 1;
-  filter: none;
-  transform: translateY(-2px) scale(1.18);
-  outline: none;
-  text-shadow: 0 0 14px var(--accent-2);
-}
-.stat { display: flex; flex-direction: row; align-items: baseline; gap: 8px; }
-.stat-num {
-  font-family: "Space Grotesk", sans-serif;
-  font-weight: 700; font-size: clamp(1.2rem, 2.4vw, 1.6rem);
-  background: linear-gradient(120deg, #fff, #b9a8ff);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-.stat-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
 
 /* ---------- Confetti ---------- */
 .confetti-layer { position: fixed; inset: 0; pointer-events: none; z-index: 50; overflow: hidden; }
@@ -555,7 +140,7 @@ body {
 @keyframes flash { 0%{transform:scale(1)} 40%{transform:scale(1.35)} 100%{transform:scale(1)} }
 
 .ghost-btn {
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.85rem; font-weight: 600;
   color: var(--text);
   background: rgba(255,255,255,0.06);
@@ -698,7 +283,7 @@ body {
   left: 10px; bottom: 10px;
   z-index: 2;
   white-space: nowrap;
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.66rem; font-weight: 600;
   letter-spacing: 0.06em; text-transform: uppercase;
   color: #fff;
@@ -716,7 +301,7 @@ body {
 
 .aw-caption { display: flex; flex-direction: column; gap: 3px; }
 .aw-title {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(1.15rem, 2.6vw, 1.5rem);
   font-weight: 700;
   line-height: 1.2;
@@ -730,73 +315,12 @@ body {
 .aw-foot .ghost-btn { text-decoration: none; display: inline-block; }
 .copy-btn.copied { border-color: var(--good); color: var(--good); }
 
-/* Four Fun Facts — one card per category */
-.ff-list { display: flex; flex-direction: column; gap: 12px; }
-.ff-card {
-  padding: 14px 16px;
-  border-radius: 14px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--card-border);
-  border-left: 3px solid var(--ff-c, var(--accent));
-  animation: ffIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) backwards;
-  animation-delay: calc(var(--i, 0) * 0.07s);
-}
-@keyframes ffIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: none; }
-}
-/* each category gets its own accent, so four cards read as four subjects */
-.ff-card[data-cat="Tech"]    { --ff-c: #19e3ff; }
-.ff-card[data-cat="Art"]     { --ff-c: #ff5c9c; }
-.ff-card[data-cat="History"] { --ff-c: #ffd86b; }
-.ff-card[data-cat="Misc"]    { --ff-c: #47e0a0; }
-
-.ff-head {
-  display: flex; align-items: center; gap: 10px;
-  margin-bottom: 7px; min-height: 24px;
-}
-.ff-chip {
-  font-size: 0.66rem; font-weight: 700;
-  text-transform: uppercase; letter-spacing: 0.12em;
-  color: var(--ff-c);
-}
-/* sits quietly at the end of the chip row until the card is hovered or the
-   button is focused — on touch there's no hover, so it never fully fades */
-.ff-copy {
-  margin-left: auto;
-  padding: 4px 12px;
-  font-size: 0.7rem;
-  opacity: 0.55;
-  transition: opacity 0.25s ease, background 0.25s ease, border-color 0.25s ease;
-}
-.ff-card:hover .ff-copy,
-.ff-copy:focus-visible { opacity: 1; }
-.ff-copy.copied { opacity: 1; }
-.ff-text { font-size: 0.94rem; line-height: 1.62; color: var(--text); }
-
-/* On This Day — the full date leads, so the entry reads as a statement about
-   today rather than a year floating above a paragraph */
-.history-date {
-  font-family: "Space Grotesk", sans-serif;
-  font-size: clamp(1.5rem, 3.6vw, 2.3rem);
-  font-weight: 700;
-  line-height: 1.15;
-  text-wrap: balance;
-}
-.history-on { color: var(--muted); font-weight: 500; }
-.history-day { color: var(--text); }
-.history-year {
-  background: linear-gradient(120deg, #4aa8ff, #1f5fe0);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
 /* Trivia */
 .trivia-q { font-weight: 500; }
 .choices { display: flex; flex-direction: column; gap: 10px; }
 .choice {
   text-align: left;
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.98rem; color: var(--text);
   background: rgba(255,255,255,0.04);
   border: 1px solid var(--card-border);
@@ -875,7 +399,7 @@ body {
   box-shadow: 0 0 16px -6px #ffd86b;
 }
 .tv-score {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: 0.95rem; color: var(--text);
   font-variant-numeric: tabular-nums;
 }
@@ -1009,7 +533,7 @@ body {
 }
 .tv-card-score { display: flex; align-items: baseline; justify-content: center; gap: 8px; }
 .tv-card-num {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(3rem, 11vw, 4.6rem); font-weight: 700; line-height: 1;
   background: linear-gradient(120deg, #ff5c9c, #ff8a5c);
   -webkit-background-clip: text; background-clip: text;
@@ -1130,7 +654,7 @@ body.modal-open { overflow: hidden; }
   filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.25));
 }
 .modal-title {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(1.4rem, 3.5vw, 1.7rem);
   font-weight: 700;
 }
@@ -1164,7 +688,7 @@ body.modal-open { overflow: hidden; }
 .pz-today-ico { font-size: 1.7rem; line-height: 1; }
 .pz-today-meta { display: flex; flex-direction: column; gap: 3px; }
 .pz-today-name {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: 1.05rem;
 }
@@ -1184,7 +708,7 @@ body.modal-open { overflow: hidden; }
 /* shared inputs */
 .pz-form { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .pz-input {
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-sans);
   font-size: 1rem;
   color: var(--text);
   background: rgba(255, 255, 255, 0.06);
@@ -1198,7 +722,7 @@ body.modal-open { overflow: hidden; }
 }
 .pz-input:focus { outline: none; border-color: var(--accent); }
 .pz-btn {
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.9rem; font-weight: 600;
   color: #fff;
   background: linear-gradient(120deg, var(--accent), #b06bff);
@@ -1211,7 +735,7 @@ body.modal-open { overflow: hidden; }
 .pz-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px -8px var(--accent); }
 .pz-btn:disabled { opacity: 0.5; cursor: default; transform: none; box-shadow: none; }
 .pz-link {
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   color: var(--accent-2);
   background: none; border: none; cursor: pointer;
@@ -1224,7 +748,7 @@ body.modal-open { overflow: hidden; }
 .pz-wtile {
   width: 46px; height: 46px;
   display: grid; place-items: center;
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: 1.4rem; font-weight: 700; text-transform: uppercase;
   color: var(--text);
   border: 2px solid var(--card-border);
@@ -1243,7 +767,7 @@ body.modal-open { overflow: hidden; }
 
 /* Sequence */
 .pz-seq {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(1.3rem, 4vw, 1.9rem);
   font-weight: 700;
   letter-spacing: 1px;
@@ -1264,7 +788,7 @@ body.modal-open { overflow: hidden; }
 .pz-scell {
   display: grid; place-items: center;
   border: 1px solid var(--card-border);
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: 1.3rem; font-weight: 600;
 }
 .pz-scell.bdr-r { border-right: 2px solid rgba(255, 255, 255, 0.3); }
@@ -1273,7 +797,7 @@ body.modal-open { overflow: hidden; }
 .pz-sinput {
   width: 100%; height: 100%;
   background: none; border: none; text-align: center;
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: 1.3rem; font-weight: 600; color: var(--text);
 }
 .pz-sinput:focus { outline: none; background: rgba(124, 92, 255, 0.18); }
@@ -1288,7 +812,7 @@ body.modal-open { overflow: hidden; }
   padding: 8px 14px;
 }
 .pz-hguess {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: 1.1rem; font-weight: 700; letter-spacing: 3px;
 }
 .pz-hfb { font-size: 0.85rem; color: var(--muted); }
@@ -1325,164 +849,32 @@ body.modal-open { overflow: hidden; }
   transform: scale(1.04);
 }
 
-/* ---------- Responsive ---------- */
-@media (max-width: 820px) {
-  .topbar { grid-template-columns: 1fr; justify-items: center; gap: 14px; text-align: center; }
-  .streak-pill { justify-self: center; }
-  .date-main { white-space: normal; }
-}
-
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001s !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001s !important;
   }
-  .reveal { opacity: 1; transform: none; }
-  .pointer-glow { display: none; }
 }
 
-/* ---------- Cursor-reactive light ---------- */
-.pointer-glow {
-  position: fixed;
-  top: 0; left: 0;
-  width: 680px; height: 680px;
-  margin: -340px 0 0 -340px;
-  border-radius: 50%;
-  z-index: -1;
-  pointer-events: none;
-  background: radial-gradient(circle,
-    rgba(166, 77, 255, 0.30),
-    rgba(25, 227, 255, 0.12) 36%,
-    rgba(255, 46, 151, 0.06) 56%,
-    transparent 70%);
-  filter: blur(36px);
-  opacity: 0;
-  transition: opacity 0.8s ease;
-  will-change: transform;
-  mix-blend-mode: screen;
-}
-body.pointer-active .pointer-glow { opacity: 1; }
-
-/* vibrant particle field that drifts and reacts to the cursor */
-.fx-canvas {
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-}
-/* While a modal is open the streaks would bleed through its panel unevenly,
-   making different modals look like they have different opacity — so fade
-   them out for a clean, consistent surface. */
-body.modal-open .fx-canvas { opacity: 0; }
-
-/* ---------- Ripples ---------- */
-.ripple-layer {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  overflow: hidden;
-}
-/* expanding water rings from a click, behind the glass panels */
-.water-ripple {
-  position: absolute;
-  width: 44px; height: 44px;
-  margin: -22px 0 0 -22px;
-  border-radius: 50%;
-  border: 2px solid rgba(124, 92, 255, 0.5);
-  opacity: 0;
-  pointer-events: none;
-  will-change: transform, opacity;
-  animation: waterRipple 1.6s cubic-bezier(0.1, 0.6, 0.25, 1) forwards;
-}
-.water-ripple.alt { border-color: rgba(0, 224, 198, 0.5); }
-@keyframes waterRipple {
-  0%   { transform: scale(0.2); opacity: 0.7; }
-  100% { transform: scale(15);  opacity: 0; }
-}
-
-/* tactile tap ripple inside buttons & controls */
-.tap-ripple {
-  position: absolute;
-  border-radius: 50%;
-  transform: translate(-50%, -50%) scale(0);
-  pointer-events: none;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.05) 60%, transparent 72%);
-  mix-blend-mode: screen;
-  z-index: 3;
-  animation: tapRipple 0.62s ease-out forwards;
-}
-@keyframes tapRipple {
-  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0.55; }
-  100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
-}
-
-/* elements that host a tap ripple need to clip it */
+/* buttons clip whatever is drawn inside them */
 .ghost-btn,
 .pz-btn,
-.choice,
-.streak-pill {
+.choice {
   position: relative;
   overflow: hidden;
 }
-/* The close button also clips its ripple, but it is absolutely positioned in
-   the modal corner — don't reset that here or it falls back into the flow. */
+/* the close button is absolutely positioned in the modal corner — don't
+   reset that here or it falls back into the flow */
 .modal-close { overflow: hidden; }
-
-/* ============================================================= *
- *  Floating controls — theme toggle
- * ============================================================= */
-.controls {
-  position: fixed;
-  right: clamp(12px, 2vw, 22px);
-  bottom: clamp(12px, 2vw, 22px);
-  z-index: 300;
-  display: flex;
-  gap: 8px;
-  padding: 8px;
-  border-radius: 999px;
-  background: rgba(12, 12, 20, 0.6);
-  border: 1px solid var(--card-border);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 18px 50px -22px rgba(0, 0, 0, 0.85);
-}
-.ctrl-btn {
-  width: 42px; height: 42px;
-  display: grid; place-items: center;
-  font-size: 1.2rem; line-height: 1;
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--card-border);
-  border-radius: 50%;
-  cursor: pointer;
-  transition: transform 0.25s ease, background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
-}
-.ctrl-btn:hover {
-  transform: translateY(-3px);
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.28);
-  box-shadow: 0 10px 24px -10px var(--accent);
-}
-.ctrl-btn:active { transform: translateY(0) scale(0.94); }
-.ctrl-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-@media (max-width: 640px) {
-  .ctrl-btn { width: 38px; height: 38px; font-size: 1.05rem; }
-}
 
 /* ============================================================= *
  *  Light theme
  * ============================================================= */
 /* a gentle cross-fade when flipping themes (enabled after first paint) */
 body.theme-ready,
-body.theme-ready .topbar,
-body.theme-ready .footer,
 body.theme-ready .choice,
-body.theme-ready .modal,
-body.theme-ready .controls,
-body.theme-ready .ctrl-btn {
+body.theme-ready .modal {
   transition: background-color 0.45s ease, color 0.45s ease, border-color 0.45s ease;
 }
 body.light {
@@ -1500,116 +892,30 @@ body.light .bg {
     #e9eef9;
 }
 body.light .grain { opacity: 0.025; }
-/* gradient texts that were tuned for a black background */
-body.light .dchar-in {
-  background-image: linear-gradient(120deg,
-    #2a2db0 8%, #8b3bd6 32%, #1f86c9 55%, #7c5cff 78%, #2a2db0 96%);
-}
-body.light .stat-num {
-  background: linear-gradient(120deg, #262a72, #7a52d6);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
 /* glassy white fills that vanish on a light page → subtle dark tints */
 body.light .choice,
 body.light .ghost-btn,
 body.light .modal-close,
-body.light .choice .key,
-body.light .ctrl-btn {
+body.light .choice .key {
   background: rgba(28, 34, 80, 0.05);
 }
 body.light .tv-mult,
 body.light .tv-row,
-body.light .ff-card,
 body.light .loc-clue { background: rgba(28, 34, 80, 0.05); }
 /* the mint accent needs darkening to stay legible on white */
 body.light .loc-clue { border-left-color: #0d9488; }
 body.light .loc-clue-tag { color: #0b7c72; }
 body.light .loc-stage,
 body.light .loc-stage-up { color: #0b7c72; background: rgba(13, 148, 136, 0.12); border-color: rgba(13, 148, 136, 0.32); }
-body.light .loc-stage,
-body.light .loc-stage-up { color: #0b7c72; background: rgba(13, 148, 136, 0.12); border-color: rgba(13, 148, 136, 0.32); }
-/* the neon category accents need darkening to stay legible on white */
-body.light .ff-card[data-cat="Tech"]    { --ff-c: #0a7f96; }
-body.light .ff-card[data-cat="Art"]     { --ff-c: #c02a68; }
-body.light .ff-card[data-cat="History"] { --ff-c: #9a6b00; }
-body.light .ff-card[data-cat="Misc"]    { --ff-c: #0b8459; }
 body.light .tv-chip { color: #c02a68; }
 body.light .tv-kind,
 body.light .tv-pos { color: #0a7f96; }
 body.light .choice.placed { border-color: #0a7f96; background: rgba(10, 127, 150, 0.08); }
 body.light .tv-pic-img,
 body.light .tv-pic-alt { background: rgba(28, 34, 80, 0.04); }
-body.light .controls { background: rgba(255, 255, 255, 0.7); }
 body.light .mv-item { background: rgba(255, 255, 255, 0.72); }
 body.light .modal { border-color: rgba(28, 34, 70, 0.16); }
 body.light .modal-icon { filter: none; }
-/* the cube is a pale box with a lighter colour wash on a light page */
-body.light .cube-face {
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: inset 0 0 calc(var(--cube) * 0.2) var(--edge),
-              0 10px 30px -18px rgba(40, 50, 100, 0.5);
-}
-body.light .cube-face::before { opacity: 0.22; }
-body.light .cube-face:hover,
-body.light .cube-face:focus-visible {
-  box-shadow: inset 0 0 calc(var(--cube) * 0.3) var(--edge),
-              0 18px 44px -16px rgba(40, 50, 100, 0.55);
-}
-body.light .cube-face:hover::before,
-body.light .cube-face:focus-visible::before { opacity: 0.38; }
-body.light .face-icon { filter: none; }
-body.light .roll-btn { background: rgba(255, 255, 255, 0.7); }
-
-/* ============================================================= *
- *  A throw of the cube
- * ============================================================= */
-/* While the Roll button's throw is in the air, everything but the cube fades
-   out, and the lights come down around it like a dice table under a lamp.
-   app.js adds .dice-rolling to <body> for the length of the throw. */
-.cube-plate,
-.cube-hint,
-.ripple-layer { transition: opacity 0.45s ease; }
-/* these keep their theme cross-fade and add the fade */
-body.theme-ready .topbar,
-body.theme-ready .footer,
-body.theme-ready .controls {
-  transition: background-color 0.45s ease, color 0.45s ease,
-              border-color 0.45s ease, opacity 0.45s ease;
-}
-body.dice-rolling :is(.topbar, .footer, .controls, .cube-plate, .roll-btn,
-                      .cube-hint, .fx-canvas, .pointer-glow, .ripple-layer) {
-  /* important: the top bar and footer hold their opacity in the fill of
-     their reveal animation, which a plain declaration can't override */
-  opacity: 0 !important;
-  pointer-events: none;
-}
-
-/* the lamp: a pool of light over the cube, with a hint of green felt, and
-   the rest of the room going dark. app.js centres it on the cube. */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: radial-gradient(ellipse var(--spot-r, 420px) calc(var(--spot-r, 420px) * 0.7)
-    at var(--spot-x, 50%) var(--spot-y, 45%),
-    rgba(30, 160, 100, 0.26), rgba(20, 90, 60, 0.08) 40%, rgba(0, 0, 0, 0) 60%, rgba(0, 0, 0, 0.62) 160%);
-  opacity: 0;
-  transition: opacity 0.6s ease;
-}
-body.light::after {
-  background: radial-gradient(ellipse var(--spot-r, 420px) calc(var(--spot-r, 420px) * 0.7)
-    at var(--spot-x, 50%) var(--spot-y, 45%),
-    rgba(20, 140, 85, 0.2), rgba(20, 120, 80, 0.06) 40%, rgba(20, 24, 60, 0) 60%, rgba(20, 24, 60, 0.4) 170%);
-}
-body.dice-rolling::after { opacity: 1; }
-body.light .roll-btn:hover:not(:disabled) { background: #fff; }
-body.light .face-meter { background: rgba(28, 34, 80, 0.13); }
-body.light .cube-shadow {
-  background: radial-gradient(closest-side, rgba(40, 50, 100, 0.3), transparent 72%);
-}
 /* hard-coded light strokes/text inside puzzles, flipped for light mode */
 body.light .pz-seq { color: var(--text); }
 body.light .pz-sgrid,
@@ -1619,15 +925,6 @@ body.light .pz-wtile { background: rgba(255, 255, 255, 0.7); }
 body.light .pz-input { background: rgba(255, 255, 255, 0.7); }
 body.light .pz-ncell { background: rgba(28, 34, 80, 0.05); }
 body.light .pz-wtile.absent { background: #c4c7d6; border-color: #c4c7d6; color: #2a2c3a; }
-/* the neon cursor light is invisible on white — give it a soft cool tint */
-body.light .pointer-glow {
-  background: radial-gradient(circle,
-    rgba(120, 90, 230, 0.18),
-    rgba(40, 160, 220, 0.10) 38%,
-    transparent 68%);
-  mix-blend-mode: multiply;
-}
-body.light.pointer-active .pointer-glow { opacity: 0.45; }
 
 
 /* ---------- Where in the World ---------- */
@@ -1650,7 +947,7 @@ body.light.pointer-active .pointer-glow { opacity: 0.45; }
   text-transform: uppercase; letter-spacing: 0.07em;
 }
 .loc-score {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: 1rem; font-weight: 700; color: var(--text);
   font-variant-numeric: tabular-nums;
 }
@@ -1756,7 +1053,7 @@ body.light.pointer-active .pointer-glow { opacity: 0.45; }
 }
 .loc-truth-label {
   fill: var(--good);
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-sans);
   font-size: 9px; font-weight: 700;
   paint-order: stroke; stroke: #0a1622; stroke-width: 2.5;
 }
