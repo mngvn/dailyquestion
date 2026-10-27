@@ -8,7 +8,7 @@
 //
 // They live in page coordinates on one fixed canvas laid over everything, so
 // a wisp that leaves the desk can wander up past the heading and the nav.
-// candle.js decides when to puff; this just carries the smoke.
+// stage.js decides when to puff; this just carries the smoke.
 //
 // Exposes Wisps.puff(pageX, pageY, { count, power, long, alpha }).
 

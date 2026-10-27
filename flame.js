@@ -2,17 +2,15 @@
 //
 // The flame is a shader on a card that always faces the camera: a teardrop
 // with a blue root, a dark pocket round the wick, a white-hot core and a tip
-// torn about by two octaves of noise climbing through it. Its colours run
-// well past 1, so the bloom pass downstream makes it burn. A soft glow card
-// sits behind it, and embers spit off the tip and climb, cooling from white
-// through orange to a dull red. Dust motes drift in the room and only show
-// where the candle reaches them — Particles from React Bits, in the dark.
+// torn about by two octaves of noise climbing through it. Its heart runs past
+// white, and three soft glow cards behind it make the halo a bloom pass would
+// (for a fraction of the cost). Embers spit off the tip and climb, cooling
+// from white through orange to a dull red. Dust motes drift in the room and
+// only show where the candle reaches them — Particles from React Bits, in the
+// dark.
 //
 // In light mode the same flame burns black: the colours turn to ink and soot,
 // the embers to ash, and the glow to a halo of shadow.
-//
-// HazeShader is the last pass before output: heat shimmer in the column of
-// air over the flame, a vignette, and fine grain (React Bits' Noise).
 
 import * as THREE from "three";
 
@@ -198,7 +196,11 @@ export class Flame {
       m.renderOrder = 11;
       return m;
     };
-    this.glows = [glow([0.9, 0.36, 0.1], 5.0, 0.9, 0.34), glow([0.16, 0.06, 0.015], 3.0, 3.2, 0.36)];
+    this.glows = [
+      glow([1.15, 0.48, 0.13], 4.6, 1.0, 0.34),
+      glow([0.34, 0.13, 0.03], 3.4, 1.9, 0.36),
+      glow([0.14, 0.05, 0.012], 3.0, 3.6, 0.38)
+    ];
     this.group.add(this.flame, ...this.glows);
 
     // ----- Embers -----
@@ -240,7 +242,7 @@ export class Flame {
     this.dark = dark;
     this.uniforms.uDark.value = dark ? 1 : 0;
     // the black flame keeps only the wide halo of shadow round it
-    this.glows[0].visible = !dark;
+    this.glows[0].visible = this.glows[1].visible = !dark;
     const blend = dark ? THREE.NormalBlending : THREE.AdditiveBlending;
     for (const m of [this.flameMat, this.emberMat, ...this.glows.map((g) => g.material)]) {
       m.blending = blend;
@@ -357,46 +359,6 @@ export class Dust {
     this.uniforms.uFlame.value.copy(flame);
   }
 }
-
-// Heat shimmer over the flame, a vignette and film grain. The flame's tip and
-// the size of the shimmer are given in screen UV.
-export const HazeShader = {
-  uniforms: {
-    tDiffuse: { value: null },
-    uTime: { value: 0 },
-    uFlame: { value: new THREE.Vector2(0.5, 0.5) },
-    uSize: { value: new THREE.Vector2(0.05, 0.2) },
-    uStrength: { value: 1 },
-    uAspect: { value: 1 },
-    uGrain: { value: 0.035 },
-    uVignette: { value: 0.5 },
-    uSeed: { value: 0 }
-  },
-  vertexShader: CARD_VERT,
-  fragmentShader: /* glsl */ `
-    uniform sampler2D tDiffuse;
-    uniform float uTime, uStrength, uAspect, uGrain, uVignette, uSeed;
-    uniform vec2 uFlame, uSize;
-    varying vec2 vUv;
-    ${NOISE}
-    void main() {
-      vec2 uv = vUv;
-      vec2 rel = (uv - uFlame) / uSize;
-      float column = exp(-rel.x * rel.x * 2.5) * smoothstep(-0.1, 0.25, rel.y) * smoothstep(1.4, 0.4, rel.y);
-      if (column > 0.002) {
-        vec2 q = vec2(uv.x * uAspect, uv.y) * 60.0;
-        vec2 wobble = vec2(noise(q + vec2(0.0, -uTime * 5.0)) - 0.5, noise(q * 1.3 + vec2(5.2, -uTime * 6.5)) - 0.5);
-        uv += wobble * 0.007 * column * uStrength;
-      }
-      vec4 c = texture2D(tDiffuse, uv);
-      vec2 v = (vUv - 0.5) * vec2(uAspect, 1.0);
-      c.rgb *= mix(1.0, smoothstep(1.25, 0.25, length(v)), uVignette);
-      float g = hash(vUv * vec2(1931.7, 1213.3) + uSeed) - 0.5;
-      c.rgb += g * uGrain * (c.rgb + 0.015);
-      gl_FragColor = c;
-    }
-  `
-};
 
 // Layered sines at unrelated rates read as a living flame; now and then it
 // gutters for a moment.

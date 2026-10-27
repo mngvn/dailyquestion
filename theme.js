@@ -1,49 +1,19 @@
-// theme.js — light / dark mode for the home page. The choice is persisted to
-// localStorage; with no saved choice we follow the OS preference. The mode is
-// reflected on <body> via the `light` class, which styles.css and home.css
-// read; the toggle shows a sun or a moon to match.
+// theme.js — light / dark for the home page, following the system setting.
+// The mode is reflected on <body> via the `light` class, which home.css and
+// stage.js read: by candlelight in the dark, by daylight in the light.
+//
+// There is no toggle on the page, so a choice saved by the old one is cleared
+// rather than left to pin the page to a mode it can no longer leave.
 
 (function () {
   "use strict";
 
-  const KEY = "daily.theme.v1";
-  const btn = document.getElementById("themeToggle");
   const body = document.body;
   const mq = window.matchMedia("(prefers-color-scheme: light)");
 
-  function apply(theme) {
-    const light = theme === "light";
-    body.classList.toggle("light", light);
-    if (btn) {
-      btn.setAttribute("aria-pressed", String(light));
-      btn.title = light ? "Switch to dark mode" : "Switch to light mode";
-    }
-  }
+  try { localStorage.removeItem("daily.theme.v1"); } catch (e) { /* ignore */ }
 
-  function saved() {
-    try {
-      const s = localStorage.getItem(KEY);
-      if (s === "light" || s === "dark") return s;
-    } catch (e) { /* ignore */ }
-    return null;
-  }
-
-  // initial: explicit choice wins, otherwise mirror the system setting
-  apply(saved() || (mq.matches ? "light" : "dark"));
-
-  // allow a brief cross-fade only after first paint (avoids a flash on load)
-  requestAnimationFrame(() => body.classList.add("theme-ready"));
-
-  if (btn) {
-    btn.addEventListener("click", () => {
-      const next = body.classList.contains("light") ? "dark" : "light";
-      apply(next);
-      try { localStorage.setItem(KEY, next); } catch (e) { /* ignore */ }
-    });
-  }
-
-  // if the user hasn't chosen explicitly, keep following the OS
-  mq.addEventListener("change", (e) => {
-    if (!saved()) apply(e.matches ? "light" : "dark");
-  });
+  const apply = () => body.classList.toggle("light", mq.matches);
+  apply();
+  mq.addEventListener("change", apply);
 })();

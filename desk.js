@@ -1,14 +1,14 @@
-// desk.js — the two crumpled notes on the desk, and the desk itself.
+// desk.js — today's five notes, and the desk they lie on.
 //
-// Today's fun facts and today's entry from history arrive as balls of paper.
-// Hold one (or tug it around) and it opens up; what's written on it is drawn
-// here onto a canvas and printed on the sheet. The facts come four to a day,
-// so that note can be balled back up and the next one handed over.
+// Four fun facts, one from each category, and what happened on this date
+// arrive as balls of coloured paper. Hold one and it opens up; what's written
+// on it is drawn here onto a canvas and printed on the sheet. A note once
+// opened stays open for the rest of the visit — sessionStorage remembers it,
+// so it is still lying open on the desk after a reload.
 //
 // This is also where the room is chosen. stage.js builds the desk in three
-// dimensions, with the notes lying on it in the candlelight; if three.js can't
-// be loaded or there is no WebGL, the flat desk in the page stays, candle.js
-// lights it, and the notes are simply laid on it open.
+// dimensions with the notes lying on it in the candlelight; if three.js can't
+// be loaded or there is no WebGL, the notes are simply laid out flat.
 //
 // app.js puts today's content on window.Daily before this runs — module scripts
 // always run after the classic ones.
@@ -16,26 +16,34 @@
 const W = 360, H = 460;      // the note, in CSS pixels, before it is fitted to its stage
 const RES = 1024 / W;        // texture pixels per CSS pixel
 const INK = "#24211c";
-const PENCIL = "#8b8274";
-const STOCK = "#f5f1e8";
+const PENCIL = "#7d7466";
 const SERIF = '"Newsreader", Georgia, serif';
 const MONO = '"IM Fell English SC", Georgia, serif';
+const OPENED_KEY = "daily.opened.v1";
 
-const CAT_INK = { Tech: "#2563eb", Art: "#db2777", History: "#b45309", Misc: "#059669" };
+// Each note is its own colour of paper, with a darker ink of that colour for
+// its heading.
+const PAPERS = {
+  Tech: { stock: "#a9c9ef", ink: "#1d4ed8", name: "blue" },
+  Art: { stock: "#f4adc2", ink: "#be185d", name: "pink" },
+  History: { stock: "#f4cf6a", ink: "#92400e", name: "yellow" },
+  Misc: { stock: "#a5dcb3", ink: "#047857", name: "green" },
+  day: { stock: "#c9b4ee", ink: "#6d28d9", name: "violet" }
+};
 
 const daily = window.Daily;
 
 // ----- Drawing the notes -----
-function sheet() {
+function sheet(stock) {
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(W * RES);
   canvas.height = Math.round(H * RES);
   const g = canvas.getContext("2d");
   g.scale(RES, RES);
-  g.fillStyle = STOCK;
+  g.fillStyle = stock;
   g.fillRect(0, 0, W, H);
   // faint ruling, the way a page torn from a pad would have it
-  g.strokeStyle = "rgba(70, 110, 170, 0.10)";
+  g.strokeStyle = "rgba(40, 60, 110, 0.12)";
   g.lineWidth = 0.6;
   for (let y = 92; y < H - 40; y += 24) {
     g.beginPath(); g.moveTo(24, y); g.lineTo(W - 24, y); g.stroke();
@@ -80,7 +88,7 @@ function header(g, left, right, color) {
   g.textAlign = "right";
   g.fillText(right.toUpperCase(), W - 28, 44);
   g.textAlign = "left";
-  g.strokeStyle = "rgba(36, 33, 28, 0.18)";
+  g.strokeStyle = "rgba(36, 33, 28, 0.2)";
   g.lineWidth = 1;
   g.beginPath(); g.moveTo(28, 58); g.lineTo(W - 28, 58); g.stroke();
 }
@@ -91,9 +99,9 @@ function footer(g) {
   g.fillText(`DAILY · ${daily.shortDate.toUpperCase()}`, 28, H - 26);
 }
 
-function drawFact(fact, index, total) {
-  const { canvas, g } = sheet();
-  header(g, `Fun fact · ${fact.cat}`, `${index + 1} / ${total}`, CAT_INK[fact.cat] || INK);
+function drawFact(fact, paper) {
+  const { canvas, g } = sheet(paper.stock);
+  header(g, `Fun fact · ${fact.cat}`, daily.shortDate, paper.ink);
   const box = { width: W - 56, height: H - 150 };
   const { lines, lineHeight } = fitText(g, fact.text, box, 26, 15, 500);
   g.fillStyle = INK;
@@ -102,9 +110,9 @@ function drawFact(fact, index, total) {
   return canvas;
 }
 
-function drawHistory(hist, dateLabel) {
-  const { canvas, g } = sheet();
-  header(g, "On this day", dateLabel, "#b45309");
+function drawHistory(hist, dateLabel, paper) {
+  const { canvas, g } = sheet(paper.stock);
+  header(g, "On this day", dateLabel, paper.ink);
   g.fillStyle = INK;
   g.font = `600 64px ${SERIF}`;
   g.fillText(String(hist.year), 26, 128);
@@ -115,8 +123,8 @@ function drawHistory(hist, dateLabel) {
   return canvas;
 }
 
-function drawMissing(message) {
-  const { canvas, g } = sheet();
+function drawMissing(message, paper) {
+  const { canvas, g } = sheet(paper.stock);
   header(g, "Daily", "", PENCIL);
   g.font = `italic 400 20px ${SERIF}`;
   g.fillStyle = PENCIL;
@@ -128,163 +136,101 @@ function drawMissing(message) {
 // fallback face and stays that way.
 function fontsReady() {
   if (!document.fonts || !document.fonts.load) return Promise.resolve();
-  const wanted = [`500 26px ${SERIF}`, `600 64px ${SERIF}`, `italic 400 20px ${SERIF}`, `400 12px ${MONO}`];
+  const wanted = [`500 26px ${SERIF}`, `600 64px ${SERIF}`, `italic 400 20px ${SERIF}`, `400 12px ${MONO}`,
+    '30px "IM Fell English SC"', 'italic 17px "IM Fell English"'];
   const timeout = new Promise((resolve) => setTimeout(resolve, 2500));
   return Promise.race([Promise.all(wanted.map((f) => document.fonts.load(f))), timeout]).catch(() => {});
 }
 
-// ----- A note on the page -----
-// The card around the paper carries data-state, which the CSS uses to swap
-// the hint for the actions once the paper is open.
-function mountNote(stage, note, { texture, label, seed }) {
-  const live = note.querySelector(".note-live");
-  const setState = (state) => { note.dataset.state = state; };
-  const opened = () => {
-    setState("open");
-    live.textContent = note.dataset.text || "";
-    // the candle gutters in the draught of a sheet being shaken open
-    if (typeof Candle !== "undefined") Candle.puff(1);
-  };
+// ----- What has been opened this visit -----
+// Kept for the day it was opened on, so tomorrow's notes arrive crumpled.
+function loadOpened() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(OPENED_KEY));
+    if (saved && saved.day === daily.dayKey && Array.isArray(saved.ids)) return new Set(saved.ids);
+  } catch (e) { /* ignore */ }
+  return new Set();
+}
 
-  if (!stage) return flatNote(note.querySelector(".paper-stage"), texture, opened);
+function saveOpened(ids) {
+  try {
+    sessionStorage.setItem(OPENED_KEY, JSON.stringify({ day: daily.dayKey, ids: [...ids] }));
+  } catch (e) { /* ignore */ }
+}
 
-  const paper = stage.note(note, {
-    texture, label, seed,
-    onProgress: (p) => {
-      note.style.setProperty("--progress", p.toFixed(3));
-      if (note.dataset.state !== "open") setState(p > 0 ? "opening" : "wad");
+// ----- Today's five notes -----
+// In the order the desk lays them out: the four facts, then this day.
+function todaysNotes() {
+  const opened = loadOpened();
+  const notes = [];
+  const add = (id, paper, seed, texture, title, text, copyText) => notes.push({
+    id, seed, texture, title, text,
+    color: paper.stock,
+    label: `${title}, on ${paper.name} paper`,
+    opened: opened.has(id),
+    onOpen() {
+      opened.add(id);
+      saveOpened(opened);
     },
-    onOpen: opened
+    copy(btn) { daily.copyText(copyText, btn); }
   });
-  setState("wad");
-  return {
-    crumple: () => {
-      setState("wad");
-      live.textContent = "";
-      return paper.crumple();
-    },
-    setTexture: (canvas) => paper.setTexture(canvas),
-    focus: () => paper.focus()
-  };
-}
-
-// Without the 3D desk there is nothing to unfold, so the note is just laid
-// out flat.
-function flatNote(stage, texture, opened) {
-  const lay = (canvas) => {
-    canvas.classList.add("paper-flat");
-    canvas.setAttribute("aria-hidden", "true");
-    return canvas;
-  };
-  stage.dataset.status = "flat";
-  stage.append(lay(texture));
-  opened();
-  return {
-    crumple: () => Promise.resolve(),
-    setTexture: (canvas) => {
-      stage.querySelector(".paper-flat").replaceWith(lay(canvas));
-      opened();
-    },
-    focus: () => {}
-  };
-}
-
-// ----- Today's two notes -----
-function mountFacts(stage) {
-  const note = document.getElementById("factNote");
-  if (!note) return;
-  const facts = daily.facts;
-  const next = note.querySelector("[data-action=next]");
-  const copy = note.querySelector("[data-action=copy]");
-  const count = note.querySelector(".note-count");
-  if (!facts.length) {
-    note.dataset.text = "Today's facts failed to load.";
-    next.hidden = true;
-    mountNote(stage, note, { texture: drawMissing("Nothing written today."), label: "An empty note", seed: 7 });
-    return;
+  const seeds = [7, 13, 17, 23];
+  daily.facts.forEach((fact, i) => {
+    const paper = PAPERS[fact.cat] || PAPERS.Misc;
+    add(`fact-${fact.cat}`, paper, seeds[i % seeds.length], drawFact(fact, paper),
+      `Fun fact · ${fact.cat}`, `${fact.cat} fact: ${fact.text}`, `${fact.cat}: ${fact.text}`);
+  });
+  const hist = daily.hist, date = daily.histDate, paper = PAPERS.day;
+  if (hist) {
+    add("history", paper, 11, drawHistory(hist, date, paper), `On this day · ${date}`,
+      `On ${date}, ${hist.year}: ${hist.text}`, `On ${date}, ${hist.year} — ${hist.text}`);
+  } else {
+    add("history", paper, 11, drawMissing(`No entry for ${date}.`, paper), `On this day · ${date}`,
+      `No entry for ${date} yet.`, `No entry for ${date} yet.`);
   }
-
-  let index = 0;
-  const show = (i) => {
-    const fact = facts[i];
-    note.dataset.text = `${fact.cat} fact: ${fact.text}`;
-    count.textContent = `${i + 1} of ${facts.length}`;
-    next.textContent = i + 1 < facts.length ? "Next fact" : "Back to the first";
-  };
-  show(0);
-
-  const paper = mountNote(stage, note, {
-    texture: drawFact(facts[0], 0, facts.length),
-    label: "A crumpled note with today's fun fact",
-    seed: 7
-  });
-
-  copy.addEventListener("click", (e) =>
-    daily.copyText(`${facts[index].cat}: ${facts[index].text}`, e.currentTarget));
-
-  // Ball this one up, then hand over the next, still crumpled, to be opened.
-  next.addEventListener("click", async () => {
-    next.disabled = true;
-    await paper.crumple();
-    index = (index + 1) % facts.length;
-    show(index);
-    paper.setTexture(drawFact(facts[index], index, facts.length));
-    next.disabled = false;
-    paper.focus();
-  });
+  return notes;
 }
 
-function mountHistory(stage) {
-  const note = document.getElementById("historyNote");
-  if (!note) return;
-  const hist = daily.hist;
-  const dateLabel = daily.histDate;
-  const copy = note.querySelector("[data-action=copy]");
-  const refold = note.querySelector("[data-action=refold]");
-  note.querySelector(".note-count").textContent = dateLabel;
-  if (!hist) {
-    note.dataset.text = `No entry for ${dateLabel} yet.`;
-    mountNote(stage, note, { texture: drawMissing(`No entry for ${dateLabel}.`), label: "An empty note", seed: 11 });
-    return;
+// Without the 3D desk there is nothing to unfold, so the notes are simply laid
+// out flat, already open.
+function layFlat(notes) {
+  const desk = document.getElementById("flatDesk");
+  if (!desk) return;
+  for (const note of notes) {
+    const card = document.createElement("figure");
+    card.className = "flat-note";
+    note.texture.classList.add("flat-paper");
+    note.texture.setAttribute("aria-hidden", "true");
+    const caption = document.createElement("figcaption");
+    caption.className = "sr-only";
+    caption.textContent = note.text;
+    const copy = document.createElement("button");
+    copy.type = "button";
+    copy.className = "btn btn-ghost";
+    copy.textContent = "Copy";
+    copy.addEventListener("click", () => note.copy(copy));
+    card.append(note.texture, caption, copy);
+    desk.append(card);
   }
-  note.dataset.text = `On ${dateLabel}, ${hist.year}: ${hist.text}`;
-  const paper = mountNote(stage, note, {
-    texture: drawHistory(hist, dateLabel),
-    label: `A crumpled note about ${dateLabel} in history`,
-    seed: 11
-  });
-
-  copy.addEventListener("click", (e) =>
-    daily.copyText(`On ${dateLabel}, ${hist.year} — ${hist.text}`, e.currentTarget));
-  refold.addEventListener("click", async () => {
-    await paper.crumple();
-    paper.focus();
-  });
-}
-
-// Solving the paper takes a few hundred milliseconds, so let the page paint
-// and its entrance play first.
-function whenIdle() {
-  return new Promise((resolve) => {
-    if (typeof requestIdleCallback === "function") requestIdleCallback(resolve, { timeout: 900 });
-    else setTimeout(resolve, 300);
-  });
 }
 
 // The 3D desk, if it can be had. three.js comes from a CDN, so a slow or
-// blocked connection gives up after a while and the flat desk is used instead.
+// blocked connection gives up after a while and the notes are laid out flat.
 async function loadStage(room) {
   if (!room) return null;
   const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 15000));
-  const mod = await Promise.race([import("./stage.js"), timeout]).catch((error) => {
-    console.warn("three.js could not be loaded; using the flat desk.", error);
-    return null;
-  });
+  const [mod] = await Promise.all([
+    Promise.race([import("./stage.js"), timeout]).catch((error) => {
+      console.warn("three.js could not be loaded; laying the notes out flat.", error);
+      return null;
+    }),
+    fontsReady()
+  ]);
   if (!mod) return null;
   try {
     return await mod.start(room);
   } catch (error) {
-    console.warn("The 3D desk could not be built; using the flat desk.", error);
+    console.warn("The 3D desk could not be built; laying the notes out flat.", error);
     return null;
   }
 }
@@ -293,16 +239,14 @@ async function init() {
   if (!daily) return;
   const room = document.getElementById("room");
   const stage = await loadStage(room);
+  await fontsReady();
+  const notes = todaysNotes();
   if (room) room.dataset.mode = stage ? "3d" : "2d";
-  if (typeof Candle !== "undefined") {
-    if (stage) Candle.use(stage.puff);
-    else Candle.start();
+  if (!stage) {
+    layFlat(notes);
+    return;
   }
-  if (stage) window.DeskStage = stage;
-  await Promise.all([fontsReady(), whenIdle()]);
-  mountFacts(stage);
-  await whenIdle();
-  mountHistory(stage);
+  for (const note of notes) stage.note(note);
 }
 
 init();
