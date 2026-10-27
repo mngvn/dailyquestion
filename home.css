@@ -5,6 +5,9 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body.home {
+  /* where the candle's flame is, down the room: stage.js puts the desk's
+     flame here too (FLAME_AT), so the loading flame turns into it */
+  --flame-at: 35%;
   --bg: #050302;
   --text: #f6efe4;
   --muted: #b3a593;
@@ -20,6 +23,9 @@ body.home.light {
   --bg: #e9dcc6;
   --text: #241a10;
   --muted: #6a5a46;
+}
+@media (max-aspect-ratio: 19/20) {
+  body.home { --flame-at: 34%; }
 }
 
 .sr-only {
@@ -59,28 +65,30 @@ body.home.light {
 }
 body.light .room-date { text-shadow: 0 2px 24px rgba(255, 248, 235, 0.9); }
 
-/* a candle being lit, while three.js loads */
+/* a candle being lit, while the desk is made ready; it stands exactly where
+   the desk's own flame will be */
 .room-loading {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: radial-gradient(ellipse 45% 38% at 50% 58%, rgba(255, 140, 50, 0.16), transparent 70%);
-  transition: opacity 1.2s ease;
+  /* never quite clear, so the opening reads against the veil all the way out */
+  background: radial-gradient(ellipse 45% 38% at 50% var(--flame-at), rgba(255, 140, 50, 0.16), rgba(255, 130, 50, 0.05) 70%);
+  transition: opacity 0.9s ease;
   pointer-events: none;
 }
 .room-loading-flame {
   position: absolute;
   left: 50%;
-  top: 50%;
-  width: 14px;
-  height: 30px;
-  margin-left: -7px;
+  top: var(--flame-at);
+  height: clamp(16px, 5vmin, 56px);   /* about the size the desk's flame is drawn */
+  aspect-ratio: 14 / 30;
+  translate: -50% -50%;
   border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
   background: radial-gradient(ellipse at 50% 75%, #fff6d8 0 22%, #ffc35a 45%, #ff7a1a 75%, transparent 100%);
   box-shadow: 0 0 46px 20px rgba(255, 140, 40, 0.3);
   animation: loadingFlame 0.18s ease-in-out infinite alternate;
 }
-body.light .room-loading { background: radial-gradient(ellipse 45% 38% at 50% 58%, rgba(40, 20, 60, 0.12), transparent 70%); }
+body.light .room-loading { background: radial-gradient(ellipse 45% 38% at 50% var(--flame-at), rgba(40, 20, 60, 0.13), rgba(70, 45, 90, 0.07) 70%); }
 body.light .room-loading-flame { background: radial-gradient(ellipse at 50% 75%, #000 0 30%, #2a1446 70%, transparent 100%); box-shadow: 0 0 46px 20px rgba(30, 15, 45, 0.25); }
 @keyframes loadingFlame {
   from { transform: scale(1, 1) skewX(-2deg); }
@@ -90,9 +98,10 @@ body.light .room-loading-flame { background: radial-gradient(ellipse at 50% 75%,
 .room[data-mode="2d"] .room-loading { display: none; }
 
 /* ---------- The page arriving ----------
-   A veil over everything, opening from the middle as the desk loads. Until
-   bleed.js takes it over it is drawn here, with a pinhole for the flame. Its
-   colour goes by the system setting, so it is right before any script runs. */
+   A veil over everything, opening round the flame while the desk is made
+   ready. Until bleed.js takes it over it is drawn here, with a pinhole for
+   the flame; its colour goes by the system setting, so it is right before
+   any script runs. Should the script never arrive, it lifts on its own. */
 .bleed {
   --veil: #050302;
   --tide: rgb(255, 170, 90);
@@ -102,10 +111,12 @@ body.light .room-loading-flame { background: radial-gradient(ellipse at 50% 75%,
   width: 100%;
   height: 100%;
   pointer-events: none;
-  background: radial-gradient(circle at 50% 50%, transparent 30px, var(--veil) 46px);
-  transition: opacity 0.6s ease;
+  background: radial-gradient(circle at 50% var(--flame-at), transparent 30px, var(--veil) 46px);
+  animation: bleedGiveUp 0.8s ease 30s forwards;
 }
-.bleed[data-done="true"] { opacity: 0; }
+@keyframes bleedGiveUp {
+  to { opacity: 0; visibility: hidden; }
+}
 @media (prefers-color-scheme: light) {
   .bleed { --veil: #e9dcc6; --tide: rgb(110, 70, 30); }
 }
@@ -116,7 +127,7 @@ body.light .room-loading-flame { background: radial-gradient(ellipse at 50% 75%,
   inset: 0;
   z-index: 1;
   opacity: 0;
-  transition: opacity 1.2s ease;
+  transition: opacity 0.9s ease;
 }
 .room[data-mode="3d"] .stage { opacity: 1; }
 .stage-canvas {

@@ -12,11 +12,15 @@
 // front of you; put it down and it lies open on the chart, creases and all.
 //
 // It is built to stay light: one pass straight to the screen, shadows drawn
-// again only when something on the desk moves, the paper crumpled in workers,
-// and a slower tick once nothing has happened for a while.
+// again only when something on the desk moves, the paper crumpled in workers.
+// And it is made ready out of sight: every shader is compiled and every note
+// printed and uploaded before the room is shown, so once it can be seen
+// nothing in it stalls.
 //
-// start(room) builds it and resolves to { note(spec), puff(strength),
-// dispose() }, or to null when there is no WebGL to be had.
+// start(room) builds it and resolves to { note(spec), show(), puff(strength),
+// dispose() }, or to null when there is no WebGL to be had. note(spec)
+// resolves once that note is ready; show() is for when the room comes into
+// view, and lets the notes fall.
 
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
@@ -35,6 +39,11 @@ const TUG_PX = 2200;         // dragging this far opens it on its own
 const SPRING_BACK = 0.88;    // letting go early keeps this much of the progress
 const RELIGHT_MS = 2800;     // how long the candle stays out
 const CHART_Y = 0.06;        // the chart's surface, where the notes rest
+// Where the flame sits on screen, as a share of the room's height down from
+// the top. The loading flame in home.css is in the same place, so when the
+// room fades in the one flame becomes the other.
+const FLAME_AT = { wide: 0.35, tall: 0.34 };
+const FLAME_MID = 0.36;      // the middle of the flame, above the wick
 
 // Where everything lies: `wide` for landscape rooms, `tall` for phones.
 // Positions are [x, z, turn] on the desk. The notes are placed in the order
@@ -85,7 +94,7 @@ export async function start(room) {
   }
   const stage = new Stage(room, renderer, canvas);
   try {
-    stage.build();
+    await stage.build();
   } catch (error) {
     stage.dispose();
     throw error;
@@ -115,20 +124,21 @@ class Stage {
     this.owners = new Map();
     this.pointer = { x: 0, y: 0, vx: 0, t: 0, inside: false, ndc: new THREE.Vector2(), desk: new THREE.Vector3(), onDesk: false };
     this.shadowsDirty = true;
-    this.idle = 0;
     this.visible = true;
     this.frame = 0;
     this.last = 0;
     this.v = new THREE.Vector3();
+    this.shown = false;
     this.api = {
       note: (spec) => this.addNote(spec),
+      show: () => this.show(),
       puff: (s) => this.puff(s),
       dispose: () => this.dispose()
     };
   }
 
   // ----- Building -----
-  build() {
+  async build() {
     const { renderer, room } = this;
     const el = this.el = document.createElement("div");
     el.className = "stage";
@@ -213,13 +223,17 @@ class Stage {
     scene.add(this.compass.root, this.inkwell.root);
     this.addHits(this.candle, "candle");
 
-    // Draw once before taking over the page: if a shader won't compile here,
-    // the flat notes are still there to fall back on.
+    // Compile every shader before the first frame — where the browser can,
+    // off to one side, so the page doesn't freeze while it happens — then
+    // draw once, still out of sight: if a shader won't compile here, the flat
+    // notes are still there to fall back on.
     let broken = false;
     renderer.debug.onShaderError = () => { broken = true; };
     this.applyTheme();
     this.resize();
     this.step(1 / 60);
+    await renderer.compileAsync(scene, this.camera);
+    if (this.disposed) throw new Error("the room was taken down while it was being built");
     this.draw();
     if (broken) throw new Error("a shader failed to compile");
     renderer.debug.onShaderError = null;
@@ -227,8 +241,17 @@ class Stage {
     this.bindEvents();
     this.el.dataset.ready = "true";
     this.wake();
+  }
+
+  // The room comes into view: the notes, ready and waiting above the desk,
+  // fall into place, and before long the candle smokes.
+  show() {
+    if (this.shown) return;
+    this.shown = true;
+    this.shownAt = this.t;
+    this.wake();
+    setTimeout(() => this.puff(1), 1400);
     this.scheduleWisps();
-    setTimeout(() => this.puff(1), 1600);
   }
 
   dispose() {
@@ -296,8 +319,9 @@ class Stage {
   }
 
   // The camera looks down on the desk from the front. It is pulled back until
-  // everything fits below the date, then the picture is shifted (a lens
-  // shift, not a turn) so the desk sits centred in the space left for it.
+  // everything fits below the date with the flame at its spot (FLAME_AT),
+  // then the picture is shifted (a lens shift, not a turn) to put it there,
+  // with the desk centred across the room.
   fit() {
     const { camera, layout: L, W, H } = this;
     const below = this.heading ? this.heading.getBoundingClientRect().bottom - this.el.getBoundingClientRect().top : 0;
@@ -307,6 +331,8 @@ class Stage {
     for (const x of [-b.x, b.x]) for (const z of [b.back, b.front]) for (const y of [0, b.top]) pts.push(new THREE.Vector3(x, y, z));
     const target = new THREE.Vector3(0, 0, (b.back + b.front) / 2);
     const dir = new THREE.Vector3(0, Math.sin(L.elevation), Math.cos(L.elevation));
+    const flame = this.candle.flameAnchor.localToWorld(new THREE.Vector3(0, FLAME_MID, 0));
+    const flameY = H * FLAME_AT[this.layoutName];
     camera.clearViewOffset();
     const measure = (d) => {
       camera.position.copy(target).addScaledVector(dir, d);
@@ -319,16 +345,18 @@ class Stage {
         const px = (s.x + 1) / 2 * W, py = (1 - s.y) / 2 * H;
         x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py);
       }
-      return { x0, x1, y0, y1 };
+      // how far down the picture has to move to put the flame at its spot
+      const shift = flameY - (1 - this.v.copy(flame).project(camera).y) / 2 * H;
+      return { x0, x1, y0, y1, shift };
     };
+    const fits = (m) => m.x1 - m.x0 <= box.right - box.left && m.y0 + m.shift >= box.top && m.y1 + m.shift <= box.bottom;
     let lo = 5, hi = 200;
     for (let i = 0; i < 30; i++) {
       const mid = (lo + hi) / 2;
-      const m = measure(mid);
-      if (m.x1 - m.x0 <= box.right - box.left && m.y1 - m.y0 <= box.bottom - box.top) hi = mid; else lo = mid;
+      if (fits(measure(mid))) hi = mid; else lo = mid;
     }
     const m = measure(hi);
-    camera.setViewOffset(W, H, (m.x0 + m.x1) / 2 - (box.left + box.right) / 2, (m.y0 + m.y1) / 2 - (box.top + box.bottom) / 2, W, H);
+    camera.setViewOffset(W, H, (m.x0 + m.x1) / 2 - (box.left + box.right) / 2, -m.shift, W, H);
     camera.updateProjectionMatrix();
     this.box = box;
   }
@@ -550,23 +578,22 @@ class Stage {
 
   // ----- The loop -----
   wake() {
-    this.idle = 0;
     if (!this.frame && !this.disposed && this.visible && !document.hidden) this.frame = requestAnimationFrame((t) => this.tick(t));
   }
 
-  // While something is moving the room runs at full rate; after a while with
-  // nothing going on it ticks over at about 30fps — the flame still dances.
+  // The room runs at the display's own rate for as long as it can be seen,
+  // so the flame never stutters; it stops while the tab is hidden or the room
+  // is scrolled away.
   tick(now) {
     this.frame = 0;
     if (this.disposed || !this.visible || document.hidden) { this.last = 0; return; }
     this.frame = requestAnimationFrame((t) => this.tick(t));
-    if (this.idle > 6 && this.last && now - this.last < 30) return;
     const dt = this.last ? Math.min(0.05, (now - this.last) / 1000) : 1 / 60;
     this.last = now;
-    this.idle += dt;
     this.step(dt);
     this.draw();
-    if (this.idle < 6) this.watchSpeed(dt);
+    // judged once it is in view and has settled, not while it is being made
+    if (this.shown && this.t - this.shownAt > 2 && this.t - this.shownAt < 14) this.watchSpeed(dt);
   }
 
   draw() {
@@ -623,7 +650,9 @@ class Stage {
   }
 
   // If the machine can't keep up, give up sharpness first, then the dust,
-  // then the shadows. localStorage "daily.quality" = "high" keeps everything.
+  // then more sharpness — never anything that would mean compiling shaders
+  // again, which would freeze the room while it happened.
+  // localStorage "daily.quality" = "high" keeps everything.
   watchSpeed(dt) {
     if (this.pinned === undefined) {
       try { this.pinned = localStorage.getItem("daily.quality") === "high"; } catch (e) { this.pinned = false; }
@@ -641,8 +670,7 @@ class Stage {
     } else if (this.quality === 2) {
       this.dust.points.visible = false;
     } else {
-      r.shadowMap.enabled = false;
-      this.scene.traverse((o) => { if (o.material) [].concat(o.material).forEach((m) => { m.needsUpdate = true; }); });
+      r.setPixelRatio(0.75);
     }
     this.W = 0;
     this.resize();
@@ -684,7 +712,10 @@ class NoteRig {
       texture: spec.texture, seed: spec.seed, paperColor: spec.color, open: spec.opened,
       size: stage.layout.noteSize, anisotropy: Math.min(8, stage.renderer.capabilities.getMaxAnisotropy())
     }).then(async (paper) => {
-      // its shaders are compiled before it lands, so its arrival doesn't stutter
+      // its print is uploaded and its shaders compiled before it is on the
+      // desk, so its arrival doesn't stutter
+      stage.renderer.initTexture(paper.texture);
+      stage.renderer.initTexture(paper.grain);
       await stage.renderer.compileAsync(paper.object, stage.camera, stage.scene);
       if (stage.disposed) return;
       this.paper = paper;
@@ -905,9 +936,10 @@ class NoteRig {
     moving = advance(this.tiltX, dt, 0.42, instant) || moving;
     moving = advance(this.tiltY, dt, 0.42, instant) || moving;
 
-    // dropped onto the desk: a wad bounces, an open sheet just settles
+    // dropped onto the desk once the room is in view: a wad bounces, an open
+    // sheet just settles
     const d = this.drop;
-    if (d.y > 0 || d.v !== 0) {
+    if (this.stage.shown && (d.y > 0 || d.v !== 0)) {
       d.v -= (this.state === "laid" ? 6 : 22) * dt;
       d.y += d.v * dt;
       if (d.y <= 0) {

@@ -13,9 +13,10 @@
 // app.js puts today's content on window.Daily before this runs — module scripts
 // always run after the classic ones.
 //
-// The page opens from the middle as all this arrives (bleed.js): a little way
-// once three.js is here, most of the way when the desk is drawn, and the rest
-// as each note lands on it.
+// All of it is made ready out of sight, behind the veil that opens round the
+// candle (bleed.js): the desk built, every note crumpled, printed and its
+// shaders compiled. Only then is the room shown and the veil let go, so from
+// the first moment it can be seen nothing in it stalls.
 
 const W = 360, H = 460;      // the note, in CSS pixels, before it is fitted to its stage
 const RES = 1024 / W;        // texture pixels per CSS pixel
@@ -24,6 +25,7 @@ const PENCIL = "#7d7466";
 const SERIF = '"Newsreader", Georgia, serif';
 const MONO = '"IM Fell English SC", Georgia, serif';
 const OPENED_KEY = "daily.opened.v1";
+const NOTE_PATIENCE_MS = 8000;   // a note not ready by then joins the desk late
 
 // Each note is its own colour of paper, with a darker ink of that colour for
 // its heading.
@@ -36,7 +38,7 @@ const PAPERS = {
 };
 
 const daily = window.Daily;
-const bleed = window.Bleed || { reach() {}, finish() {} };
+const bleed = window.Bleed || { reveal() {} };
 
 // ----- Drawing the notes -----
 function sheet(stock) {
@@ -224,12 +226,8 @@ function layFlat(notes) {
 async function loadStage(room) {
   if (!room) return null;
   const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 15000));
-  const loaded = import("./stage.js").then((mod) => {
-    bleed.reach(0.2);
-    return mod;
-  });
   const [mod] = await Promise.all([
-    Promise.race([loaded, timeout]).catch((error) => {
+    Promise.race([import("./stage.js"), timeout]).catch((error) => {
       console.warn("three.js could not be loaded; laying the notes out flat.", error);
       return null;
     }),
@@ -237,35 +235,42 @@ async function loadStage(room) {
   ]);
   if (!mod) return null;
   try {
-    const stage = await mod.start(room);
-    if (stage) bleed.reach(0.55);
-    return stage;
+    return await mod.start(room);
   } catch (error) {
     console.warn("The 3D desk could not be built; laying the notes out flat.", error);
     return null;
   }
 }
 
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const frames = (n) => new Promise((resolve) => {
+  const next = () => (n-- > 0 ? requestAnimationFrame(next) : resolve());
+  next();
+});
+
 async function init() {
-  if (!daily) return bleed.finish();
+  if (!daily) return bleed.reveal();
   const room = document.getElementById("room");
   const stage = await loadStage(room);
   await fontsReady();
   const notes = todaysNotes();
-  if (room) room.dataset.mode = stage ? "3d" : "2d";
   if (!stage) {
+    if (room) room.dataset.mode = "2d";
     layFlat(notes);
-    return bleed.finish();
+    return bleed.reveal();
   }
-  let landed = 0;
-  const arriving = notes.map((note) => Promise.resolve(stage.note(note)).then(() => {
-    landed += 1;
-    bleed.reach(0.55 + 0.45 * landed / notes.length);
-  }));
-  Promise.allSettled(arriving).then(() => bleed.finish());
+  // every note made ready while the room is still out of sight, then a couple
+  // of frames drawn with all of them in it, so there is nothing left to do
+  // for the first time once it is seen
+  const ready = Promise.allSettled(notes.map((note) => stage.note(note)));
+  await Promise.race([ready, wait(NOTE_PATIENCE_MS)]);
+  await frames(2);
+  room.dataset.mode = "3d";
+  stage.show();
+  bleed.reveal();
 }
 
 init().catch((error) => {
   console.error(error);
-  bleed.finish();
+  bleed.reveal();
 });
