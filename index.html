@@ -11,9 +11,16 @@
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="home.css" />
   <link rel="stylesheet" href="desk.css" />
+  <link rel="stylesheet" href="room.css" />
   <script type="importmap">
-    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
   </script>
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" crossorigin />
 </head>
 <body class="home">
   <div class="backdrop" aria-hidden="true">
@@ -44,19 +51,17 @@
     </div>
   </header>
 
-  <main class="page">
-    <section class="hero">
+  <main>
+  <!-- The chart room: a cartographer's desk lit by one candle. stage.js builds
+       it in 3D; the flat desk below is what shows if it can't. -->
+  <section class="room" id="room" data-mode="loading" aria-label="The chart room">
+    <div class="hero">
       <p class="eyebrow"><span class="live-dot" aria-hidden="true"></span><span id="weekday">Today</span></p>
       <h1 class="hero-title" data-blur-text>Today came in two crumpled notes.</h1>
       <p class="hero-date" id="dateMain"></p>
-      <p class="hero-sub">Pick one up off the desk and hold on. It opens in your hand.</p>
-    </section>
-
-  </main>
-
-  <!-- The chart room: a cartographer's desk lit by one candle. The notes lie
-       on the sea chart; everything else on the desk opens a section. -->
-  <section class="room" aria-label="The chart room">
+      <p class="hero-sub"><span class="shiny-text">Pick one up off the desk and hold on. It opens in your hand.</span></p>
+    </div>
+    <div class="room-loading" aria-hidden="true"><span class="room-loading-flame"></span></div>
     <div class="desk" id="desk" data-lit="true">
       <div class="desk-grid">
         <div class="chart" id="chart" aria-hidden="true"></div>
@@ -96,11 +101,12 @@
           </div>
           <div class="note-foot">
             <div class="note-hint" aria-hidden="true">
-              <span class="note-hint-text">Press and hold to unfold</span>
+              <span class="note-hint-text shiny-text">Press and hold to unfold</span>
               <span class="note-meter"><span></span></span>
             </div>
             <div class="note-actions">
               <button class="btn btn-ghost" type="button" data-action="copy">Copy</button>
+              <button class="btn btn-ghost btn-down" type="button" data-action="down">Put it down</button>
               <button class="btn btn-solid" type="button" data-action="next">Next fact</button>
             </div>
           </div>
@@ -117,11 +123,12 @@
           </div>
           <div class="note-foot">
             <div class="note-hint" aria-hidden="true">
-              <span class="note-hint-text">Press and hold to unfold</span>
+              <span class="note-hint-text shiny-text">Press and hold to unfold</span>
               <span class="note-meter"><span></span></span>
             </div>
             <div class="note-actions">
               <button class="btn btn-ghost" type="button" data-action="copy">Copy</button>
+              <button class="btn btn-ghost btn-down" type="button" data-action="down">Put it down</button>
               <button class="btn btn-solid" type="button" data-action="refold">Crumple it up</button>
             </div>
           </div>
@@ -142,6 +149,7 @@
       <div class="desk-glow" aria-hidden="true"></div>
     </div>
   </section>
+  </main>
 
   <footer class="footer">
     <p>Daily · a fresh set every midnight</p>
@@ -153,15 +161,20 @@
     </nav>
   </footer>
 
-  <!-- Section modal: stays layered over the page so it feels like the same screen -->
+  <!-- Section modal: stays layered over the page so it feels like the same
+       screen. The frame around it is dressed for whatever it opened out of. -->
   <div class="modal-overlay" id="modalOverlay" aria-hidden="true">
-    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-      <button class="modal-close" id="modalClose" type="button" aria-label="Close">&times;</button>
-      <div class="modal-head">
-        <span class="modal-icon" id="modalIcon"></span>
-        <h2 class="modal-title" id="modalTitle"></h2>
+    <div class="modal-frame" id="modalFrame">
+      <span class="modal-deco modal-deco-top" aria-hidden="true"></span>
+      <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <button class="modal-close" id="modalClose" type="button" aria-label="Close">&times;</button>
+        <div class="modal-head">
+          <span class="modal-icon" id="modalIcon"></span>
+          <h2 class="modal-title" id="modalTitle"></h2>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
       </div>
-      <div class="modal-body" id="modalBody"></div>
+      <span class="modal-deco modal-deco-bottom" aria-hidden="true"></span>
     </div>
   </div>
 
@@ -175,6 +188,7 @@
   <script src="trivia.js"></script>
   <script src="movies.js"></script>
   <script src="props.js"></script>
+  <script src="bits.js"></script>
   <script src="app.js"></script>
   <script src="theme.js"></script>
   <script src="wisps.js"></script>

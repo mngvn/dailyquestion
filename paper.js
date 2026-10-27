@@ -1,34 +1,31 @@
-// paper.js — a crumpled note you pull open.
+// paper.js — a crumpled note, lying on the desk among everything else.
 //
 // A port of React Bits' Paper Crumple (reactbits.dev/micro/paper-crumple,
-// MIT) out of React and into a plain class, so the home page can keep running
+// MIT) out of React and into plain three.js, so the home page can keep running
 // without a build step. The paper solver in createPaperPath is theirs, kept as
 // written: it relaxes a triangulated sheet into a wad once, records the frames,
 // and every crumple afterwards just scrubs through them.
 //
-// The original is a flat image that crumples while you hold it. Here it runs
-// backwards. The note starts as a wad, and holding it — or tugging it about —
-// pulls it open a little at a time. Let go early and it springs partly shut.
-// Once it is all the way open it stays flat, with the creases still showing,
-// and reports onOpen so the page can show what was written on it.
+// The original draws its own little scene. Here the sheet is just a mesh, so
+// it sits in the desk's scene: lit by the same candle, throwing its shadow on
+// the chart, picked up and read in front of the camera. Where it goes is up to
+// stage.js; this only knows how crumpled it is.
 //
-//   const sheet = new PaperSheet(root, { texture, width, height, seed, label });
-//   sheet.crumple()          → wads it back up (resolves when it has settled)
-//   sheet.setTexture(canvas) → swaps what is printed on it
-//   sheet.destroy()
+//   const note = new PaperNote({ texture, seed, size });
+//   scene.add(note.object);
+//   note.fold(amount, crease)  → 0 flat … 1 balled tight; crease is the relief
+//                                 left in a sheet that has been opened
+//   note.update(dt)            → true while it is still moving
+//   note.setTexture(canvas)    → swaps what is printed on it
+//   note.dispose()
 
 import * as THREE from "three";
 
-const WAD = 0.94;            // how tightly a fresh note is balled up (0 flat, 1 tightest)
-const HOLD_SECONDS = 1.8;    // holding still opens it in about this long
-const TUG_PX = 2600;         // dragging this far opens it on its own
-const SPRING_BACK = 0.88;    // letting go early keeps this much of the progress
-const CREASE = 0.16;         // relief left in the open sheet
-const NUDGE_MS = 4200;       // an untouched wad rocks this often, to invite a grab
+export const WAD = 0.94;     // how tightly a fresh note is balled up (0 flat, 1 tightest)
+export const CREASE = 0.16;  // relief left in the open sheet
 
 const spring = (value = 0) => ({ value, target: value, velocity: 0 });
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
-const ease = (t) => t * t * (3 - 2 * t);
 
 function advance(s, dt, duration, instant) {
   if (instant || duration <= 0) {
@@ -268,21 +265,21 @@ function paperPathFor(key, mesh, opts) {
   return pathCache.get(key);
 }
 
-// The front carries the note; the back is bare paper. When the sheet lies flat
-// the lighting fades out entirely, so the writing reads at its true colour.
+// The front carries the note; the back is bare paper. `print` fades the
+// lighting out so the writing reads at its own colour — all the way when the
+// note is held up to be read, not at all when it lies on the desk in the
+// candlelight. `tint` warms that unlit colour to the room's light.
 function buildMaterials(grain, paperColor) {
-  const lighting = { value: 0 };
-  const shared = {
-    roughness: 0.92, metalness: 0, bumpMap: grain, bumpScale: 0.08 * 0.32,
-    alphaTest: 0.04, alphaToCoverage: true, flatShading: false
-  };
+  const uniforms = { paperLighting: { value: 1 }, paperTint: { value: new THREE.Color(1, 1, 1) } };
+  const shared = { roughness: 0.92, metalness: 0, bumpMap: grain, bumpScale: 0.08 * 0.32 };
   const front = new THREE.MeshStandardMaterial({ ...shared, side: THREE.FrontSide });
   const back = new THREE.MeshStandardMaterial({ ...shared, side: THREE.BackSide, color: paperColor });
   for (const material of [front, back]) {
     const bare = material === back;
     material.onBeforeCompile = (shader) => {
-      shader.uniforms.paperLighting = lighting;
-      shader.fragmentShader = "uniform float paperLighting;\n" + shader.fragmentShader;
+      shader.uniforms.paperLighting = uniforms.paperLighting;
+      shader.uniforms.paperTint = uniforms.paperTint;
+      shader.fragmentShader = "uniform float paperLighting;\nuniform vec3 paperTint;\n" + shader.fragmentShader;
       shader.fragmentShader = shader.fragmentShader.replace("#include <map_fragment>", `
         #include <map_fragment>
         #ifdef USE_MAP
@@ -290,14 +287,13 @@ function buildMaterials(grain, paperColor) {
         #endif
       `);
       shader.fragmentShader = shader.fragmentShader.replace("#include <opaque_fragment>", `
-        outgoingLight = mix(diffuseColor.rgb, outgoingLight, paperLighting);
+        outgoingLight = mix(diffuseColor.rgb * paperTint, outgoingLight, paperLighting);
         #include <opaque_fragment>
       `);
     };
     material.customProgramCacheKey = () => `note-${bare ? "stock" : "print"}`;
   }
-  const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, alphaTest: 0.04, side: THREE.DoubleSide });
-  return { front, back, depth, lighting };
+  return { front, back, uniforms };
 }
 
 function paperGrain(rng, aspect) {
@@ -315,47 +311,12 @@ function paperGrain(rng, aspect) {
   return grain;
 }
 
-export const supported = (() => {
-  try {
-    const probe = document.createElement("canvas");
-    return !!(window.WebGLRenderingContext && (probe.getContext("webgl2") || probe.getContext("webgl")));
-  } catch (e) {
-    return false;
-  }
-})();
-
-export class PaperSheet {
-  constructor(root, options) {
-    this.root = root;
-    this.opts = {
+export class PaperNote {
+  constructor(options) {
+    const opts = this.opts = {
       width: 360, height: 460, seed: 7, detail: 64, foldCount: 6, foldSharpness: 0.6, wrinkleDepth: 0.65,
-      paperColor: "#f3eee4", label: "A crumpled note", onOpen: null, onProgress: null, ...options
+      paperColor: "#f3eee4", size: 2.4, anisotropy: 8, ...options
     };
-    this.state = "wad";
-    this.progress = 0;
-    this.listeners = [];
-    this.build();
-  }
-
-  build() {
-    const { root, opts } = this;
-    this.canvas = document.createElement("canvas");
-    this.canvas.className = "paper-canvas";
-    this.canvas.setAttribute("aria-hidden", "true");
-    this.hit = document.createElement("button");
-    this.hit.type = "button";
-    this.hit.className = "paper-hit";
-    this.hit.setAttribute("aria-label",
-      `${opts.label}. Press and hold to unfold it — Space or Enter works too.`);
-    root.append(this.canvas, this.hit);
-    root.dataset.state = "wad";
-
-    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, alpha: true, antialias: true, powerPreference: "low-power" });
-    this.renderer.setClearColor(0x000000, 0);
-    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
     const mesh = buildMesh(opts.width, opts.height, opts.seed, opts.detail);
     this.mesh = mesh;
     const key = JSON.stringify([opts.width, opts.height, opts.seed, opts.detail, opts.foldCount, opts.foldSharpness, opts.wrinkleDepth]);
@@ -381,83 +342,71 @@ export class PaperSheet {
 
     this.grain = paperGrain(mesh.rng, mesh.aspect);
     this.materials = buildMaterials(this.grain, opts.paperColor);
+    this.front = new THREE.Mesh(geometry, this.materials.front);
+    this.back = new THREE.Mesh(geometry, this.materials.back);
+    this.front.castShadow = true;
+    this.front.receiveShadow = this.back.receiveShadow = true;
+    // the sheet is drawn in the XY plane facing +Z; `object` is what gets posed
+    this.sheet = new THREE.Group();
+    this.sheet.scale.setScalar(opts.size);
+    this.sheet.add(this.front, this.back);
+    this.object = new THREE.Group();
+    this.object.add(this.sheet);
+    this.hits = [this.front, this.back];
 
     this.amount = spring(WAD);
     this.memory = spring(0);
-    this.posX = spring(); this.posY = spring();
-    this.tiltX = spring(); this.tiltY = spring();
-    this.springs = [this.amount, this.memory, this.posX, this.posY, this.tiltX, this.tiltY];
+    this.print = spring(0);
     this.previousAmount = this.previousMemory = -1;
-
-    this.buildScene();
     this.setTexture(opts.texture);
-    this.media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    this.reduceMotion = this.media.matches;
-    this.bindEvents();
     this.deform();
-    this.resize();
-    this.nudger = setInterval(() => this.nudge(), NUDGE_MS);
   }
 
-  buildScene() {
-    const { front: frontMat, back: backMat, depth } = this.materials;
-    this.sheet = new THREE.Group();
-    this.front = new THREE.Mesh(this.geometry, frontMat);
-    this.back = new THREE.Mesh(this.geometry, backMat);
-    this.front.castShadow = this.front.receiveShadow = this.back.receiveShadow = true;
-    this.front.customDepthMaterial = depth;
-    this.sheet.add(this.front, this.back);
-
-    this.scene = new THREE.Scene();
-    this.scene.add(this.sheet);
-    this.camera = new THREE.PerspectiveCamera(35, 1, 0.1, 10000);
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0xa4a0b0, 1.35));
-    const light = new THREE.DirectionalLight(0xfffaf0, 1.8);
-    light.castShadow = true;
-    light.shadow.mapSize.set(1024, 1024);
-    light.shadow.bias = -0.0002;
-    light.shadow.normalBias = 0.6;
-    light.shadow.radius = 3;
-    this.scene.add(light, light.target);
-    this.light = light;
-
-    this.floorGeometry = new THREE.PlaneGeometry(1, 1);
-    this.floorMaterial = new THREE.ShadowMaterial({ opacity: 0.16, depthWrite: false });
-    this.floor = new THREE.Mesh(this.floorGeometry, this.floorMaterial);
-    this.floor.receiveShadow = true;
-    this.scene.add(this.floor);
-
-    this.raycaster = new THREE.Raycaster();
-    this.pointer = new THREE.Vector2();
-    this.plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-    this.anchor = new THREE.Vector3(); this.world = new THREE.Vector3(); this.corner = new THREE.Vector3();
-    this.va = new THREE.Vector3(); this.vb = new THREE.Vector3(); this.vc = new THREE.Vector3();
-    this.weights = new THREE.Vector3(1, 0, 0);
-    this.gripIndices = [Math.floor(this.mesh.count / 2), 0, 0];
-    this.viewportWidth = this.viewportHeight = 1;
-    this.scale = this.opts.width;
-    this.frame = 0;
-    this.lastTime = 0;
-    this.held = false;
-    this.keyboard = false;
-    this.pointerId = null;
-    this.inView = true;
-    this.disposed = false;
-  }
+  get size() { return this.sheet.scale.x; }
+  get aspect() { return this.mesh.aspect; }
+  get folded() { return this.amount.value; }
 
   // What is printed on the note: a canvas, drawn once and uploaded.
   setTexture(source) {
     if (!source) return;
     const texture = new THREE.CanvasTexture(source);
     texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+    texture.anisotropy = this.opts.anisotropy;
     const old = this.texture;
     this.texture = texture;
-    const { front, back, depth } = this.materials;
-    front.map = back.map = depth.map = texture;
-    front.needsUpdate = back.needsUpdate = depth.needsUpdate = true;
+    const { front, back } = this.materials;
+    front.map = back.map = texture;
+    front.needsUpdate = back.needsUpdate = true;
     if (old) old.dispose();
-    this.wake();
+  }
+
+  fold(amount, crease = 0) {
+    this.amount.target = clamp(amount, 0, 1);
+    this.memory.target = crease;
+  }
+
+  // 1 shows the print at its own colour; 0 leaves it to the room's light
+  setPrint(value, tint) {
+    this.print.target = value;
+    if (tint) this.materials.uniforms.paperTint.value.copy(tint);
+  }
+
+  update(dt, { foldSeconds = 0.4, instant = false } = {}) {
+    let moving = advance(this.amount, dt, foldSeconds, instant);
+    moving = advance(this.memory, dt, foldSeconds, instant) || moving;
+    moving = advance(this.print, dt, 0.5, instant) || moving;
+    this.deform();
+    const fold = clamp(this.amount.value, 0, 1);
+    const open = 1 - THREE.MathUtils.smoothstep(fold + this.memory.value, 0, 0.4);
+    this.materials.uniforms.paperLighting.value = 1 - this.print.value * open;
+    return moving;
+  }
+
+  // How far the lowest point of the paper hangs below its centre, in the
+  // sheet's own +Z: lying face up, that is how high it must sit to rest.
+  restHeight() {
+    const box = this.geometry.boundingBox;
+    return box ? -box.min.z * this.size : 0;
   }
 
   // ----- Shape -----
@@ -477,7 +426,6 @@ export class PaperSheet {
       positions[i] += (path.creased[i] - mesh.original[i]) * memory.value * (1 - fold);
     }
     this.computeNormals();
-    this.materials.lighting.value = THREE.MathUtils.smoothstep(fold + memory.value, 0, 0.4);
   }
 
   computeNormals() {
@@ -520,319 +468,11 @@ export class PaperSheet {
     geometry.computeBoundingBox();
   }
 
-  // The invisible button follows the sheet on screen, so only the paper itself
-  // can be grabbed — not the empty desk around it.
-  placeHitTarget() {
-    const bounds = this.geometry.boundingBox;
-    if (!bounds) return;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (let i = 0; i < 8; i++) {
-      this.corner.set(i & 1 ? bounds.max.x : bounds.min.x, i & 2 ? bounds.max.y : bounds.min.y, i & 4 ? bounds.max.z : bounds.min.z);
-      this.corner.applyMatrix4(this.sheet.matrixWorld).project(this.camera);
-      const x = ((this.corner.x + 1) * this.viewportWidth) / 2, y = ((1 - this.corner.y) * this.viewportHeight) / 2;
-      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
-      minY = Math.min(minY, y); maxY = Math.max(maxY, y);
-    }
-    this.hit.style.transform = `translate3d(${minX}px, ${minY}px, 0)`;
-    this.hit.style.width = `${Math.max(24, maxX - minX)}px`;
-    this.hit.style.height = `${Math.max(24, maxY - minY)}px`;
-  }
-
-  setPointer(x, y) {
-    this.pointer.set((x / this.viewportWidth) * 2 - 1, 1 - (y / this.viewportHeight) * 2);
-    this.raycaster.setFromCamera(this.pointer, this.camera);
-  }
-
-  // ----- Opening -----
-  // Progress only moves while the note is held: time held and distance tugged
-  // both count. It sets the fold target; the spring does the rest.
-  pull(amount) {
-    if (this.state !== "holding") return;
-    this.progress = clamp(this.progress + amount, 0, 1);
-    this.amount.target = WAD * (1 - ease(this.progress));
-    this.report();
-    if (this.progress >= 1) this.open();
-  }
-
-  report() {
-    this.root.style.setProperty("--progress", this.progress.toFixed(3));
-    if (this.opts.onProgress) this.opts.onProgress(this.progress);
-  }
-
-  open() {
-    this.release();
-    this.state = "open";
-    this.root.dataset.state = "open";
-    this.progress = 1;
-    this.amount.target = 0;
-    this.memory.target = CREASE;
-    this.posX.target = this.posY.target = 0;
-    this.tiltX.target = this.tiltY.target = 0;
-    this.hit.disabled = true;
-    if (this.reduceMotion) for (const s of this.springs) advance(s, 0, 0, true);
-    this.report();
-    if (this.opts.onOpen) this.opts.onOpen();
-    this.wake();
-  }
-
-  // Balls the note back up: the original effect, played forwards.
-  crumple() {
-    this.release();
-    this.state = "closing";
-    this.root.dataset.state = "closing";
-    this.progress = 0;
-    this.amount.target = WAD;
-    this.memory.target = 0;
-    this.report();
-    this.wake();
-    const settle = this.reduceMotion ? 0 : 650;
-    return new Promise((resolve) => setTimeout(() => {
-      this.state = "wad";
-      this.root.dataset.state = "wad";
-      this.hit.disabled = false;
-      resolve();
-    }, settle));
-  }
-
-  startHold() {
-    if (this.state !== "wad") return;
-    this.held = true;
-    this.state = "holding";
-    this.root.dataset.state = "holding";
-    this.hit.dataset.held = "true";
-    if (this.reduceMotion) this.pull(1);
-    this.wake();
-  }
-
-  // Let go before it is open and the paper springs partly shut again.
-  release() {
-    if (!this.held) return;
-    this.held = false;
-    this.keyboard = false;
-    this.hit.dataset.held = "false";
-    const captured = this.pointerId;
-    this.pointerId = null;
-    if (captured !== null && this.hit.hasPointerCapture(captured)) this.hit.releasePointerCapture(captured);
-    if (this.state === "holding") {
-      this.state = "wad";
-      this.root.dataset.state = "wad";
-      this.progress *= SPRING_BACK;
-      this.amount.target = WAD * (1 - ease(this.progress));
-      this.report();
-      this.posX.target = this.posY.target = 0;
-      this.tiltX.target = this.tiltY.target = 0;
-    }
-    this.wake();
-  }
-
-  // An untouched wad rocks now and then, so it reads as something to pick up.
-  nudge() {
-    if (this.state !== "wad" || this.progress > 0 || this.reduceMotion || this.disposed || !this.inView || document.hidden) return;
-    const kick = 4 + Math.random() * 2;
-    this.tiltY.velocity += (Math.random() > 0.5 ? 1 : -1) * kick;
-    this.tiltX.velocity += (Math.random() - 0.5) * kick;
-    this.wake();
-  }
-
-  // ----- Loop -----
-  render(time) {
-    this.frame = 0;
-    if (this.disposed || !this.inView || document.hidden) return;
-    const elapsed = this.lastTime ? (time - this.lastTime) / 1000 : 1 / 60;
-    const dt = Math.min(0.04, elapsed);
-    this.lastTime = time;
-    // holding counts in real time, so a slow frame rate doesn't slow the opening
-    if (this.held) this.pull(Math.min(0.25, elapsed) / HOLD_SECONDS);
-
-    const foldDuration = this.state === "closing" ? 0.55 : this.state === "open" ? 0.5 : 0.35;
-    let moving = this.held;
-    for (const s of this.springs) {
-      const duration = s === this.amount || s === this.memory ? foldDuration : 0.42;
-      moving = advance(s, dt, duration, this.reduceMotion) || moving;
-    }
-    this.deform();
-    this.sheet.rotation.set(this.tiltX.value, this.tiltY.value, 0);
-    if (this.held && !this.keyboard) this.followPointer();
-    this.sheet.position.set(this.posX.value, this.posY.value, 0);
-    this.sheet.updateMatrixWorld(true);
-    this.placeFloor();
-    this.renderer.render(this.scene, this.camera);
-    this.placeHitTarget();
-    if (moving) this.wake();
-    else this.lastTime = 0;
-  }
-
-  // The bit of paper you grabbed stays under the pointer.
-  followPointer() {
-    const attribute = this.geometry.attributes.position;
-    this.anchor.set(0, 0, 0);
-    for (let i = 0; i < 3; i++) {
-      this.va.fromBufferAttribute(attribute, this.gripIndices[i]);
-      this.anchor.addScaledVector(this.va, this.weights.getComponent(i));
-    }
-    this.anchor.multiplyScalar(this.scale).applyEuler(this.sheet.rotation);
-    this.plane.constant = -this.anchor.z;
-    this.setPointer(this.pointerX, this.pointerY);
-    if (this.raycaster.ray.intersectPlane(this.plane, this.world)) {
-      this.posX.value = this.posX.target = this.world.x - this.anchor.x;
-      this.posY.value = this.posY.target = this.world.y - this.anchor.y;
-      this.posX.velocity = this.posY.velocity = 0;
-    }
-  }
-
-  placeFloor() {
-    const bounds = this.geometry.boundingBox;
-    if (!bounds) return;
-    let backZ = Infinity;
-    for (let i = 0; i < 8; i++) {
-      this.corner.set(i & 1 ? bounds.max.x : bounds.min.x, i & 2 ? bounds.max.y : bounds.min.y, i & 4 ? bounds.max.z : bounds.min.z);
-      this.corner.applyMatrix4(this.sheet.matrixWorld);
-      backZ = Math.min(backZ, this.corner.z);
-    }
-    this.floor.position.z = backZ - this.scale * this.mesh.shortSide * 0.08;
-  }
-
-  wake() {
-    if (!this.frame && !this.disposed && this.inView && !document.hidden)
-      this.frame = requestAnimationFrame((t) => this.render(t));
-  }
-
-  resize() {
-    const rect = this.root.getBoundingClientRect();
-    const { width, height } = this.opts;
-    const vw = (this.viewportWidth = Math.max(1, rect.width));
-    const vh = (this.viewportHeight = Math.max(1, rect.height));
-    this.scale = width * Math.min(1, Math.max(1, vw - 32) / width, Math.max(1, vh - 32) / height);
-    this.sheet.scale.setScalar(this.scale);
-    this.camera.aspect = vw / vh;
-    this.camera.position.z = vh / (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)));
-    this.camera.updateProjectionMatrix();
-    this.camera.updateMatrixWorld();
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    this.renderer.setSize(vw, vh, false);
-    const reach = Math.max(vw, vh);
-    const angle = THREE.MathUtils.degToRad(-35);
-    this.light.position.set(Math.sin(angle) * reach, Math.cos(angle) * reach, reach * 4);
-    const cam = this.light.shadow.camera;
-    cam.left = cam.bottom = -reach;
-    cam.right = cam.top = reach;
-    cam.near = 1;
-    cam.far = reach * 6;
-    cam.updateProjectionMatrix();
-    this.floor.scale.set(vw * 4, vh * 4, 1);
-    this.wake();
-  }
-
-  // ----- Input -----
-  bindEvents() {
-    const on = (target, type, fn) => {
-      target.addEventListener(type, fn);
-      this.listeners.push(() => target.removeEventListener(type, fn));
-    };
-    const mine = (e) => e.pointerId === this.pointerId;
-    on(this.hit, "pointerdown", (e) => this.onPointerDown(e));
-    on(this.hit, "pointermove", (e) => this.onPointerMove(e));
-    on(this.hit, "pointerup", (e) => { if (mine(e)) this.release(); });
-    on(this.hit, "pointercancel", (e) => { if (mine(e)) this.release(); });
-    on(this.hit, "lostpointercapture", (e) => { if (mine(e)) this.release(); });
-    on(this.hit, "keydown", (e) => this.onKeyDown(e));
-    on(this.hit, "keyup", (e) => {
-      if (this.keyboard && (e.key === " " || e.key === "Enter")) { e.preventDefault(); this.release(); }
-    });
-    on(this.hit, "blur", () => this.release());
-    on(window, "blur", () => this.release());
-    on(document, "visibilitychange", () => {
-      this.lastTime = 0;
-      if (document.hidden) this.release();
-      else this.wake();
-    });
-    on(this.media, "change", () => { this.reduceMotion = this.media.matches; });
-    on(this.canvas, "webglcontextlost", (e) => {
-      e.preventDefault();
-      this.release();
-      this.root.dataset.status = "error";
-    });
-
-    this.resizeObserver = new ResizeObserver(() => this.resize());
-    this.resizeObserver.observe(this.root);
-    this.intersectionObserver = new IntersectionObserver((entries) => {
-      this.inView = entries[0].isIntersecting;
-      this.lastTime = 0;
-      if (!this.inView) this.release();
-      else this.wake();
-    });
-    this.intersectionObserver.observe(this.root);
-  }
-
-  onPointerDown(event) {
-    if (this.state !== "wad" || event.button !== 0 || !event.isPrimary) return;
-    const rect = this.root.getBoundingClientRect();
-    this.pointerX = this.lastX = event.clientX - rect.left;
-    this.pointerY = this.lastY = event.clientY - rect.top;
-    this.setPointer(this.pointerX, this.pointerY);
-    this.sheet.updateMatrixWorld(true);
-    const hit = this.raycaster.intersectObjects([this.front, this.back], false)[0];
-    if (!hit || !hit.face) return;
-    event.preventDefault();
-    // focused for the keyboard's sake, but not outlined: the pointer is on it
-    this.hit.dataset.pointer = "true";
-    this.hit.focus({ preventScroll: true });
-    const { face } = hit;
-    this.gripIndices = [face.a, face.b, face.c];
-    const attribute = this.geometry.attributes.position;
-    this.va.fromBufferAttribute(attribute, face.a);
-    this.vb.fromBufferAttribute(attribute, face.b);
-    this.vc.fromBufferAttribute(attribute, face.c);
-    THREE.Triangle.getBarycoord(this.sheet.worldToLocal(hit.point.clone()), this.va, this.vb, this.vc, this.weights);
-    this.keyboard = false;
-    this.pointerId = event.pointerId;
-    this.lastMove = performance.now();
-    this.hit.setPointerCapture(event.pointerId);
-    this.startHold();
-  }
-
-  // Tugging the paper around pulls it open faster than just holding on, and
-  // the faster it moves the more it tilts.
-  onPointerMove(event) {
-    if (!this.held || event.pointerId !== this.pointerId) return;
-    const rect = this.root.getBoundingClientRect();
-    const now = performance.now();
-    const x = event.clientX - rect.left, y = event.clientY - rect.top;
-    const dt = Math.max(0.008, (now - this.lastMove) / 1000);
-    const dx = x - this.lastX, dy = y - this.lastY;
-    this.lastX = x; this.lastY = y; this.lastMove = now;
-    this.pointerX = clamp(x, 12, this.viewportWidth - 12);
-    this.pointerY = clamp(y, 12, this.viewportHeight - 12);
-    this.pull(Math.hypot(dx, dy) / TUG_PX);
-    const maxTilt = this.reduceMotion ? 0 : THREE.MathUtils.degToRad(10);
-    this.tiltX.target = clamp(dy / dt / 1800, -1, 1) * maxTilt;
-    this.tiltY.target = clamp(dx / dt / 1800, -1, 1) * maxTilt;
-    this.wake();
-  }
-
-  onKeyDown(event) {
-    this.hit.dataset.pointer = "false";
-    if (event.key !== " " && event.key !== "Enter") return;
-    event.preventDefault();
-    if (event.repeat || this.held) return;
-    this.keyboard = true;
-    this.startHold();
-  }
-
-  destroy() {
-    this.disposed = true;
-    cancelAnimationFrame(this.frame);
-    clearInterval(this.nudger);
-    this.listeners.forEach((off) => off());
-    this.resizeObserver.disconnect();
-    this.intersectionObserver.disconnect();
+  dispose() {
     this.geometry.dispose();
-    this.floorGeometry.dispose();
-    ["front", "back", "depth"].forEach((k) => this.materials[k].dispose());
-    this.floorMaterial.dispose();
+    this.materials.front.dispose();
+    this.materials.back.dispose();
     this.grain.dispose();
     if (this.texture) this.texture.dispose();
-    this.light.shadow.dispose();
-    this.renderer.dispose();
   }
 }

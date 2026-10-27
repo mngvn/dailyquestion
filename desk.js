@@ -1,13 +1,17 @@
-// desk.js — the two crumpled notes at the top of the home page.
+// desk.js — the two crumpled notes on the desk, and the desk itself.
 //
 // Today's fun facts and today's entry from history arrive as balls of paper.
 // Hold one (or tug it around) and it opens up; what's written on it is drawn
-// here onto a canvas and printed on the sheet by paper.js. The facts come four
-// to a day, so that note can be balled back up and the next one handed over.
+// here onto a canvas and printed on the sheet. The facts come four to a day,
+// so that note can be balled back up and the next one handed over.
+//
+// This is also where the room is chosen. stage.js builds the desk in three
+// dimensions, with the notes lying on it in the candlelight; if three.js can't
+// be loaded or there is no WebGL, the flat desk in the page stays, candle.js
+// lights it, and the notes are simply laid on it open.
 //
 // app.js puts today's content on window.Daily before this runs — module scripts
-// always run after the classic ones. three.js comes from a CDN; if it can't be
-// loaded, or there is no WebGL, the notes are simply shown flat.
+// always run after the classic ones.
 
 const W = 360, H = 460;      // the note, in CSS pixels, before it is fitted to its stage
 const RES = 1024 / W;        // texture pixels per CSS pixel
@@ -130,10 +134,9 @@ function fontsReady() {
 }
 
 // ----- A note on the page -----
-// The paper lives in .paper-stage; the card around it carries data-state,
-// which the CSS uses to swap the hint for the actions once the paper is open.
-function mountNote(paperModule, note, { texture, label, seed }) {
-  const stage = note.querySelector(".paper-stage");
+// The card around the paper carries data-state, which the CSS uses to swap
+// the hint for the actions once the paper is open.
+function mountNote(stage, note, { texture, label, seed }) {
   const live = note.querySelector(".note-live");
   const setState = (state) => { note.dataset.state = state; };
   const opened = () => {
@@ -143,23 +146,16 @@ function mountNote(paperModule, note, { texture, label, seed }) {
     if (typeof Candle !== "undefined") Candle.puff(1);
   };
 
-  if (!paperModule || !paperModule.supported) return flatNote(stage, texture, opened);
+  if (!stage) return flatNote(note.querySelector(".paper-stage"), texture, opened);
 
-  let paper;
-  try {
-    paper = new paperModule.PaperSheet(stage, {
-      texture, label, seed, width: W, height: H,
-      onProgress: (p) => {
-        note.style.setProperty("--progress", p.toFixed(3));
-        if (note.dataset.state !== "open") setState(p > 0 ? "opening" : "wad");
-      },
-      onOpen: opened
-    });
-  } catch (error) {
-    stage.replaceChildren();
-    return flatNote(stage, texture, opened);
-  }
-  stage.dataset.status = "ready";
+  const paper = stage.note(note, {
+    texture, label, seed,
+    onProgress: (p) => {
+      note.style.setProperty("--progress", p.toFixed(3));
+      if (note.dataset.state !== "open") setState(p > 0 ? "opening" : "wad");
+    },
+    onOpen: opened
+  });
   setState("wad");
   return {
     crumple: () => {
@@ -167,11 +163,13 @@ function mountNote(paperModule, note, { texture, label, seed }) {
       live.textContent = "";
       return paper.crumple();
     },
-    setTexture: (canvas) => paper.setTexture(canvas)
+    setTexture: (canvas) => paper.setTexture(canvas),
+    focus: () => paper.focus()
   };
 }
 
-// Without WebGL there is nothing to unfold, so the note is just laid out flat.
+// Without the 3D desk there is nothing to unfold, so the note is just laid
+// out flat.
 function flatNote(stage, texture, opened) {
   const lay = (canvas) => {
     canvas.classList.add("paper-flat");
@@ -186,30 +184,27 @@ function flatNote(stage, texture, opened) {
     setTexture: (canvas) => {
       stage.querySelector(".paper-flat").replaceWith(lay(canvas));
       opened();
-    }
+    },
+    focus: () => {}
   };
 }
 
-const focusPaper = (note) => {
-  const hit = note.querySelector(".paper-hit");
-  if (hit) hit.focus({ preventScroll: true });
-};
-
 // ----- Today's two notes -----
-function mountFacts(paperModule) {
+function mountFacts(stage) {
   const note = document.getElementById("factNote");
   if (!note) return;
   const facts = daily.facts;
   const next = note.querySelector("[data-action=next]");
+  const copy = note.querySelector("[data-action=copy]");
+  const count = note.querySelector(".note-count");
   if (!facts.length) {
     note.dataset.text = "Today's facts failed to load.";
     next.hidden = true;
-    mountNote(paperModule, note, { texture: drawMissing("Nothing written today."), label: "An empty note", seed: 7 });
+    mountNote(stage, note, { texture: drawMissing("Nothing written today."), label: "An empty note", seed: 7 });
     return;
   }
 
   let index = 0;
-  const count = note.querySelector(".note-count");
   const show = (i) => {
     const fact = facts[i];
     note.dataset.text = `${fact.cat} fact: ${fact.text}`;
@@ -218,13 +213,13 @@ function mountFacts(paperModule) {
   };
   show(0);
 
-  const paper = mountNote(paperModule, note, {
+  const paper = mountNote(stage, note, {
     texture: drawFact(facts[0], 0, facts.length),
     label: "A crumpled note with today's fun fact",
     seed: 7
   });
 
-  note.querySelector("[data-action=copy]").addEventListener("click", (e) =>
+  copy.addEventListener("click", (e) =>
     daily.copyText(`${facts[index].cat}: ${facts[index].text}`, e.currentTarget));
 
   // Ball this one up, then hand over the next, still crumpled, to be opened.
@@ -235,33 +230,35 @@ function mountFacts(paperModule) {
     show(index);
     paper.setTexture(drawFact(facts[index], index, facts.length));
     next.disabled = false;
-    focusPaper(note);
+    paper.focus();
   });
 }
 
-function mountHistory(paperModule) {
+function mountHistory(stage) {
   const note = document.getElementById("historyNote");
   if (!note) return;
   const hist = daily.hist;
   const dateLabel = daily.histDate;
+  const copy = note.querySelector("[data-action=copy]");
+  const refold = note.querySelector("[data-action=refold]");
   note.querySelector(".note-count").textContent = dateLabel;
   if (!hist) {
     note.dataset.text = `No entry for ${dateLabel} yet.`;
-    mountNote(paperModule, note, { texture: drawMissing(`No entry for ${dateLabel}.`), label: "An empty note", seed: 11 });
+    mountNote(stage, note, { texture: drawMissing(`No entry for ${dateLabel}.`), label: "An empty note", seed: 11 });
     return;
   }
   note.dataset.text = `On ${dateLabel}, ${hist.year}: ${hist.text}`;
-  const paper = mountNote(paperModule, note, {
+  const paper = mountNote(stage, note, {
     texture: drawHistory(hist, dateLabel),
     label: `A crumpled note about ${dateLabel} in history`,
     seed: 11
   });
 
-  note.querySelector("[data-action=copy]").addEventListener("click", (e) =>
+  copy.addEventListener("click", (e) =>
     daily.copyText(`On ${dateLabel}, ${hist.year} — ${hist.text}`, e.currentTarget));
-  note.querySelector("[data-action=refold]").addEventListener("click", async () => {
+  refold.addEventListener("click", async () => {
     await paper.crumple();
-    focusPaper(note);
+    paper.focus();
   });
 }
 
@@ -274,16 +271,38 @@ function whenIdle() {
   });
 }
 
+// The 3D desk, if it can be had. three.js comes from a CDN, so a slow or
+// blocked connection gives up after a while and the flat desk is used instead.
+async function loadStage(room) {
+  if (!room) return null;
+  const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 15000));
+  const mod = await Promise.race([import("./stage.js"), timeout]).catch((error) => {
+    console.warn("three.js could not be loaded; using the flat desk.", error);
+    return null;
+  });
+  if (!mod) return null;
+  try {
+    return await mod.start(room);
+  } catch (error) {
+    console.warn("The 3D desk could not be built; using the flat desk.", error);
+    return null;
+  }
+}
+
 async function init() {
   if (!daily) return;
-  const [paperModule] = await Promise.all([
-    import("./paper.js").catch(() => null),
-    fontsReady(),
-    whenIdle()
-  ]);
-  mountFacts(paperModule);
+  const room = document.getElementById("room");
+  const stage = await loadStage(room);
+  if (room) room.dataset.mode = stage ? "3d" : "2d";
+  if (typeof Candle !== "undefined") {
+    if (stage) Candle.use(stage.puff);
+    else Candle.start();
+  }
+  if (stage) window.DeskStage = stage;
+  await Promise.all([fontsReady(), whenIdle()]);
+  mountFacts(stage);
   await whenIdle();
-  mountHistory(paperModule);
+  mountHistory(stage);
 }
 
 init();
