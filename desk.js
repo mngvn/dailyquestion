@@ -12,6 +12,10 @@
 //
 // app.js puts today's content on window.Daily before this runs — module scripts
 // always run after the classic ones.
+//
+// The page opens from the middle as all this arrives (bleed.js): a little way
+// once three.js is here, most of the way when the desk is drawn, and the rest
+// as each note lands on it.
 
 const W = 360, H = 460;      // the note, in CSS pixels, before it is fitted to its stage
 const RES = 1024 / W;        // texture pixels per CSS pixel
@@ -32,6 +36,7 @@ const PAPERS = {
 };
 
 const daily = window.Daily;
+const bleed = window.Bleed || { reach() {}, finish() {} };
 
 // ----- Drawing the notes -----
 function sheet(stock) {
@@ -219,8 +224,12 @@ function layFlat(notes) {
 async function loadStage(room) {
   if (!room) return null;
   const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 15000));
+  const loaded = import("./stage.js").then((mod) => {
+    bleed.reach(0.2);
+    return mod;
+  });
   const [mod] = await Promise.all([
-    Promise.race([import("./stage.js"), timeout]).catch((error) => {
+    Promise.race([loaded, timeout]).catch((error) => {
       console.warn("three.js could not be loaded; laying the notes out flat.", error);
       return null;
     }),
@@ -228,7 +237,9 @@ async function loadStage(room) {
   ]);
   if (!mod) return null;
   try {
-    return await mod.start(room);
+    const stage = await mod.start(room);
+    if (stage) bleed.reach(0.55);
+    return stage;
   } catch (error) {
     console.warn("The 3D desk could not be built; laying the notes out flat.", error);
     return null;
@@ -236,7 +247,7 @@ async function loadStage(room) {
 }
 
 async function init() {
-  if (!daily) return;
+  if (!daily) return bleed.finish();
   const room = document.getElementById("room");
   const stage = await loadStage(room);
   await fontsReady();
@@ -244,9 +255,17 @@ async function init() {
   if (room) room.dataset.mode = stage ? "3d" : "2d";
   if (!stage) {
     layFlat(notes);
-    return;
+    return bleed.finish();
   }
-  for (const note of notes) stage.note(note);
+  let landed = 0;
+  const arriving = notes.map((note) => Promise.resolve(stage.note(note)).then(() => {
+    landed += 1;
+    bleed.reach(0.55 + 0.45 * landed / notes.length);
+  }));
+  Promise.allSettled(arriving).then(() => bleed.finish());
 }
 
-init();
+init().catch((error) => {
+  console.error(error);
+  bleed.finish();
+});
