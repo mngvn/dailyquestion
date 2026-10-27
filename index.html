@@ -18,9 +18,19 @@
     }
   </script>
   <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js" crossorigin />
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/environments/RoomEnvironment.js" crossorigin />
   <link rel="modulepreload" href="stage.js" />
+  <link rel="modulepreload" href="room-props.js" />
+  <link rel="modulepreload" href="flame.js" />
+  <link rel="modulepreload" href="paper.js" />
+  <link rel="modulepreload" href="paper-solver.js" />
+  <link rel="modulepreload" href="world.js" />
+  <noscript><style>.bleed { display: none; }</style></noscript>
 </head>
 <body class="home">
+  <!-- The page arrives through this: it opens in the middle and bleeds
+       outward while the desk loads (bleed.js). -->
+  <canvas class="bleed" id="bleed" aria-hidden="true"></canvas>
   <main>
     <!-- The chart room: a cartographer's desk lit by one candle, with today's
          five notes crumpled on it. stage.js builds it in 3D; if it can't, the
@@ -38,10 +48,11 @@
     </section>
   </main>
 
+  <script src="theme.js"></script>
+  <script src="bleed.js"></script>
   <script src="deck.js"></script>
   <script src="data.js"></script>
   <script src="app.js"></script>
-  <script src="theme.js"></script>
   <script src="wisps.js"></script>
   <script type="module" src="desk.js"></script>
 </body>
