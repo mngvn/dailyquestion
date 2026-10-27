@@ -194,14 +194,21 @@
     return stats.puzzleAnswered ? stats.puzzleCorrect / stats.puzzleAnswered : 0;
   }
 
+  // The plaque's numbers turn over on brass wheels (React Bits' Counter) when
+  // bits.js is there, and simply count up when it isn't.
+  function stat(node, value, suffix) {
+    if (typeof Bits !== "undefined" && Bits.counter) Bits.counter(node, value, suffix);
+    else countUp(node, value, suffix);
+  }
+
   function renderFooter() {
-    countUp(document.getElementById("statPlayed"), stats.daysPlayed);
-    countUp(document.getElementById("statBest"), stats.bestStreak);
-    countUp(document.getElementById("statCorrect"), stats.triviaCorrect);
+    stat(document.getElementById("statPlayed"), stats.daysPlayed);
+    stat(document.getElementById("statBest"), stats.bestStreak);
+    stat(document.getElementById("statCorrect"), stats.triviaCorrect);
     const a = accuracyPct();
     const acc = document.getElementById("statAccuracy");
     if (a === null) acc.textContent = "—";
-    else countUp(acc, a, "%");
+    else stat(acc, a, "%");
   }
 
   const SVG_NS = "http://www.w3.org/2000/svg";
@@ -538,6 +545,7 @@
     };
 
     body.append(frame);
+    if (typeof Bits !== "undefined") Bits.glare(frame);
 
     const cap = el("div", "aw-caption");
     cap.append(el("h3", "aw-title", a.title));
@@ -678,6 +686,7 @@
       list.append(item);
     });
     body.append(list);
+    if (typeof Bits !== "undefined") Bits.animatedList(list, modal);
 
     const foot = el("div", "modal-foot");
     foot.append(el("p", "modal-note", films.length === 1
@@ -696,13 +705,23 @@
   };
 
   // ----- Modal controller -----
+  // On the 3D desk a section opens out of the thing it lives in: the object
+  // plays its gesture first (stage.js), then the dialog unfolds from where it
+  // is on screen, in a way that suits it — the painting is carried forward in
+  // its frame, the logbook's page turns, the globe opens a porthole, the
+  // letter unrolls from the bottle and the spyglass focuses.
   const overlay = document.getElementById("modalOverlay");
+  const frame = document.getElementById("modalFrame");
   const modal = document.getElementById("modal");
   const modalClose = document.getElementById("modalClose");
   const modalIcon = document.getElementById("modalIcon");
   const modalTitle = document.getElementById("modalTitle");
   const modalBody = document.getElementById("modalBody");
+  const rolls = Array.from(overlay.querySelectorAll(".modal-deco"));
   let lastFocused = null;
+  let opening = false, closing = false;
+  let reveal = [];          // the opening animations, played back to close
+  let untilt = null;
   // Sections that keep something running (the trivia clock, its key handler)
   // return a teardown from build(); it runs before the body is replaced.
   let sectionTeardown = null;
@@ -716,10 +735,22 @@
 
   function openModal(id) {
     const section = SECTIONS[id];
-    if (!section) return;
+    if (!section || opening || closing || overlay.classList.contains("open")) return;
     lastFocused = document.activeElement;
+    const stage = window.DeskStage;
+    if (!stage) return showModal(id, null);
+    opening = true;
+    // a slow machine shouldn't keep the section waiting on the gesture
+    const patience = new Promise((resolve) => setTimeout(() => resolve(null), 1600));
+    Promise.race([stage.open(id), patience]).then(
+      (origin) => { opening = false; showModal(id, origin); },
+      () => { opening = false; showModal(id, null); }
+    );
+  }
 
-    modal.dataset.section = id;
+  function showModal(id, origin) {
+    const section = SECTIONS[id];
+    modal.dataset.section = frame.dataset.section = overlay.dataset.section = id;
     modalIcon.replaceChildren(icon(id));
     modalTitle.textContent = section.title;
     teardownSection();
@@ -730,24 +761,117 @@
     overlay.classList.add("open");
     overlay.setAttribute("aria-hidden", "false");
     document.body.classList.add("modal-open");
+    if (typeof Bits !== "undefined") {
+      Bits.decrypt(modalTitle, section.title);
+      Bits.stagger(modalBody);
+      if (id === "artwork") untilt = Bits.tilt(frame);
+    }
+    playReveal(id, origin);
     // focus the close button after the open transition begins
-    requestAnimationFrame(() => modalClose.focus());
+    requestAnimationFrame(() => modalClose.focus({ preventScroll: true }));
+  }
+
+  // The keyframes for each way of opening. `o` is the object's rect on screen;
+  // without one (the flat desk, or the desk scrolled away) things open from
+  // the middle.
+  function playReveal(id, origin) {
+    reveal = [];
+    if (reduceMotion || !frame.animate) return;
+    const box = frame.getBoundingClientRect();
+    const seen = origin && origin.y + origin.h > 0 && origin.y < window.innerHeight;
+    const o = seen ? origin : { x: window.innerWidth / 2 - 30, y: window.innerHeight / 2 - 30, w: 60, h: 60 };
+    const ox = o.x + o.w / 2, oy = o.y + o.h / 2;
+    const dx = ox - (box.left + box.width / 2), dy = oy - (box.top + box.height / 2);
+    const s = Math.max(0.06, Math.min(0.7, Math.max(o.w / box.width, o.h / box.height)));
+    const R = Math.hypot(Math.max(ox, window.innerWidth - ox), Math.max(oy, window.innerHeight - oy));
+    const ease = "cubic-bezier(0.2, 0.8, 0.2, 1)";
+    const run = (el, frames, opts) => {
+      const a = el.animate(frames, Object.assign({ easing: ease, fill: "backwards" }, opts));
+      reveal.push(a);
+      return a;
+    };
+    const porthole = (ms) => run(overlay, [
+      { clipPath: `circle(0px at ${ox}px ${oy}px)` },
+      { clipPath: `circle(${R}px at ${ox}px ${oy}px)` }
+    ], { duration: ms, easing: "cubic-bezier(0.65, 0, 0.25, 1)" });
+
+    if (id === "artwork") {
+      run(frame, [
+        { transform: `translate(${dx}px, ${dy}px) scale(${s}) perspective(900px) rotateX(14deg)`, opacity: 0.3 },
+        { opacity: 1, offset: 0.35 },
+        { transform: "none", opacity: 1 }
+      ], { duration: 700 });
+    } else if (id === "puzzle") {
+      run(frame, [
+        { transform: `translate(${dx}px, ${dy}px) scale(${s}) perspective(1400px) rotateY(-80deg)`, transformOrigin: "left center", opacity: 0 },
+        { opacity: 1, offset: 0.25 },
+        { transform: "perspective(1400px) rotateY(0deg)", transformOrigin: "left center", opacity: 1 }
+      ], { duration: 820 });
+    } else if (id === "locate") {
+      porthole(760);
+      run(frame, [{ transform: "scale(0.86) rotate(-6deg)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 760 });
+    } else if (id === "trivia") {
+      run(frame, [
+        { transform: `translate(${dx}px, ${dy}px) scale(${s * 0.6}, ${s * 0.25})`, opacity: 0 },
+        { transform: "none", opacity: 1, offset: 0.3 },
+        { transform: "none", opacity: 1 }
+      ], { duration: 1000 });
+      run(modal, [
+        { clipPath: "inset(50% 0 50% 0)" },
+        { clipPath: "inset(50% 0 50% 0)", offset: 0.3 },
+        { clipPath: "inset(0% 0 0% 0)" }
+      ], { duration: 1000, easing: "cubic-bezier(0.5, 0, 0.2, 1)" });
+      const half = box.height / 2 - 10;
+      rolls.forEach((roll, i) => run(roll, [
+        { transform: `translateY(${i ? -half : half}px)` },
+        { transform: `translateY(${i ? -half : half}px)`, offset: 0.3 },
+        { transform: "none" }
+      ], { duration: 1000, easing: "cubic-bezier(0.5, 0, 0.2, 1)" }));
+    } else if (id === "movies") {
+      porthole(900);
+      run(modal, [
+        { filter: "blur(14px)", transform: "scale(1.14)" },
+        { filter: "blur(4px)", transform: "scale(0.98)", offset: 0.6 },
+        { filter: "blur(0px)", transform: "none" }
+      ], { duration: 1050 });
+    } else {
+      run(frame, [{ transform: `translate(${dx}px, ${dy}px) scale(${s})`, opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 500 });
+    }
   }
 
   function closeModal() {
-    if (!overlay.classList.contains("open")) return;
-    overlay.classList.remove("open");
-    overlay.setAttribute("aria-hidden", "true");
-    document.body.classList.remove("modal-open");
-    teardownSection();
+    if (!overlay.classList.contains("open") || closing) return;
+    const id = modal.dataset.section;
+    if (window.DeskStage) window.DeskStage.close(id);
+    if (untilt) { untilt(); untilt = null; }
+    const anims = reveal;
+    reveal = [];
+    const done = () => {
+      closing = false;
+      overlay.classList.remove("open");
+      overlay.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("modal-open");
+      teardownSection();
+      // once the overlay has faded, let go of the held closing frames
+      setTimeout(() => anims.forEach((a) => a.cancel()), 400);
 
-    // Persist any results gathered while the modal was open, then sync the UI.
-    saveStats(stats);
-    refreshCards();
-    renderFills();
-    renderFooter();
+      // Persist any results gathered while the modal was open, then sync the UI.
+      saveStats(stats);
+      refreshCards();
+      renderFills();
+      renderFooter();
 
-    if (lastFocused && typeof lastFocused.focus === "function") lastFocused.focus();
+      if (lastFocused && typeof lastFocused.focus === "function") lastFocused.focus({ preventScroll: true });
+    };
+    if (!anims.length) return done();
+    // play the opening backwards, quickly, and hold it there while it fades
+    closing = true;
+    anims.forEach((a) => {
+      a.effect.updateTiming({ fill: "both" });
+      a.updatePlaybackRate(-2.2);
+      a.play();
+    });
+    Promise.all(anims.map((a) => a.finished)).then(done, done);
   }
 
   modalClose.addEventListener("click", closeModal);
@@ -757,6 +881,22 @@
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeModal();
   });
+  // ----- The painting's photograph -----
+  // Looked up once the page is idle. It goes into the frame on the desk, and
+  // the reveal is instant when the frame is opened.
+  let photoLookup = null;
+  function findArtPhoto() {
+    if (photoLookup) return photoLookup;
+    photoLookup = new Promise((resolve) => {
+      if (typeof Artwork === "undefined" || !artwork.wiki) return resolve(null);
+      const look = () => Artwork.findImage(artwork)
+        .then((res) => resolve(res && res.src ? res.src : null))
+        .catch(() => resolve(null));
+      if (typeof requestIdleCallback === "function") requestIdleCallback(look, { timeout: 3000 });
+      else setTimeout(look, 1200);
+    });
+    return photoLookup;
+  }
 
   // ----- Handing today's notes to desk.js -----
   window.Daily = Object.freeze({
@@ -764,6 +904,9 @@
     hist,
     histDate,
     shortDate,
+    dayOfYear,
+    artwork,
+    artPhoto: findArtPhoto,
     copyText
   });
 
@@ -779,26 +922,16 @@
   renderStreak(false);
   renderFooter();
 
-  // Look up the artwork's photograph once the page is idle. It goes into the
-  // frame on the desk, and the reveal is instant when the frame is opened.
-  if (typeof Artwork !== "undefined" && artwork.wiki) {
-    const warm = () => {
-      Artwork.findImage(artwork).then((res) => {
-        if (!res || !res.src) return;
-        const pre = new Image();
-        pre.referrerPolicy = "no-referrer";
-        pre.addEventListener("load", () => {
-          if (!artworkCanvas) return;
-          artworkCanvas.style.setProperty("--art", `url("${res.src.replace(/["\\\n]/g, "")}")`);
-          artworkCanvas.classList.add("has-art");
-        });
-        pre.src = res.src;
-      }).catch(() => { /* the card handles failure on open */ });
-    };
-    if (typeof requestIdleCallback === "function") requestIdleCallback(warm, { timeout: 3000 });
-    else setTimeout(warm, 1200);
-  }
-
-  // Visiting counts as playing — register on first load of the day.
-  registerPlay();
+  // The frame on the flat desk shows the photograph too.
+  findArtPhoto().then((src) => {
+    if (!src) return;
+    const pre = new Image();
+    pre.referrerPolicy = "no-referrer";
+    pre.addEventListener("load", () => {
+      if (!artworkCanvas) return;
+      artworkCanvas.style.setProperty("--art", `url("${src.replace(/["\\\n]/g, "")}")`);
+      artworkCanvas.classList.add("has-art");
+    });
+    pre.src = src;
+  });
 })();

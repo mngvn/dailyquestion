@@ -1,4 +1,8 @@
-// candle.js — the candle on the desk, and everything its light touches.
+// candle.js — the candle on the flat desk, and everything its light touches.
+//
+// This is the desk the page falls back to when the 3D one (stage.js) can't be
+// built; desk.js calls Candle.start() if so. When the 3D desk is there it has
+// its own flame, and Candle.use() hands puffs over to it.
 //
 // The flame flickers on layered noise and leans when the pointer sweeps past
 // it. Its light is a pair of CSS variables on the desk (where the wick is, and
@@ -11,7 +15,7 @@
 // (wisps.js), and a puff goes up whenever a note is unfolded. The compass on
 // the desk turns to point at the pointer.
 //
-// Exposes Candle.puff(strength).
+// Exposes Candle.start(), Candle.use(puff) and Candle.puff(strength).
 
 const Candle = (function () {
   "use strict";
@@ -26,7 +30,10 @@ const Candle = (function () {
   const LEAN_REACH = 260;      // px around the flame where a passing pointer bends it
   const MAX_LEAN = 28;         // degrees
 
-  if (!desk || !candle || !flame) return { puff() {} };
+  let handoff = null;
+  if (!desk || !candle || !flame) {
+    return { start() {}, use(fn) { handoff = fn; }, puff(s) { if (handoff) handoff(s); } };
+  }
 
   let lit = true;
   let inView = true;
@@ -59,6 +66,7 @@ const Candle = (function () {
   }
 
   function puff(strength) {
+    if (handoff) return handoff(strength);
     if (!lit || typeof Wisps === "undefined") return;
     const t = tip();
     const s = strength || 1;
@@ -165,25 +173,30 @@ const Candle = (function () {
     }, lo + Math.random() * (hi - lo));
   }
 
-  let lastHoverPuff = 0;
-  candle.addEventListener("pointerenter", () => {
-    const now = performance.now();
-    if (now - lastHoverPuff > 1500) { lastHoverPuff = now; puff(0.5); }
-  });
-  candle.addEventListener("click", blowOut);
-  window.addEventListener("pointermove", onPointer, { passive: true });
-  window.addEventListener("resize", placeLight);
-  new ResizeObserver(placeLight).observe(desk);
-  new IntersectionObserver((entries) => {
-    inView = entries[0].isIntersecting;
-    if (inView) { placeLight(); wake(); }
-  }).observe(desk);
-  document.addEventListener("visibilitychange", wake);
+  let started = false;
+  function start() {
+    if (started) return;
+    started = true;
+    let lastHoverPuff = 0;
+    candle.addEventListener("pointerenter", () => {
+      const now = performance.now();
+      if (now - lastHoverPuff > 1500) { lastHoverPuff = now; puff(0.5); }
+    });
+    candle.addEventListener("click", blowOut);
+    window.addEventListener("pointermove", onPointer, { passive: true });
+    window.addEventListener("resize", placeLight);
+    new ResizeObserver(placeLight).observe(desk);
+    new IntersectionObserver((entries) => {
+      inView = entries[0].isIntersecting;
+      if (inView) { placeLight(); wake(); }
+    }).observe(desk);
+    document.addEventListener("visibilitychange", wake);
 
-  placeLight();
-  wake();
-  schedule();
-  setTimeout(() => puff(1), 1600);
+    placeLight();
+    wake();
+    schedule();
+    setTimeout(() => puff(1), 1600);
+  }
 
-  return { puff };
+  return { start, use(fn) { handoff = fn; }, puff };
 })();

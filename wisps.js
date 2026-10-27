@@ -10,7 +10,7 @@
 // a wisp that leaves the desk can wander up past the heading and the nav.
 // candle.js decides when to puff; this just carries the smoke.
 //
-// Exposes Wisps.puff(pageX, pageY, { count, power, long }).
+// Exposes Wisps.puff(pageX, pageY, { count, power, long, alpha }).
 
 const Wisps = (function () {
   "use strict";
@@ -93,7 +93,7 @@ const Wisps = (function () {
   const wisps = [];
   let frame = 0, last = 0, clock = Math.random() * 100;
 
-  function spawn(x, y, power, long) {
+  function spawn(x, y, power, long, fade) {
     const life = long ? 11 + Math.random() * 4 : 5.5 + Math.random() * 3.5;
     const side = Math.random() < 0.5 ? -1 : 1;
     const pts = [];
@@ -105,7 +105,7 @@ const Wisps = (function () {
       drift: side * (long ? 26 + Math.random() * 30 : Math.random() * 18),
       age: 0, life,
       width: 1.2 + Math.random() * 1.6,
-      alpha: 0.5 + Math.random() * 0.4,
+      alpha: (0.5 + Math.random() * 0.4) * fade,
       power,
       pts
     });
@@ -210,7 +210,7 @@ const Wisps = (function () {
     const o = opts || {};
     const count = o.count || 2;
     for (let i = 0; i < count; i++) {
-      spawn(x + (Math.random() - 0.5) * 6, y - Math.random() * 4, o.power || 1, o.long && i === 0);
+      spawn(x + (Math.random() - 0.5) * 6, y - Math.random() * 4, o.power || 1, o.long && i === 0, o.alpha || 1);
     }
     if (!frame) frame = requestAnimationFrame(loop);
   }
