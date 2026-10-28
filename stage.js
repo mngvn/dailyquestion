@@ -9,7 +9,9 @@
 // flame burns black, pooling darkness round itself.
 //
 // The camera stands still. Hold a note and it lifts off the chart and opens in
-// front of you; put it down and it lies open on the chart, creases and all.
+// front of you; put it down and it goes through the shredder (shredder.js),
+// then flutters back down from above onto its place on the chart, open,
+// creases and all.
 //
 // It is built to stay light: one pass straight to the screen, shadows drawn
 // again only when something on the desk moves, the paper crumpled in workers.
@@ -28,6 +30,7 @@ import * as Props from "./room-props.js";
 import { Flame, Dust, flicker } from "./flame.js";
 import { makePaperNote, WAD, CREASE } from "./paper.js";
 import { WORLD } from "./world.js";
+import { shred } from "./shredder.js";
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const coarse = window.matchMedia("(pointer: coarse)").matches;
@@ -361,6 +364,13 @@ class Stage {
     this.box = box;
   }
 
+  // How high above a spot on the desk something has to be to start out of
+  // sight, above the top of the room.
+  aboveScreen(x, z) {
+    for (let y = 2; y < 40; y += 0.5) if (this.toScreen(this.v.set(x, y, z)).y < -this.H * 0.25) return y;
+    return 40;
+  }
+
   toScreen(world) {
     const s = this.v.copy(world).project(this.camera);
     return { x: (s.x + 1) / 2 * this.W, y: (1 - s.y) / 2 * this.H };
@@ -678,7 +688,8 @@ class Stage {
 }
 
 // ----- A note, on the desk and in the hand -----
-// wad → holding → open (held up to read) → laid (open on the chart) → open …
+// wad → holding → open (held up to read) → shredding → laid (open on the
+// chart, after falling back into place from above) → open …
 // Once a note has been opened it stays open: desk.js remembers it for the
 // rest of the visit, and it comes back laid open on the chart.
 class NoteRig {
@@ -797,6 +808,9 @@ class NoteRig {
     const depth = this.paper.size * this.paper.aspect * st.H / (2 * Math.tan(THREE.MathUtils.degToRad(st.camera.fov / 2)) * h);
     st.cameraPoint(px, py, depth, this.pRead);
     this.qRead.copy(st.camera.quaternion);
+    // where it is on screen, for the shredder to take it from
+    const w = h / this.paper.aspect;
+    this.readRect = { x: px - w / 2, y: py - h / 2, w, h };
     this.bar.style.left = `${px}px`;
     this.bar.style.top = `${py + h / 2 + 12}px`;
     // the note's footprint on the desk
@@ -895,11 +909,39 @@ class NoteRig {
     this.stage.wake();
   }
 
+  // Put down, it goes through the shredder; once it has gone through, it
+  // falls back onto the desk from above. With reduced motion it is simply
+  // laid down.
   putDown() {
     if (this.state !== "open") return;
-    this.state = "laid";
     this.bar.dataset.show = "false";
     this.stage.el.dataset.reading = "false";
+    if (reduceMotion || !this.readRect) {
+      this.state = "laid";
+      this.place();
+      this.stage.wake();
+      return;
+    }
+    this.state = "shredding";
+    this.paper.object.visible = false;
+    const canvas = document.createElement("canvas");
+    canvas.className = "shred-canvas";
+    canvas.setAttribute("aria-hidden", "true");
+    this.stage.overlay.append(canvas);
+    shred(canvas, { from: this.readRect, print: this.spec.texture, light: this.stage.light, onFed: () => this.fallIn() })
+      .then(() => canvas.remove());
+    this.stage.wake();
+  }
+
+  // Back from above the top of the room, open, fluttering down to its place.
+  fallIn() {
+    if (this.stage.disposed) return;
+    this.state = "laid";
+    this.lift.value = this.lift.target = this.lift.velocity = 0;
+    this.drop.y = this.stage.aboveScreen(this.spot.x, this.spot.z);
+    this.drop.v = 0;
+    this.fluttering = true;
+    this.paper.object.visible = true;
     this.place();
     this.stage.wake();
   }
@@ -914,7 +956,7 @@ class NoteRig {
     let fold = WAD * (1 - smooth(this.progress)), crease = 0, lift = 0, print = 0;
     if (this.state === "holding") lift = 0.32 * smooth(this.progress);
     else if (this.state === "open") { fold = 0; crease = CREASE; lift = 1; print = 0.85; }
-    else if (this.state === "laid") { fold = 0; crease = CREASE; }
+    else if (this.state === "laid" || this.state === "shredding") { fold = 0; crease = CREASE; }
     paper.fold(fold, crease);
     paper.setPrint(print);
     let moving = paper.update(dt, { foldSeconds: this.state === "holding" || this.state === "wad" ? 0.35 : 0.5, instant });
@@ -931,20 +973,31 @@ class NoteRig {
         this.tiltX.velocity += (Math.random() - 0.5) * 3;
       }
     }
+    // a sheet falling back in rocks and sways on the air until it lands
+    const d = this.drop;
+    if (this.fluttering) {
+      const sway = clamp(d.y / 2.5, 0, 1);
+      this.tiltX.target = Math.sin(t * 2.7 + this.index) * 0.35 * sway;
+      this.tiltY.target = Math.sin(t * 1.9 + this.index * 2) * 0.5 * sway;
+    }
     // a held wad trembles as it is worked open
     if (this.state === "holding" && !reduceMotion) this.tiltX.target += (Math.sin(t * 23) * 0.04 - this.tiltX.target) * 0.2;
     moving = advance(this.tiltX, dt, 0.42, instant) || moving;
     moving = advance(this.tiltY, dt, 0.42, instant) || moving;
 
     // dropped onto the desk once the room is in view: a wad bounces, an open
-    // sheet just settles
-    const d = this.drop;
+    // sheet just settles, and one falling back in drifts down on the air
     if (this.stage.shown && (d.y > 0 || d.v !== 0)) {
-      d.v -= (this.state === "laid" ? 6 : 22) * dt;
+      if (this.fluttering) d.v = Math.max(d.v - 9 * dt, -3.6);
+      else d.v -= (this.state === "laid" ? 6 : 22) * dt;
       d.y += d.v * dt;
       if (d.y <= 0) {
         d.y = 0;
         d.v = this.state === "wad" && Math.abs(d.v) > 1.2 ? -d.v * 0.32 : 0;
+        if (this.fluttering) {
+          this.fluttering = false;
+          this.tiltX.target = this.tiltY.target = 0;
+        }
       }
       moving = true;
     }
@@ -957,7 +1010,8 @@ class NoteRig {
     this.posed = moving;
     const k = smooth(clamp(this.lift.value, 0, 1));
     const rest = paper.restHeight() + CHART_Y;
-    this.pDesk.set(this.spot.x, rest + this.hoverLift.value * 0.14 + d.y, this.spot.z);
+    const drift = this.fluttering ? Math.sin(t * 1.6 + this.index) * 0.5 * clamp(d.y / 2.5, 0, 1) : 0;
+    this.pDesk.set(this.spot.x + drift, rest + this.hoverLift.value * 0.14 + d.y, this.spot.z);
     const obj = paper.object;
     obj.position.lerpVectors(this.pDesk, this.pRead, k);
     obj.position.y += this.state === "holding" ? 0.9 * smooth(this.progress) : Math.sin(Math.PI * k) * 1.2;

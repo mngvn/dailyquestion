@@ -183,6 +183,16 @@ body.light .room-loading-flame { background: radial-gradient(ellipse at 50% 75%,
 .note-hit:focus-visible { outline: 3px dashed #e0b45a; outline-offset: 4px; }
 .stage[data-reading="true"] .note-hit { outline: none; }
 
+/* the shredder, drawn over the room while a note goes through it */
+.shred-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 /* what to do with a note held up to the light */
 .note-bar {
   position: absolute;
