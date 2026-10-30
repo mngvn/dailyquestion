@@ -17,6 +17,13 @@
 // candle (bleed.js): the desk built, every note crumpled, printed and its
 // shaders compiled. Only then is the room shown and the veil let go, so from
 // the first moment it can be seen nothing in it stalls.
+//
+// To be ready sooner, nothing waits on anything it doesn't need: the paper
+// starts crumpling the moment the page starts, while three.js is still
+// arriving, and the desk is built without waiting for the web fonts — its
+// chart is lettered again if they arrive afterwards.
+
+import { warm } from "./paper-solve.js";
 
 const W = 360, H = 460;      // the note, in CSS pixels, before it is fitted to its stage
 const RES = 1024 / W;        // texture pixels per CSS pixel
@@ -26,6 +33,9 @@ const SERIF = '"Newsreader", Georgia, serif';
 const MONO = '"IM Fell English SC", Georgia, serif';
 const OPENED_KEY = "daily.opened.v1";
 const NOTE_PATIENCE_MS = 8000;   // a note not ready by then joins the desk late
+const FONT_PATIENCE_MS = 2500;   // the notes are printed in the fallback face after this
+const SEEDS = [7, 13, 17, 23];   // how each fun fact's paper crumples
+const HISTORY_SEED = 11;
 
 // Each note is its own colour of paper, with a darker ink of that colour for
 // its heading.
@@ -140,13 +150,30 @@ function drawMissing(message, paper) {
 }
 
 // The canvas has to wait for the web fonts, or the note gets printed in the
-// fallback face and stays that way.
+// fallback face and stays that way. Their stylesheet loads without holding up
+// the page (index.html), so it is waited for first. Asked for once, however
+// often it is awaited: a font that never arrives costs the wait only once.
+let fontsWait = null;
+function fontSheet() {
+  const link = document.getElementById("fonts");
+  if (!link || link.media !== "print") return Promise.resolve();
+  return new Promise((resolve) => {
+    link.addEventListener("load", resolve, { once: true });
+    link.addEventListener("error", resolve, { once: true });
+  });
+}
 function fontsReady() {
-  if (!document.fonts || !document.fonts.load) return Promise.resolve();
+  if (fontsWait) return fontsWait;
+  if (!document.fonts || !document.fonts.load) return (fontsWait = Promise.resolve());
   const wanted = [`500 26px ${SERIF}`, `600 64px ${SERIF}`, `italic 400 20px ${SERIF}`, `400 12px ${MONO}`,
     '30px "IM Fell English SC"', 'italic 17px "IM Fell English"'];
-  const timeout = new Promise((resolve) => setTimeout(resolve, 2500));
-  return Promise.race([Promise.all(wanted.map((f) => document.fonts.load(f))), timeout]).catch(() => {});
+  const loaded = fontSheet().then(() => {
+    getComputedStyle(document.body).fontFamily;   // let the stylesheet's faces be registered
+    return Promise.all(wanted.map((f) => document.fonts.load(f)));
+  });
+  const timeout = new Promise((resolve) => setTimeout(resolve, FONT_PATIENCE_MS));
+  fontsWait = Promise.race([loaded, timeout]).catch(() => {});
+  return fontsWait;
 }
 
 // ----- What has been opened this visit -----
@@ -181,18 +208,17 @@ function todaysNotes() {
     },
     copy(btn) { daily.copyText(copyText, btn); }
   });
-  const seeds = [7, 13, 17, 23];
   daily.facts.forEach((fact, i) => {
     const paper = PAPERS[fact.cat] || PAPERS.Misc;
-    add(`fact-${fact.cat}`, paper, seeds[i % seeds.length], drawFact(fact, paper),
+    add(`fact-${fact.cat}`, paper, SEEDS[i % SEEDS.length], drawFact(fact, paper),
       `Fun fact · ${fact.cat}`, `${fact.cat} fact: ${fact.text}`, `${fact.cat}: ${fact.text}`);
   });
   const hist = daily.hist, date = daily.histDate, paper = PAPERS.day;
   if (hist) {
-    add("history", paper, 11, drawHistory(hist, date, paper), `On this day · ${date}`,
+    add("history", paper, HISTORY_SEED, drawHistory(hist, date, paper), `On this day · ${date}`,
       `On ${date}, ${hist.year}: ${hist.text}`, `On ${date}, ${hist.year} — ${hist.text}`);
   } else {
-    add("history", paper, 11, drawMissing(`No entry for ${date}.`, paper), `On this day · ${date}`,
+    add("history", paper, HISTORY_SEED, drawMissing(`No entry for ${date}.`, paper), `On this day · ${date}`,
       `No entry for ${date} yet.`, `No entry for ${date} yet.`);
   }
   return notes;
@@ -226,13 +252,10 @@ function layFlat(notes) {
 async function loadStage(room) {
   if (!room) return null;
   const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 15000));
-  const [mod] = await Promise.all([
-    Promise.race([import("./stage.js"), timeout]).catch((error) => {
-      console.warn("three.js could not be loaded; laying the notes out flat.", error);
-      return null;
-    }),
-    fontsReady()
-  ]);
+  const mod = await Promise.race([import("./stage.js"), timeout]).catch((error) => {
+    console.warn("three.js could not be loaded; laying the notes out flat.", error);
+    return null;
+  });
   if (!mod) return null;
   try {
     return await mod.start(room);
@@ -250,9 +273,17 @@ const frames = (n) => new Promise((resolve) => {
 
 async function init() {
   if (!daily) return bleed.reveal();
+  warm([...SEEDS, HISTORY_SEED]);
+  const fonts = fontsReady();
+  let lettered = false;
+  fonts.then(() => { lettered = true; });
   const room = document.getElementById("room");
   const stage = await loadStage(room);
-  await fontsReady();
+  const early = !lettered;
+  await fonts;
+  // built before the fonts were in: letter the chart again, and fit the room
+  // to the date as it is now set
+  if (stage && early) stage.fontsArrived();
   const notes = todaysNotes();
   if (!stage) {
     if (room) room.dataset.mode = "2d";

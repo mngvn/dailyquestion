@@ -7,7 +7,10 @@
   <meta name="description" content="Four fun facts and today in history, written on crumpled notes on a candlelit chart desk. Pick one up and hold on to unfold it." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet" />
+  <!-- the fonts hold nothing up: the page is under its veil until they are
+       in (or have been given up on), and desk.js waits for them itself -->
+  <link id="fonts" href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet" /></noscript>
   <link rel="stylesheet" href="home.css" />
   <script type="importmap">
     {
@@ -23,6 +26,7 @@
   <link rel="modulepreload" href="room-props.js" />
   <link rel="modulepreload" href="flame.js" />
   <link rel="modulepreload" href="paper.js" />
+  <link rel="modulepreload" href="paper-solve.js" />
   <link rel="modulepreload" href="paper-solver.js" />
   <link rel="modulepreload" href="world.js" />
   <link rel="modulepreload" href="shredder.js" />

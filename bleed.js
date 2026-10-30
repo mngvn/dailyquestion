@@ -105,7 +105,7 @@
   function painter(host) {
     const SCALE = 2;          // CSS pixels per canvas pixel; the upscale softens the edge
     const START = 34;         // the pinhole home.css draws, in CSS pixels
-    const REVEAL_MS = 1900;   // from wherever it has got to, out past the edges
+    const REVEAL_MS = 1400;   // from wherever it has got to, out past the edges
     const TAU = Math.PI * 2;
     const later = typeof requestAnimationFrame === "function"
       ? (f) => requestAnimationFrame(f)
