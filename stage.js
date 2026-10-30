@@ -135,6 +135,7 @@ class Stage {
     this.api = {
       note: (spec) => this.addNote(spec),
       show: () => this.show(),
+      fontsArrived: () => this.fontsArrived(),
       puff: (s) => this.puff(s),
       dispose: () => this.dispose()
     };
@@ -255,6 +256,17 @@ class Stage {
     this.wake();
     setTimeout(() => this.puff(1), 1400);
     this.scheduleWisps();
+  }
+
+  // The web fonts came after the room was built: the chart's lettering is
+  // drawn again in them, and the room fitted again round the date.
+  fontsArrived() {
+    const L = this.layout, material = this.chart.material, old = material.map;
+    material.map = Props.tex(Props.chartCanvas(WORLD, L.chart.w / L.chart.d), { aniso: 16 });
+    old.dispose();
+    this.renderer.initTexture(material.map);
+    this.W = 0;
+    this.resize();
   }
 
   dispose() {

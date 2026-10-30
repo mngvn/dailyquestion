@@ -3,9 +3,10 @@
 // A port of React Bits' Paper Crumple (reactbits.dev/micro/paper-crumple,
 // MIT) out of React and into plain three.js, so the home page can keep running
 // without a build step. The solver that balls the sheet up lives in
-// paper-solver.js, kept as written; it runs in paper-worker.js so the page
-// stays smooth while five notes are being crumpled, and what it works out is
-// kept in IndexedDB, so on a later visit there is nothing to work out.
+// paper-solver.js, kept as written; paper-solve.js runs it in
+// paper-worker.js so the page stays smooth while five notes are being
+// crumpled — starting before three.js has even arrived — and keeps what it
+// works out in IndexedDB, so on a later visit there is nothing to work out.
 //
 // The original draws its own little scene. Here the sheet is just a mesh, so
 // it sits in the desk's scene: lit by the same candle, throwing its shadow on
@@ -21,15 +22,13 @@
 //   note.dispose()
 
 import * as THREE from "three";
-import { buildMesh, createPaperPath } from "./paper-solver.js";
+import { buildMesh } from "./paper-solver.js";
+import { SHEET, solve } from "./paper-solve.js";
 
 export const WAD = 0.94;     // how tightly a fresh note is balled up (0 flat, 1 tightest)
 export const CREASE = 0.16;  // relief left in the open sheet
 
-const DEFAULTS = {
-  width: 360, height: 460, seed: 7, detail: 64, foldCount: 6, foldSharpness: 0.6, wrinkleDepth: 0.65,
-  paperColor: "#f3eee4", size: 2.4, anisotropy: 8, open: false
-};
+const DEFAULTS = { ...SHEET, seed: 7, paperColor: "#f3eee4", size: 2.4, anisotropy: 8, open: false };
 
 const spring = (value = 0) => ({ value, target: value, velocity: 0 });
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -52,124 +51,6 @@ function advance(s, dt, duration, instant) {
     return false;
   }
   return true;
-}
-
-// ----- Solving, off the main thread -----
-// A few workers share the notes between them; each shape of note is solved
-// once, and kept for next time (below). Where module workers aren't
-// available it is done here instead, a note at a time between frames.
-const solved = new Map();
-let pool = null, nextJob = 0, turn = 0;
-const jobs = new Map();
-
-function workers() {
-  if (pool) return pool;
-  pool = [];
-  try {
-    const count = Math.max(1, Math.min(3, (navigator.hardwareConcurrency || 2) - 1));
-    for (let i = 0; i < count; i++) {
-      const worker = new Worker(new URL("./paper-worker.js", import.meta.url), { type: "module" });
-      worker.onmessage = (e) => {
-        const job = jobs.get(e.data.id);
-        jobs.delete(e.data.id);
-        if (job) job.resolve({ samples: e.data.samples, creased: e.data.creased });
-      };
-      worker.onerror = () => failOver(worker);
-      pool.push(worker);
-    }
-  } catch (e) {
-    pool = [];
-  }
-  return pool;
-}
-
-// A worker that can't start (an old browser, a file:// page) hands its
-// jobs back to the main thread.
-function failOver(worker) {
-  pool = pool.filter((w) => w !== worker);
-  worker.terminate();
-  for (const [id, job] of jobs) {
-    if (job.worker !== worker) continue;
-    jobs.delete(id);
-    job.resolve(solveHere(job.opts));
-  }
-}
-
-function solveHere(opts) {
-  return new Promise((resolve) => setTimeout(() => {
-    const mesh = buildMesh(opts.width, opts.height, opts.seed, opts.detail);
-    resolve(createPaperPath(mesh.original, mesh.indices, mesh.shortSide,
-      opts.foldCount, opts.foldSharpness, opts.wrinkleDepth, opts.seed));
-  }, 0));
-}
-
-function solveFresh(opts) {
-  const list = workers();
-  if (!list.length) return solveHere(opts);
-  return new Promise((resolve) => {
-    const id = ++nextJob;
-    const worker = list[turn++ % list.length];
-    jobs.set(id, { resolve, worker, opts });
-    const { width, height, seed, detail, foldCount, foldSharpness, wrinkleDepth } = opts;
-    worker.postMessage({ id, width, height, seed, detail, foldCount, foldSharpness, wrinkleDepth });
-  });
-}
-
-function solve(opts) {
-  const key = "v1:" + JSON.stringify([opts.width, opts.height, opts.seed, opts.detail, opts.foldCount, opts.foldSharpness, opts.wrinkleDepth]);
-  if (solved.has(key)) return solved.get(key);
-  const promise = recall(key).then((kept) => kept || solveFresh(opts).then((path) => {
-    keep(key, path);
-    return path;
-  }));
-  solved.set(key, promise);
-  return promise;
-}
-
-// ----- Kept between visits -----
-// The same seed always crumples the same way, so a solved sheet is kept in
-// IndexedDB and the next visit's notes arrive without any solving at all.
-// Anything going wrong here just means solving it again.
-const STORE = "paths";
-let db;
-
-function database() {
-  if (db) return db;
-  db = new Promise((resolve) => {
-    try {
-      const request = indexedDB.open("daily-paper", 1);
-      request.onupgradeneeded = () => request.result.createObjectStore(STORE);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = request.onblocked = () => resolve(null);
-    } catch (e) {
-      resolve(null);
-    }
-  });
-  return db;
-}
-
-function recall(key) {
-  return database().then((d) => d && new Promise((resolve) => {
-    try {
-      const request = d.transaction(STORE).objectStore(STORE).get(key);
-      request.onsuccess = () => {
-        const v = request.result;
-        resolve(v && v.samples && v.creased ? v : null);
-      };
-      request.onerror = () => resolve(null);
-    } catch (e) {
-      resolve(null);
-    }
-  }));
-}
-
-function keep(key, path) {
-  database().then((d) => {
-    if (!d) return;
-    try {
-      d.transaction(STORE, "readwrite").objectStore(STORE).put({ samples: path.samples, creased: path.creased }, key);
-    } catch (e) { /* not kept; it will be solved again next time */ }
-  });
 }
 
 export async function makePaperNote(options) {
