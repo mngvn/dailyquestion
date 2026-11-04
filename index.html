@@ -12,16 +12,12 @@
   <link id="fonts" href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <noscript><link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet" /></noscript>
   <link rel="stylesheet" href="home.css" />
+  <!-- three.js r170, cut down to the parts the desk uses and served from
+       here (vendor/make-three.mjs) -->
   <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
-      }
-    }
+    { "imports": { "three": "./vendor/three.min.js" } }
   </script>
-  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js" crossorigin />
-  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/environments/RoomEnvironment.js" crossorigin />
+  <link rel="modulepreload" href="vendor/three.min.js" />
   <link rel="modulepreload" href="stage.js" />
   <link rel="modulepreload" href="room-props.js" />
   <link rel="modulepreload" href="flame.js" />
@@ -29,7 +25,6 @@
   <link rel="modulepreload" href="paper-solve.js" />
   <link rel="modulepreload" href="paper-solver.js" />
   <link rel="modulepreload" href="world.js" />
-  <link rel="modulepreload" href="shredder.js" />
   <noscript><style>.bleed { display: none; }</style></noscript>
 </head>
 <body class="home">
