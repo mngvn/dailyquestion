@@ -2,11 +2,12 @@
 //
 // One WebGL scene: a walnut desk and its sea chart, a candle in a brass
 // chamberstick, a compass and an inkwell, and today's five notes (paper.js)
-// crumpled on the chart in the candle's light. The candle is the light. Its
-// flame (flame.js) flickers, leans when the pointer sweeps past and throws the
-// shadows across the desk; blow it out and the room goes black but for the
-// match the pointer carries. In light mode the room is in daylight and the
-// flame burns black, pooling darkness round itself.
+// crumpled on the chart in the candle's light. The candle is the one light in
+// the room: no fill, no moon, no daylight, nothing reflected from a world
+// outside. Its flame (flame.js) flickers, leans when the pointer sweeps past
+// and throws the shadows across the desk; blow it out and the room goes black
+// but for the match the pointer carries. In light mode it is the same room
+// with paler walls and a brighter, whiter candle.
 //
 // The camera stands still. Hold a note and it lifts off the chart and opens in
 // front of you; put it down and it goes through the shredder (shredder.js),
@@ -25,12 +26,15 @@
 // view, and lets the notes fall.
 
 import * as THREE from "three";
-import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import * as Props from "./room-props.js";
 import { Flame, Dust, flicker } from "./flame.js";
 import { makePaperNote, WAD, CREASE } from "./paper.js";
 import { WORLD } from "./world.js";
-import { shred } from "./shredder.js";
+
+// The shredder is only wanted once a note is put down, so it is fetched once
+// the room is in view rather than holding up the first visit.
+let shredder = null;
+const loadShredder = () => (shredder ??= import("./shredder.js"));
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const coarse = window.matchMedia("(pointer: coarse)").matches;
@@ -47,6 +51,12 @@ const CHART_Y = 0.06;        // the chart's surface, where the notes rest
 // room fades in the one flame becomes the other.
 const FLAME_AT = { wide: 0.35, tall: 0.34 };
 const FLAME_MID = 0.36;      // the middle of the flame, above the wick
+
+// The room in each theme, all of it lit by the candle alone.
+const THEMES = {
+  dark: { background: 0x050302, wall: 0x2b2019, floor: 0x150d08, candle: 0xffa456, strength: 7, exposure: 1.2 },
+  light: { background: 0xe9dcc6, wall: 0xe6d6bc, floor: 0xb8a58a, candle: 0xffd9a8, strength: 14, exposure: 1.05 }
+};
 
 // Where everything lies: `wide` for landscape rooms, `tall` for phones.
 // Positions are [x, z, turn] on the desk. The notes are placed in the order
@@ -170,11 +180,7 @@ class Stage {
 
     const scene = this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(30, 1, 0.5, 300);
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    pmrem.dispose();
-
-    // ----- Light -----
+    // ----- Light: the candle, and nothing else -----
     this.candleLight = new THREE.PointLight(0xffa456, 7, 0, 1.05);
     this.candleLight.castShadow = true;
     this.candleLight.shadow.mapSize.set(coarse ? 512 : 1024, coarse ? 512 : 1024);
@@ -183,18 +189,12 @@ class Stage {
     this.candleLight.shadow.bias = -0.002;
     this.candleLight.shadow.normalBias = 0.02;
     this.candleLight.shadow.radius = 3;
+    // what the desk and the paper throw back of the candle's own light keeps
+    // its shadows from going quite black
+    this.candleLight.shadow.intensity = 0.8;
+    // with the candle blown out, the pointer carries a match
     this.matchLight = new THREE.PointLight(0xffb070, 0, 0, 2);
-    this.hemi = new THREE.HemisphereLight(0x3a2a20, 0x0a0604, 0.35);
-    this.moon = new THREE.DirectionalLight(0x8090b8, 0.16);
-    this.moon.position.set(-10, 8, -12);
-    this.sun = new THREE.DirectionalLight(0xfff0da, 2.2);
-    this.sun.position.set(-9, 15, 7);
-    this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(coarse ? 1024 : 2048, coarse ? 1024 : 2048);
-    Object.assign(this.sun.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 50 });
-    this.sun.shadow.bias = -0.0008;
-    this.sun.shadow.radius = 4;
-    scene.add(this.candleLight, this.matchLight, this.hemi, this.moon, this.sun, this.sun.target);
+    scene.add(this.candleLight, this.matchLight);
 
     // ----- The room and the things in it -----
     const M = this.M = Props.makeMaterials();
@@ -213,15 +213,6 @@ class Stage {
     this.flame.attachEmbers(scene);
     this.dust = new Dust(coarse ? 140 : 260, 7.5);
     scene.add(this.dust.points);
-    // in daylight the flame gives off darkness: a pool of it on the desk,
-    // multiplied into whatever is under it
-    this.shade = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({
-      map: Props.tex(pool()), transparent: true, depthWrite: false, toneMapped: false,
-      blending: THREE.MultiplyBlending, premultipliedAlpha: true
-    }));
-    this.shade.rotation.x = -Math.PI / 2;
-    this.shade.renderOrder = 1;
-    scene.add(this.shade);
     this.compass = Props.makeCompass(M);
     this.inkwell = Props.makeInkwell(M);
     scene.add(this.compass.root, this.inkwell.root);
@@ -256,6 +247,7 @@ class Stage {
     this.wake();
     setTimeout(() => this.puff(1), 1400);
     this.scheduleWisps();
+    setTimeout(() => loadShredder().catch(() => {}), 2000);
   }
 
   // The web fonts came after the room was built: the chart's lettering is
@@ -325,8 +317,6 @@ class Stage {
     place(this.compass.root, L.compass);
     place(this.inkwell.root, L.inkwell);
     this.dust.points.position.set(L.candle[0], 0, L.candle[1]);
-    this.shade.position.set(L.candle[0], 0.09, L.candle[1]);
-    this.shadeSize = name === "tall" ? 8 : 11;
     for (const n of this.notes) n.relayout();
     // the flame's light stays put: the shadows only move when the desk does
     this.candle.root.updateMatrixWorld(true);
@@ -398,23 +388,14 @@ class Stage {
   // ----- Theme -----
   applyTheme() {
     const light = this.light = document.body.classList.contains("light");
+    const T = this.theme = THEMES[light ? "light" : "dark"];
     const { scene, renderer, M } = this;
-    scene.background = new THREE.Color(light ? 0xe9dcc6 : 0x050302);
-    scene.environmentIntensity = light ? 0.75 : 0.1;
-    M.wall.color.set(light ? 0xe6d6bc : 0x2b2019);
-    M.floor.color.set(light ? 0xb8a58a : 0x150d08);
-    this.hemi.color.set(light ? 0xfff4e6 : 0x3a2a20);
-    this.hemi.groundColor.set(light ? 0x9a8a72 : 0x0a0604);
-    this.hemi.intensity = light ? 0.95 : 0.35;
-    this.sun.visible = light;
-    this.moon.visible = !light;
-    this.candleLight.castShadow = !light;
-    this.candleLight.color.set(light ? 0xffe8c8 : 0xffa456);
-    renderer.toneMappingExposure = light ? 0.95 : 1.2;
-    this.dust.points.visible = !light && (this.quality || 0) < 2;
-    this.shade.visible = light;
-    this.flame.setDark(light);
-    this.candle.wax.emissiveIntensity = light ? 0 : 0.55;
+    scene.background = new THREE.Color(T.background);
+    M.wall.color.set(T.wall);
+    M.floor.color.set(T.floor);
+    this.candleLight.color.set(T.candle);
+    renderer.toneMappingExposure = T.exposure;
+    this.dust.points.visible = (this.quality || 0) < 2;
     for (const n of this.notes) n.applyTheme();
     // switching between light and dark, the candle flares as it turns
     if (this.themed && !reduceMotion) {
@@ -643,12 +624,10 @@ class Stage {
     this.roar += ((candle.hovered ? 1 : 0) - this.roar) * (1 - Math.exp(-5 * dt));
     if (candle.hovered && !reduceMotion) flame.boost = Math.max(flame.boost, 5);
     flame.update(dt, t, this.camera, { flick: this.flick, lit, lean: this.lean / 28, roar: this.roar });
-    this.candleLight.intensity = this.light ? -6 * this.lit * this.flick : 7 * this.flick * lit;
-    candle.wax.emissiveIntensity = this.light ? 0 : 0.55 * this.flick * this.lit;
+    this.candleLight.intensity = this.theme.strength * this.flick * lit;
+    candle.wax.emissiveIntensity = 0.55 * this.flick * this.lit;
     candle.ember.material.opacity = Math.max(0, candle.ember.material.opacity - dt * 0.35);
     this.dust.update(dt, this.candleLight.position, this.flick, this.lit, reduceMotion);
-    if (this.light) this.shade.scale.setScalar(this.shadeSize * (0.55 + 0.45 * this.lit) * (1 + (this.flick - 1) * 0.9));
-    this.shade.visible = this.light && this.lit > 0.05;
 
     // the flame on screen, for the smoke and the draught
     this.flameScreen = this.toScreen(flame.group.localToWorld(this.v.set(0, 0.55, 0)));
@@ -660,7 +639,7 @@ class Stage {
       this.setHover(this.pick(p.x, p.y));
     }
     // with the candle out, the pointer carries a match
-    const wantMatch = !this.light && this.lit < 0.5 && p.inside && p.onDesk ? 10 : 0;
+    const wantMatch = this.lit < 0.5 && p.inside && p.onDesk ? 10 : 0;
     this.matchLight.intensity += (wantMatch - this.matchLight.intensity) * (1 - Math.exp(-6 * dt));
     if (p.onDesk) this.matchLight.position.set(p.desk.x, 1.5, p.desk.z + 0.4);
 
@@ -940,14 +919,16 @@ class NoteRig {
     canvas.className = "shred-canvas";
     canvas.setAttribute("aria-hidden", "true");
     this.stage.overlay.append(canvas);
-    shred(canvas, { from: this.readRect, print: this.spec.texture, light: this.stage.light, onFed: () => this.fallIn() })
-      .then(() => canvas.remove());
+    loadShredder()
+      .then(({ shred }) => shred(canvas, { from: this.readRect, print: this.spec.texture, light: this.stage.light, onFed: () => this.fallIn() }))
+      .catch(() => this.fallIn())
+      .finally(() => canvas.remove());
     this.stage.wake();
   }
 
   // Back from above the top of the room, open, fluttering down to its place.
   fallIn() {
-    if (this.stage.disposed) return;
+    if (this.stage.disposed || this.state !== "shredding") return;
     this.state = "laid";
     this.lift.value = this.lift.target = this.lift.velocity = 0;
     this.drop.y = this.stage.aboveScreen(this.spot.x, this.spot.z);
@@ -1032,22 +1013,4 @@ class NoteRig {
     obj.quaternion.multiply(this.wobble);
     return true;
   }
-}
-
-// The pool of darkness round the black flame: deep violet in the middle,
-// white (which multiplies to nothing) at the edge.
-function pool() {
-  const c = document.createElement("canvas");
-  c.width = c.height = 256;
-  const g = c.getContext("2d");
-  g.fillStyle = "#fff";
-  g.fillRect(0, 0, 256, 256);
-  const grad = g.createRadialGradient(128, 128, 0, 128, 128, 128);
-  grad.addColorStop(0, "rgb(70, 48, 92)");
-  grad.addColorStop(0.3, "rgb(128, 108, 148)");
-  grad.addColorStop(0.62, "rgb(205, 196, 214)");
-  grad.addColorStop(1, "#fff");
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 256, 256);
-  return c;
 }

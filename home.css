@@ -88,12 +88,12 @@ body.light .room-date { text-shadow: 0 2px 24px rgba(255, 248, 235, 0.9); }
   box-shadow: 0 0 46px 20px rgba(255, 140, 40, 0.3);
   animation: loadingFlame 0.18s ease-in-out infinite alternate;
 }
-body.light .room-loading { background: radial-gradient(ellipse 45% 38% at 50% var(--flame-at), rgba(40, 20, 60, 0.13), rgba(70, 45, 90, 0.07) 70%); }
-body.light .room-loading-flame { background: radial-gradient(ellipse at 50% 75%, #000 0 30%, #2a1446 70%, transparent 100%); box-shadow: 0 0 46px 20px rgba(30, 15, 45, 0.25); }
 @keyframes loadingFlame {
   from { transform: scale(1, 1) skewX(-2deg); }
   to   { transform: scale(0.92, 1.08) skewX(2deg); }
 }
+/* in light mode the same candle, its light warm on pale paper */
+body.light .room-loading { background: radial-gradient(ellipse 45% 38% at 50% var(--flame-at), rgba(230, 120, 30, 0.2), rgba(200, 110, 40, 0.08) 70%); }
 .room[data-mode="3d"] .room-loading { opacity: 0; }
 .room[data-mode="2d"] .room-loading { display: none; }
 
