@@ -203,7 +203,8 @@ class Sea {
 
   resize() {
     const W = this.W = window.innerWidth, H = this.H = window.innerHeight;
-    const dpr = this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // the sea is soft-edged and always moving; it doesn't need every pixel
+    const dpr = this.dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     this.canvas.width = Math.round(W * dpr);
     this.canvas.height = Math.round(H * dpr);
     this.L = Math.max(160, Math.min(W * 0.74, H * 0.72, 640));

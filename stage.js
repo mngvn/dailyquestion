@@ -41,6 +41,9 @@ import { WORLD } from "./world.js";
 // the room is in view rather than holding up the first visit.
 let shredder = null;
 const loadShredder = () => (shredder ??= import("./shredder.js"));
+// and the sea (boat.js) only once the room has settled
+let seaModule = null;
+const loadSea = () => (seaModule ??= import("./boat.js"));
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const coarse = window.matchMedia("(pointer: coarse)").matches;
@@ -247,7 +250,9 @@ class Stage {
     this.applyTheme();
     this.resize();
     this.step(1 / 60);
-    await renderer.compileAsync(scene, this.camera);
+    // (the torn paper the desk throws up when it goes over too, though it
+    // isn't in the room until then)
+    await Promise.all([renderer.compileAsync(scene, this.camera), renderer.compileAsync(this.makeScraps().mesh, this.camera, scene)]);
     if (this.disposed) throw new Error("the room was taken down while it was being built");
     this.draw();
     if (broken) throw new Error("a shader failed to compile");
@@ -268,8 +273,8 @@ class Stage {
     setTimeout(() => this.puff(1), 1400);
     this.scheduleWisps();
     setTimeout(() => loadShredder().catch(() => {}), 2000);
-    // the torn paper the desk throws up when it goes over, made ready early
-    setTimeout(() => this.prepareScraps().catch(() => {}), 3500);
+    // the sea, fetched ahead so the flood isn't kept waiting on it
+    setTimeout(() => loadSea().catch(() => {}), 4000);
   }
 
   // The web fonts came after the room was built: the chart's lettering is
@@ -596,7 +601,7 @@ class Stage {
   // the sea (boat.js), and this room is stopped.
   flip() {
     if (this.flight || this.disposed) return;
-    const sea = import("./boat.js");
+    const sea = loadSea();
     sea.catch(() => {});
     if (this.grabbed) { this.grabbed.release(); this.grabbed = null; }
     this.setHover(null);
@@ -605,7 +610,10 @@ class Stage {
     for (const n of this.notes) { n.bar.dataset.show = "false"; n.hit.hidden = true; }
     this.canvas.style.cursor = "";
     this.announce("The desk goes over, and the room floods.");
-    const flight = this.flight = { t: 0, sea, bodies: [], shake: 0, launched: false, landed: false, flooding: false };
+    const flight = this.flight = {
+      t: 0, sea, bodies: [], shake: 0, launched: false, landed: false, flooding: false,
+      shadow: this.candleLight.shadow.intensity
+    };
     if (reduceMotion) { this.flood(); return; }
     // it turns about its middle
     const L = this.layout;
@@ -646,37 +654,61 @@ class Stage {
     // and a flurry of torn paper with them
     const scraps = this.makeScraps();
     if (!spots.length) spots.push({ x: 0, z: 0 });
-    for (const m of scraps.children) {
+    const euler = new THREE.Euler();
+    for (const piece of scraps.pieces) {
       const at = spots[Math.floor(Math.random() * spots.length)];
-      m.position.set(at.x + rand(-1.3, 1.3), CHART_Y + 0.1, at.z + rand(-1.3, 1.3));
-      m.rotation.set(-Math.PI / 2 + rand(-0.4, 0.4), rand(0, Math.PI * 2), rand(-0.4, 0.4));
-      body(m, [rand(-3.5, 3.5), rand(7, 14), rand(0, 4)], rand(4, 11), { drag: 1.7, fall: 9, sway: 5 });
+      piece.position.set(at.x + rand(-1.3, 1.3), CHART_Y + 0.1, at.z + rand(-1.3, 1.3));
+      piece.quaternion.setFromEuler(euler.set(-Math.PI / 2 + rand(-0.4, 0.4), rand(0, Math.PI * 2), rand(-0.4, 0.4)));
+      body(piece, [rand(-3.5, 3.5), rand(7, 14), rand(0, 4)], rand(4, 11), { drag: 1.7, fall: 9, sway: 5 });
     }
-    this.scene.add(scraps);
+    scraps.update();
+    this.scene.add(scraps.mesh);
     // the flame roars up as it is thrown
     this.flare = 1;
   }
 
-  // Scraps of paper in the notes' colours, all sharing one shape and one
-  // kind of material, so they cost a single shader.
+  // Scraps of paper in the notes' colours. They are all one mesh, drawn in a
+  // single call: each frame every scrap's four corners are worked out from
+  // where it is and how it is turned.
   makeScraps() {
     if (this.scraps) return this.scraps;
-    const geometry = new THREE.PlaneGeometry(0.34, 0.42);
-    const materials = SCRAP_COLORS.map((color) => new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.12, roughness: 0.92, side: THREE.DoubleSide }));
-    const group = new THREE.Group();
-    for (let i = 0, n = coarse ? 36 : 64; i < n; i++) {
-      const m = new THREE.Mesh(geometry, materials[i % materials.length]);
-      m.scale.set(0.5 + Math.random(), 0.5 + Math.random(), 1);
-      m.frustumCulled = false;
-      group.add(m);
+    const n = coarse ? 36 : 64;
+    const positions = new Float32Array(n * 12), normals = new Float32Array(n * 12), colors = new Float32Array(n * 12);
+    const index = [], color = new THREE.Color(), pieces = [];
+    for (let i = 0; i < n; i++) {
+      color.set(SCRAP_COLORS[i % SCRAP_COLORS.length]);
+      for (let c = 0; c < 4; c++) colors.set([color.r, color.g, color.b], i * 12 + c * 3);
+      index.push(i * 4, i * 4 + 1, i * 4 + 2, i * 4, i * 4 + 2, i * 4 + 3);
+      const w = 0.17 * (0.5 + Math.random()), h = 0.21 * (0.5 + Math.random());
+      pieces.push({
+        position: new THREE.Vector3(), quaternion: new THREE.Quaternion(),
+        corners: [new THREE.Vector3(-w, -h, 0), new THREE.Vector3(w, -h, 0), new THREE.Vector3(w, h, 0), new THREE.Vector3(-w, h, 0)]
+      });
     }
-    return (this.scraps = group);
-  }
-
-  // compiled out of sight, well before anyone could click the flame
-  async prepareScraps() {
-    if (this.scraps || this.disposed) return;
-    await this.renderer.compileAsync(this.makeScraps(), this.camera, this.scene);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage));
+    geometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3).setUsage(THREE.DynamicDrawUsage));
+    geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    geometry.setIndex(index);
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
+      vertexColors: true, emissive: 0x16110b, roughness: 0.92, side: THREE.DoubleSide
+    }));
+    mesh.frustumCulled = false;
+    const corner = new THREE.Vector3(), normal = new THREE.Vector3();
+    const update = () => {
+      for (let i = 0; i < n; i++) {
+        const { position, quaternion, corners } = pieces[i];
+        normal.set(0, 0, 1).applyQuaternion(quaternion);
+        for (let c = 0; c < 4; c++) {
+          corner.copy(corners[c]).applyQuaternion(quaternion).add(position);
+          corner.toArray(positions, i * 12 + c * 3);
+          normal.toArray(normals, i * 12 + c * 3);
+        }
+      }
+      geometry.attributes.position.needsUpdate = true;
+      geometry.attributes.normal.needsUpdate = true;
+    };
+    return (this.scraps = { mesh, pieces, update });
   }
 
   stepFlight(dt) {
@@ -717,13 +749,24 @@ class Stage {
       }
       b.obj.quaternion.premultiply(this.q.setFromAxisAngle(b.axis, b.spin * dt));
     }
+    if (f.launched) this.scraps.update();
     // the light goes where the flame goes
     this.flame.group.localToWorld(this.candleLight.position.set(0, 0.85, 0));
-    // the room is jolted by the heave and shaken by the landing
+    // Its shadows fade out as the desk is heaved, and are then no longer
+    // drawn: a point light's shadow is the whole room drawn six times over,
+    // every frame something moves, and in all this tumbling no one misses it.
+    const shade = clamp(1 - t / HEAVE_S, 0, 1);
+    this.candleLight.shadow.intensity = f.shadow * shade;
+    this.shadowsDirty = shade > 0;
+    // the room is jolted by the heave and shaken by the landing: a smooth
+    // shudder rather than a jitter, so it reads as shaking and not stutter
     f.shake *= Math.exp(-4 * dt);
-    const jolt = (t < HEAVE_S + 0.12 ? 0.06 : 0) + f.shake * 0.5;
-    if (this.cameraHome) this.camera.position.copy(this.cameraHome).add(this.v.set((Math.random() - 0.5) * jolt, (Math.random() - 0.5) * jolt, 0));
-    this.shadowsDirty = true;
+    const jolt = (t < HEAVE_S + 0.12 ? 0.05 : 0) + f.shake * 0.45;
+    if (this.cameraHome) {
+      this.camera.position.copy(this.cameraHome).add(this.v.set(
+        (Math.sin(t * 61) + Math.sin(t * 37 + 1.3)) * 0.5 * jolt,
+        (Math.sin(t * 53 + 2.1) + Math.sin(t * 29 + 0.4)) * 0.5 * jolt, 0));
+    }
   }
 
   // The water comes up over all of it; once the room can't be seen it stops.
