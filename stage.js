@@ -14,6 +14,12 @@
 // then flutters back down from above onto its place on the chart, open,
 // creases and all.
 //
+// Click the candle and it is blown out. Click the flame itself and the whole
+// desk goes over: tossed up and turned over onto its back, the candle, the
+// compass and the inkwell thrown off it and the notes and a flurry of torn
+// paper flying — and the room floods, and there is only the sea and a
+// leaking rowboat (boat.js).
+//
 // It is built to stay light: one pass straight to the screen, shadows drawn
 // again only when something on the desk moves, the paper crumpled in workers.
 // And it is made ready out of sight: every shader is compiled and every note
@@ -45,6 +51,11 @@ const HOLD_SECONDS = 1.2;    // holding still opens a note in about this long
 const TUG_PX = 2200;         // dragging this far opens it on its own
 const SPRING_BACK = 0.88;    // letting go early keeps this much of the progress
 const RELIGHT_MS = 2800;     // how long the candle stays out
+// The desk going over, in seconds: the heave, the flip itself, and how long
+// after it lands the room starts to flood.
+const HEAVE_S = 0.24, FLIP_S = 1.2, FLOOD_AFTER_S = 0.25;
+const GRAVITY = 22;
+const SCRAP_COLORS = ["#a9c9ef", "#f4adc2", "#f4cf6a", "#a5dcb3", "#c9b4ee", "#efe4c8"];
 const CHART_Y = 0.06;        // the chart's surface, where the notes rest
 // Where the flame sits on screen, as a share of the room's height down from
 // the top. The loading flame in home.css is in the same place, so when the
@@ -141,6 +152,7 @@ class Stage {
     this.frame = 0;
     this.last = 0;
     this.v = new THREE.Vector3();
+    this.q = new THREE.Quaternion();
     this.shown = false;
     this.api = {
       note: (spec) => this.addNote(spec),
@@ -217,6 +229,14 @@ class Stage {
     this.inkwell = Props.makeInkwell(M);
     scene.add(this.compass.root, this.inkwell.root);
     this.addHits(this.candle, "candle");
+    // the flame itself, for a click: an unseen ball round it (rays still find
+    // a hidden mesh)
+    const flameHit = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 8), new THREE.MeshBasicMaterial());
+    flameHit.visible = false;
+    flameHit.position.y = 0.42;
+    this.candle.flameAnchor.add(flameHit);
+    this.flameHit = { hits: [flameHit] };
+    this.addHits(this.flameHit, "flame");
 
     // Compile every shader before the first frame — where the browser can,
     // off to one side, so the page doesn't freeze while it happens — then
@@ -248,6 +268,8 @@ class Stage {
     setTimeout(() => this.puff(1), 1400);
     this.scheduleWisps();
     setTimeout(() => loadShredder().catch(() => {}), 2000);
+    // the torn paper the desk throws up when it goes over, made ready early
+    setTimeout(() => this.prepareScraps().catch(() => {}), 3500);
   }
 
   // The web fonts came after the room was built: the chart's lettering is
@@ -284,7 +306,7 @@ class Stage {
     if (W === this.W && H === this.H) return;
     this.W = W; this.H = H;
     const name = W / H < 0.95 ? "tall" : "wide";
-    if (name !== this.layoutName) this.applyLayout(name);
+    if (name !== this.layoutName && !this.flight) this.applyLayout(name);
     this.renderer.setSize(W, H, false);
     this.camera.aspect = W / H;
     this.fit();
@@ -364,6 +386,8 @@ class Stage {
     camera.setViewOffset(W, H, (m.x0 + m.x1) / 2 - (box.left + box.right) / 2, -m.shift, W, H);
     camera.updateProjectionMatrix();
     this.box = box;
+    // where it stands, for when it is shaken
+    this.cameraHome = camera.position.clone();
   }
 
   // How high above a spot on the desk something has to be to start out of
@@ -494,7 +518,7 @@ class Stage {
   }
 
   onDown(e) {
-    if (e.button !== 0 || !e.isPrimary) return;
+    if (e.button !== 0 || !e.isPrimary || this.flight) return;
     const { x, y } = this.local(e);
     const owner = this.pick(x, y);
     this.down = { x, y, owner };
@@ -520,10 +544,11 @@ class Stage {
       this.canvas.style.cursor = "";
       return;
     }
-    if (!d || !e) return;
+    if (!d || !e || this.flight) return;
     const { x, y } = this.local(e);
     if (Math.hypot(x - d.x, y - d.y) > 10) return;
-    if (d.owner && d.owner.kind === "candle") this.blowOut();
+    if (d.owner && d.owner.kind === "flame") { if (this.lit > 0.5) this.flip(); }
+    else if (d.owner && d.owner.kind === "candle") this.blowOut();
     else if (!d.owner) this.putDownAll();
   }
 
@@ -563,6 +588,160 @@ class Stage {
     }, 5000 + Math.random() * 4000);
   }
 
+  // ----- Over it goes -----
+  // The flame clicked: the desk is heaved up and tossed, turning over toward
+  // you so its chart swings up to face you before it comes down on its back.
+  // Everything on it is thrown off, the candle still burning and lighting it
+  // all as it goes; once the desk has landed the room floods and gives way to
+  // the sea (boat.js), and this room is stopped.
+  flip() {
+    if (this.flight || this.disposed) return;
+    const sea = import("./boat.js");
+    sea.catch(() => {});
+    if (this.grabbed) { this.grabbed.release(); this.grabbed = null; }
+    this.setHover(null);
+    this.showTip(null);
+    this.el.dataset.reading = "false";
+    for (const n of this.notes) { n.bar.dataset.show = "false"; n.hit.hidden = true; }
+    this.canvas.style.cursor = "";
+    this.announce("The desk goes over, and the room floods.");
+    const flight = this.flight = { t: 0, sea, bodies: [], shake: 0, launched: false, landed: false, flooding: false };
+    if (reduceMotion) { this.flood(); return; }
+    // it turns about its middle
+    const L = this.layout;
+    const pivot = flight.pivot = new THREE.Group();
+    pivot.position.set(0, -0.35, L.desk.z);
+    flight.home = pivot.position.clone();
+    this.scene.add(pivot);
+    pivot.updateMatrixWorld(true);
+    pivot.attach(this.desk);
+    pivot.attach(this.chart);
+    this.flame.burst(26, 2.4);
+    this.flame.boost += 12;
+    this.wake();
+  }
+
+  // The desk is in the air: everything on it is thrown off.
+  launch() {
+    const f = this.flight;
+    const rand = (a, b) => a + Math.random() * (b - a);
+    const body = (obj, v, spin, { drag = 0, fall = GRAVITY, sway = 0 } = {}) => f.bodies.push({
+      obj, spin, drag, fall, sway, seed: Math.random() * 10,
+      v: new THREE.Vector3(...v),
+      axis: new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).normalize()
+    });
+    body(this.candle.root, [rand(-1.2, 1.2), rand(11, 12.5), rand(3, 4.2)], rand(2.5, 4));
+    body(this.compass.root, [rand(1.5, 3.5), rand(8, 10.5), rand(1, 3)], rand(5, 9));
+    body(this.inkwell.root, [rand(-3.5, -1.5), rand(8, 10.5), rand(1, 3)], rand(5, 9));
+    // the notes, light as they are, go highest and come down slowest
+    const spots = [];
+    for (const n of this.notes) {
+      if (!n.paper || !n.spot) continue;
+      spots.push(n.spot);
+      if (!n.paper.object.visible) continue;
+      n.fling();
+      const side = Math.sign(n.spot.x) || rand(-1, 1);
+      body(n.paper.object, [side * rand(1, 3.5), rand(10, 14), rand(1.5, 4.5)], rand(2, 6), { drag: 1.2, fall: 10, sway: 3 });
+    }
+    // and a flurry of torn paper with them
+    const scraps = this.makeScraps();
+    if (!spots.length) spots.push({ x: 0, z: 0 });
+    for (const m of scraps.children) {
+      const at = spots[Math.floor(Math.random() * spots.length)];
+      m.position.set(at.x + rand(-1.3, 1.3), CHART_Y + 0.1, at.z + rand(-1.3, 1.3));
+      m.rotation.set(-Math.PI / 2 + rand(-0.4, 0.4), rand(0, Math.PI * 2), rand(-0.4, 0.4));
+      body(m, [rand(-3.5, 3.5), rand(7, 14), rand(0, 4)], rand(4, 11), { drag: 1.7, fall: 9, sway: 5 });
+    }
+    this.scene.add(scraps);
+    // the flame roars up as it is thrown
+    this.flare = 1;
+  }
+
+  // Scraps of paper in the notes' colours, all sharing one shape and one
+  // kind of material, so they cost a single shader.
+  makeScraps() {
+    if (this.scraps) return this.scraps;
+    const geometry = new THREE.PlaneGeometry(0.34, 0.42);
+    const materials = SCRAP_COLORS.map((color) => new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.12, roughness: 0.92, side: THREE.DoubleSide }));
+    const group = new THREE.Group();
+    for (let i = 0, n = coarse ? 36 : 64; i < n; i++) {
+      const m = new THREE.Mesh(geometry, materials[i % materials.length]);
+      m.scale.set(0.5 + Math.random(), 0.5 + Math.random(), 1);
+      m.frustumCulled = false;
+      group.add(m);
+    }
+    return (this.scraps = group);
+  }
+
+  // compiled out of sight, well before anyone could click the flame
+  async prepareScraps() {
+    if (this.scraps || this.disposed) return;
+    await this.renderer.compileAsync(this.makeScraps(), this.camera, this.scene);
+  }
+
+  stepFlight(dt) {
+    const f = this.flight;
+    const t = (f.t += dt);
+    if (reduceMotion) return;
+    // the desk: heaved, then thrown up turning over at an even rate, as
+    // anything tossed does, and a bounce where it lands
+    const k = (t - HEAVE_S) / FLIP_S;
+    let a, lift;
+    if (k < 0) { const u = smooth(t / HEAVE_S); a = -0.05 * u; lift = 0.15 * u; }
+    else if (k < 1) { a = -0.05 + (Math.PI + 0.05) * k; lift = 0.15 * (1 - k) + 4.4 * 4 * k * (1 - k); }
+    else {
+      const s = t - HEAVE_S - FLIP_S, bounce = Math.exp(-5.5 * s) * Math.abs(Math.sin(s * 12));
+      a = Math.PI - 0.06 * bounce;
+      lift = 0.35 * bounce;
+    }
+    f.pivot.rotation.x = a;
+    f.pivot.position.y = f.home.y + lift;
+    if (k >= 0 && !f.launched) { f.launched = true; this.launch(); }
+    if (k >= 1 && !f.landed) { f.landed = true; f.shake = 1; }
+    if (f.landed && t > HEAVE_S + FLIP_S + FLOOD_AFTER_S) this.flood();
+
+    // whatever was thrown: falling, tumbling, and the paper fluttering on the
+    // air, until it lands on the floor
+    for (const b of f.bodies) {
+      b.v.y -= b.fall * dt;
+      if (b.drag) {
+        b.v.multiplyScalar(Math.exp(-b.drag * dt));
+        b.v.x += Math.sin(t * 3.1 + b.seed) * b.sway * dt;
+        b.v.z += Math.cos(t * 2.3 + b.seed) * b.sway * 0.5 * dt;
+      }
+      const p = b.obj.position.addScaledVector(b.v, dt);
+      if (p.y < -5.7) {
+        p.y = -5.7;
+        b.v.set(b.v.x * 0.4, Math.abs(b.v.y) * 0.2, b.v.z * 0.4);
+        b.spin *= 0.4;
+      }
+      b.obj.quaternion.premultiply(this.q.setFromAxisAngle(b.axis, b.spin * dt));
+    }
+    // the light goes where the flame goes
+    this.flame.group.localToWorld(this.candleLight.position.set(0, 0.85, 0));
+    // the room is jolted by the heave and shaken by the landing
+    f.shake *= Math.exp(-4 * dt);
+    const jolt = (t < HEAVE_S + 0.12 ? 0.06 : 0) + f.shake * 0.5;
+    if (this.cameraHome) this.camera.position.copy(this.cameraHome).add(this.v.set((Math.random() - 0.5) * jolt, (Math.random() - 0.5) * jolt, 0));
+    this.shadowsDirty = true;
+  }
+
+  // The water comes up over all of it; once the room can't be seen it stops.
+  flood() {
+    const f = this.flight;
+    if (f.flooding) return;
+    f.flooding = true;
+    f.sea.then((m) => m.start({ onCovered: () => this.pause() }))
+      .catch((error) => console.warn("The sea could not be brought in.", error));
+  }
+
+  pause() {
+    this.paused = true;
+    cancelAnimationFrame(this.frame);
+    this.frame = 0;
+    this.el.style.visibility = "hidden";
+  }
+
   // ----- Notes -----
   addNote(spec) {
     const rig = new NoteRig(this, spec, this.notes.length);
@@ -581,7 +760,7 @@ class Stage {
 
   // ----- The loop -----
   wake() {
-    if (!this.frame && !this.disposed && this.visible && !document.hidden) this.frame = requestAnimationFrame((t) => this.tick(t));
+    if (!this.frame && !this.disposed && !this.paused && this.visible && !document.hidden) this.frame = requestAnimationFrame((t) => this.tick(t));
   }
 
   // The room runs at the display's own rate for as long as it can be seen,
@@ -589,7 +768,7 @@ class Stage {
   // is scrolled away.
   tick(now) {
     this.frame = 0;
-    if (this.disposed || !this.visible || document.hidden) { this.last = 0; return; }
+    if (this.disposed || this.paused || !this.visible || document.hidden) { this.last = 0; return; }
     this.frame = requestAnimationFrame((t) => this.tick(t));
     const dt = this.last ? Math.min(0.05, (now - this.last) / 1000) : 1 / 60;
     this.last = now;
@@ -621,8 +800,9 @@ class Stage {
     this.flare = Math.max(0, this.flare - dt * 1.6);
     const lit = this.lit * (1 + Math.sin(this.flare * Math.PI) * 0.6);
     // the flame reaches up when the pointer is over the candle
-    this.roar += ((candle.hovered ? 1 : 0) - this.roar) * (1 - Math.exp(-5 * dt));
-    if (candle.hovered && !reduceMotion) flame.boost = Math.max(flame.boost, 5);
+    const near = candle.hovered || this.flameHit.hovered;
+    this.roar += ((near ? 1 : 0) - this.roar) * (1 - Math.exp(-5 * dt));
+    if (near && !reduceMotion) flame.boost = Math.max(flame.boost, 5);
     flame.update(dt, t, this.camera, { flick: this.flick, lit, lean: this.lean / 28, roar: this.roar });
     this.candleLight.intensity = this.theme.strength * this.flick * lit;
     candle.wax.emissiveIntensity = 0.55 * this.flick * this.lit;
@@ -634,7 +814,7 @@ class Stage {
 
     // what the pointer is over
     const p = this.pointer;
-    if (this.needPick && p.inside && !this.grabbed) {
+    if (this.needPick && p.inside && !this.grabbed && !this.flight) {
       this.needPick = false;
       this.setHover(this.pick(p.x, p.y));
     }
@@ -648,6 +828,7 @@ class Stage {
     this.compass.update(dt, t);
 
     for (const n of this.notes) if (n.update(dt, t)) this.shadowsDirty = true;
+    if (this.flight) this.stepFlight(dt);
   }
 
   // If the machine can't keep up, give up sharpness first, then the dust,
@@ -928,7 +1109,7 @@ class NoteRig {
 
   // Back from above the top of the room, open, fluttering down to its place.
   fallIn() {
-    if (this.stage.disposed || this.state !== "shredding") return;
+    if (this.stage.disposed || this.stage.flight || this.state !== "shredding") return;
     this.state = "laid";
     this.lift.value = this.lift.target = this.lift.velocity = 0;
     this.drop.y = this.stage.aboveScreen(this.spot.x, this.spot.z);
@@ -939,10 +1120,21 @@ class NoteRig {
     this.stage.wake();
   }
 
+  // Thrown off the desk as it goes over: from here on the stage moves it.
+  fling() {
+    this.state = "flying";
+    this.flying = true;
+    this.held = false;
+    this.keyboard = false;
+    this.bar.dataset.show = "false";
+    this.hit.hidden = true;
+  }
+
   // ----- Frame -----
   update(dt, t) {
     const { paper } = this;
     if (!paper) return false;
+    if (this.flying) { paper.update(dt, { foldSeconds: 0.5, instant: reduceMotion }); return true; }
     const instant = reduceMotion;
     if (this.held) this.pull(Math.min(0.25, dt) / HOLD_SECONDS);
     // how crumpled, and where between the desk and the hand
