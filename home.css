@@ -334,10 +334,28 @@ body.at-sea { overflow: hidden; }
   font-size: clamp(1rem, 2.4vw, 1.2rem);
   transform: translateY(8px);
 }
+.boat-alert {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: clamp(44px, 8vh, 78px);
+  text-align: center;
+  font-family: "IM Fell English SC", Georgia, serif;
+  font-size: clamp(1.15rem, 3vw, 1.6rem);
+  letter-spacing: 0.03em;
+  color: #fff3d6;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.75);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-8px) scale(0.96);
+  transition: opacity 0.4s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.boat-alert[data-show="true"] { opacity: 1; transform: none; }
 .boat-hud[data-show="true"] { opacity: 0.8; }
 .boat-hint[data-show="true"] { opacity: 0.92; transform: none; }
 /* in daylight the time is read against the sky; the hint stays on the water */
-body.light .boat-hud { color: #1d2a36; text-shadow: 0 1px 12px rgba(255, 252, 244, 0.85); }
+body.light .boat-hud,
+body.light .boat-alert { color: #1d2a36; text-shadow: 0 1px 12px rgba(255, 252, 244, 0.85); }
 .boat-sunk {
   position: absolute;
   left: 50%;
@@ -363,6 +381,7 @@ body.light .boat-hud { color: #1d2a36; text-shadow: 0 1px 12px rgba(255, 252, 24
 
 @media (prefers-reduced-motion: reduce) {
   .boat-sunk { animation: none; }
+  .boat-alert { transition: none; }
   .bleed { display: none; }
   .room-loading-flame { animation: none; }
   .stage, .note-tip, .note-bar { transition: none; }
