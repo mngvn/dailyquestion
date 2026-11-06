@@ -12,6 +12,11 @@
 // so a boat let go fills faster and faster — and the leak slowly worsens the
 // longer it stays afloat.
 //
+// It isn't a quiet sea. Sharks circle the boat, more of them the longer it
+// lasts and closer the lower it sits, and now and then one leaps clear of the
+// water. Every so often a big wave rolls in, heaves the boat up and slops
+// water in over the bow. A lantern hangs off the stern.
+//
 // All of it is drawn on one 2D canvas from a handful of shapes; nothing is
 // loaded. start({ onCovered }) brings it in; onCovered is called once the
 // flood hides the room behind it, so the room can stop.
@@ -32,6 +37,11 @@ const LEAK = 0.024;           // what comes in a second through the hole of an e
 const LEAK_DEEP = 0.036;      // and how much more once it is sitting low, full
 const WORSEN_S = 150;         // the leak is twice as bad after this long afloat
 const GRACE_S = 1.5;          // no water comes in while the boat is first bobbing up
+const WAVE_FIRST = 22;        // seconds afloat before the first big wave
+const WAVE_EVERY = [30, 45];  // and between the ones after
+const WAVE_SLOSH = 0.12;      // what a big wave slops into the boat
+const SHARKS_AT = [0, 20, 45]; // seconds afloat at which each shark turns up
+const LEAP_EVERY = [14, 26];  // seconds between sharks leaping
 
 // The boat is drawn in its own frame, one unit to its length, bow to the
 // right, y down. `wl` is where in that frame the sea's surface comes to.
@@ -51,7 +61,13 @@ const PALETTES = {
     interior: "#1d0f07", seat: "#6a4225", oar: "#8a6440",
     coat: "#d29d22", coatDark: "#8d6612", skin: "#d9ae88", ink: "#140f0b", cheek: "rgba(220, 90, 70, 0.3)",
     bucket: "#8e9aa6", bucketDark: "#56616c", rings: "rgba(200, 222, 255, 0.45)", scrapShade: 0.62,
-    flood: ["#1e4678", "#040e20"]
+    flood: ["#1e4678", "#040e20"],
+    cloud: { body: "#1c2947", shade: "#0e162b", rim: "rgba(185, 205, 245, 0.5)", alpha: 0.62 },
+    bands: ["#16314f", "#13304f", "#11294a"], crest: "rgba(165, 195, 245, 0.22)", haze: "rgba(70, 100, 150, 0.25)",
+    streak: "rgba(140, 180, 240, 0.07)", waveFace: ["rgba(120, 170, 235, 0.3)", "rgba(60, 110, 180, 0)"],
+    shark: "#2b3644", sharkLit: "#56677a", belly: "#b9c3cf", sharkDeep: "rgba(2, 8, 20, 0.5)",
+    stripe: "#74291f", name: "#e3d6b8", brass: "#b08a3c", rivet: "rgba(0, 0, 0, 0.45)", rope: "#9c8358",
+    lantern: 0.34, gulls: false
   },
   light: {
     sky: ["#7fa3c2", "#bccfd9", "#ece3cf"], stars: false,
@@ -64,7 +80,13 @@ const PALETTES = {
     interior: "#3a2214", seat: "#9a6740", oar: "#b08654",
     coat: "#f0bb2e", coatDark: "#b0801a", skin: "#f0c9a0", ink: "#241a10", cheek: "rgba(230, 100, 80, 0.35)",
     bucket: "#a9b4bf", bucketDark: "#6b7682", rings: "rgba(255, 255, 255, 0.6)", scrapShade: 1,
-    flood: ["#4678a0", "#143454"]
+    flood: ["#4678a0", "#143454"],
+    cloud: { body: "#fbfcfd", shade: "#dfe7ee", rim: "rgba(255, 255, 255, 0.9)", alpha: 0.9 },
+    bands: ["#7598b1", "#6b90ab", "#6489a6"], crest: "rgba(255, 255, 255, 0.32)", haze: "rgba(235, 228, 212, 0.35)",
+    streak: "rgba(220, 240, 255, 0.08)", waveFace: ["rgba(215, 240, 255, 0.4)", "rgba(120, 180, 220, 0)"],
+    shark: "#4a5866", sharkLit: "#7d8d9c", belly: "#e6ebf0", sharkDeep: "rgba(10, 40, 70, 0.4)",
+    stripe: "#b23d2d", name: "#f7efdc", brass: "#c9a24c", rivet: "rgba(0, 0, 0, 0.35)", rope: "#c2a670",
+    lantern: 0.12, gulls: true
   }
 };
 
@@ -122,6 +144,23 @@ class Sea {
       x: Math.random(), d: i < 5 ? rand(0.2, 0.85) : 1, size: rand(0.6, 1.2), color: colors[i % colors.length],
       drift: rand(-0.004, 0.004), turn: rand(-0.5, 0.5), seed: Math.random() * TAU
     }));
+    // the sky: clouds drifting over, gulls by day, a falling star now and then
+    // by night
+    this.clouds = Array.from({ length: 6 }, (_, i) => {
+      const y = rand(0.12, 0.78);
+      return { x: rand(-0.25, 1.1), y, scale: rand(0.75, 1.2) * (1.25 - 0.6 * y), speed: rand(0.004, 0.011), seed: 17 + i * 31 };
+    });
+    this.gulls = Array.from({ length: 3 }, () => ({ x: Math.random(), y: rand(0.1, 0.3), s: rand(0.7, 1.2), speed: rand(0.012, 0.03), phase: rand(0, TAU) }));
+    this.meteor = null;
+    this.meteorAt = rand(4, 9);
+    // the sharks, the big wave, and a shark's leap
+    this.sharks = [];
+    this.leap = null;
+    this.leapAt = rand(...LEAP_EVERY);
+    this.wave = null;
+    this.waveAt = WAVE_FIRST;
+    this.alertUntil = 0;
+    this.flicker = 1;
     this.last = 0;
     this.frame = requestAnimationFrame((now) => this.tick(now));
     if (this.instant) {
@@ -147,6 +186,9 @@ class Sea {
     const hud = this.hud = document.createElement("p");
     hud.className = "boat-hud";
     hud.setAttribute("aria-hidden", "true");
+    const alert = this.alert = document.createElement("p");
+    alert.className = "boat-alert";
+    alert.setAttribute("aria-hidden", "true");
     const hint = this.hint = document.createElement("p");
     hint.className = "boat-hint";
     hint.textContent = "Rub back and forth over the sailor to help them bail";
@@ -177,7 +219,7 @@ class Sea {
     const how = document.createElement("p");
     how.className = "sr-only";
     how.textContent = "Rub the pointer over the sailor, or press Space, to bail water out of the boat before it sinks.";
-    el.append(canvas, hud, hint, sunk, how, this.live);
+    el.append(canvas, hud, alert, hint, sunk, how, this.live);
     document.body.append(el);
     document.body.classList.add("at-sea");
 
@@ -254,19 +296,69 @@ class Sea {
     this.floaters = [];
     this.bubbles = [];
     this.jet = [];
+    this.wave = null;
+    this.waveAt = WAVE_FIRST;
     this.hud.dataset.show = "true";
     this.canvas.focus({ preventScroll: true });
     this.live.textContent = "The boat bobs back up, empty — for now.";
   }
 
   // ----- The sea -----
-  surf(x) {
+  surf(x, calm = false) {
     const { L, t } = this;
     const A = Math.min(L * 0.035, this.H * 0.03) * (reduceMotion ? 0.4 : 1);
-    return this.seaNow + A * (
+    let y = this.seaNow + A * (
       0.55 * Math.sin(x * TAU / (L * 2.2) - t * 0.9) +
       0.3 * Math.sin(x * TAU / (L * 1.1) + t * 0.62 + 1.7) +
       0.15 * Math.sin(x * TAU / (L * 0.42) - t * 1.7 + 0.4));
+    // the big wave, its front (to the left, the way it goes) steeper than
+    // its back
+    const wv = this.wave;
+    if (wv && wv.A > 0 && !calm) {
+      const u = (x - wv.c) / wv.w;
+      y -= wv.A * Math.exp(-u * u * (u < 0 ? 3.2 : 0.9));
+    }
+    return y;
+  }
+
+  // How far out a shark circles, and where it is: round the boat on a ring
+  // that runs behind it (higher up the screen, smaller) and in front of it.
+  sharkRing(s) {
+    return this.L * (0.62 + 0.38 * s.ring) * (s.close ?? 1);
+  }
+
+  sharkAt(s) {
+    const { L, boat } = this;
+    const x = boat.x + Math.cos(s.a) * this.sharkRing(s) * 1.15;
+    const z = Math.sin(s.a), zo = z * L * 0.17;
+    return { x, y: this.surf(x) + zo, z, zo, scale: (1 + 0.22 * z) * s.size, facing: -Math.sin(s.a) * s.dir >= 0 ? 1 : -1 };
+  }
+
+  sendWave() {
+    const { L, W } = this;
+    const w = L * 0.55;
+    this.wave = { c: W + w * 1.4, w, max: L * (reduceMotion ? 0.12 : 0.26), v: -(W + w * 3.6) / 5, age: 0, A: 0, hit: false };
+    this.waveAt = this.afloat + rand(...WAVE_EVERY);
+    this.say("A big wave is rolling in!");
+  }
+
+  say(text) {
+    this.alert.textContent = text;
+    this.alert.dataset.show = "true";
+    this.alertUntil = this.t + 2.8;
+    this.live.textContent = text;
+  }
+
+  // water thrown up: a burst of spray, and a ring where it hit
+  splash(at, n, dir = 0, zo = 0) {
+    const { L } = this;
+    for (let i = 0; i < n; i++) {
+      this.drops.push({
+        x: at.x + rand(-0.04, 0.04) * L, y: at.y, zo, spray: true, r: rand(0.004, 0.01) * L,
+        vx: (dir * rand(0.1, 0.6) + rand(-0.3, 0.3)) * L, vy: -rand(0.35, 1.0) * L
+      });
+    }
+    this.rings.push({ x: at.x, y: this.surf(at.x) + zo, age: 0, size: L * 0.08 });
   }
 
   // where the boat is: riding the swell, its waterline on the sea
@@ -307,6 +399,18 @@ class Sea {
     if (this.phase === "surface" && this.phaseT > SURFACE_S) { this.phase = "afloat"; this.phaseT = 0; this.showHud(); }
     const coming = this.phase === "surface" ? smooth(clamp(this.phaseT / SURFACE_S, 0, 1)) : 1;
     this.seaNow = lerp(-this.H * 0.06, this.seaBase, 1 - Math.pow(1 - coming, 2.4));
+    this.flicker = 0.86 + 0.09 * Math.sin(this.t * 13.1) + 0.05 * Math.sin(this.t * 31.7);
+    if (this.alertUntil && this.t > this.alertUntil) { this.alert.dataset.show = "false"; this.alertUntil = 0; }
+
+    // the big wave: it rolls in from the right, under the boat and away
+    if (this.phase === "afloat" && !this.wave && this.afloat > this.waveAt) this.sendWave();
+    const wv = this.wave;
+    if (wv) {
+      wv.age += dt;
+      wv.c += wv.v * dt;
+      wv.A = wv.max * smooth(clamp(wv.age / 1.1, 0, 1)) * smooth(clamp((wv.c + wv.w * 2.2) / (wv.w * 1.6), 0, 1));
+      if (wv.c < -wv.w * 2.2) this.wave = null;
+    }
 
     // water in through the hole, harder the lower the boat sits, and out
     // again by the bucketful
@@ -345,6 +449,70 @@ class Sea {
     const b = this.boat = this.pose();
     this.sailorAt = this.toSea(b, SAILOR_X - 0.05, -0.2);
 
+    // the big wave breaking over the bow slops water in, and throws spray off
+    // its crest the whole way
+    if (wv && !wv.hit && wv.c < b.x + L * 0.3) {
+      wv.hit = true;
+      if (this.phase === "afloat" && wv.A > wv.max * 0.5) {
+        this.water = Math.min(1, this.water + WAVE_SLOSH);
+        this.tilt += 0.1;
+        this.splash(this.toSea(b, 0.42, -0.2), 46, -1);
+      }
+    }
+    if (wv && wv.A > wv.max * 0.6 && !reduceMotion) {
+      for (let i = 0; i < 2; i++) {
+        const x = wv.c - wv.w * 0.1 + rand(-0.15, 0.15) * wv.w;
+        this.drops.push({ x, y: this.surf(x) - 2, vx: wv.v * 0.35 + rand(-40, 40), vy: -rand(0.15, 0.45) * L, r: rand(0.003, 0.007) * L, spray: true });
+      }
+    }
+
+    // sharks: turning up one by one, circling, and closing in as the boat
+    // sits lower
+    if (this.phase === "afloat" && this.grace <= 0) {
+      const want = SHARKS_AT.filter((at) => this.afloat >= at).length;
+      while (this.sharks.length < want) {
+        this.sharks.push({ a: rand(0, TAU), dir: Math.random() < 0.5 ? -1 : 1, ring: rand(0.7, 1), speed: rand(0.3, 0.42), seed: rand(0, TAU), size: rand(0.9, 1.1), up: 0 });
+      }
+    }
+    const close = this.phase === "swamping" || this.phase === "sunk" ? 0.45 : 1 - 0.3 * this.water;
+    for (const s of this.sharks) {
+      s.up = Math.min(1, s.up + dt * 0.5);
+      s.close = (s.close ?? close) + (close - (s.close ?? close)) * (1 - Math.exp(-0.6 * dt));
+      if (!s.leaping) s.a += s.dir * s.speed * (reduceMotion ? 0.5 : 1) * dt;
+    }
+    // and now and then one leaps clear, behind the boat
+    if (this.phase === "afloat" && !this.leap && this.t > this.leapAt && !reduceMotion) {
+      const s = this.sharks.find((x) => Math.sin(x.a) < -0.4 && Math.abs(Math.cos(x.a)) < 0.7 && x.up >= 1);
+      if (s) {
+        const at = this.sharkAt(s);
+        this.leap = { s, x0: at.x, zo: at.zo, dir: at.facing, k: 0, D: L * 0.7, H: L * 0.21, size: L * 0.36 * at.scale };
+        s.leaping = true;
+        this.splash(at, 18, at.facing, at.zo);
+      } else this.leapAt = this.t + 1;
+    }
+    if (this.leap) {
+      const lp = this.leap;
+      lp.k += dt / 1.25;
+      if (lp.k >= 1) {
+        const x = lp.x0 + lp.dir * lp.D, s = lp.s;
+        this.splash({ x, y: this.surf(x) + lp.zo }, 26, lp.dir, lp.zo);
+        // back to circling, from where it came down
+        s.dir = lp.dir;
+        s.a = -Math.acos(clamp((x - b.x) / (this.sharkRing(s) * 1.15), -1, 1));
+        s.leaping = false;
+        this.leap = null;
+        this.leapAt = this.t + rand(...LEAP_EVERY);
+      }
+    }
+
+    // the sky
+    for (const c of this.clouds) c.x = c.x > 1.25 ? -0.4 : c.x + c.speed * dt;
+    for (const gl of this.gulls) gl.x = (gl.x + gl.speed * dt) % 1.2;
+    if (this.P.stars && !this.meteor && this.t > this.meteorAt && !reduceMotion) {
+      this.meteor = { x: rand(0.1, 0.6), y: rand(0.04, 0.25), vx: rand(0.35, 0.55), vy: rand(0.1, 0.2), age: 0 };
+    }
+    if (this.meteor && (this.meteor.age += dt) > 0.9) { this.meteor = null; this.meteorAt = this.t + rand(6, 14); }
+
     // the spout: from the hole, up past the gunwale and back down inside
     const afloatish = this.phase === "afloat" || this.phase === "surface";
     this.spout = 0;
@@ -366,7 +534,7 @@ class Sea {
       d.vy += L * 2.6 * dt;
       d.x += d.vx * dt;
       d.y += d.vy * dt;
-      if (d.vy > 0 && d.y > this.surf(d.x)) {
+      if (d.vy > 0 && d.y > this.surf(d.x) + (d.zo || 0)) {
         d.dead = true;
         if (!d.spray) {
           if (Math.random() < 0.35) this.rings.push({ x: d.x, y: this.surf(d.x), age: 0, size: rand(0.03, 0.07) * L });
@@ -550,14 +718,40 @@ class Sea {
       }
       g.globalAlpha = 1;
     }
+    if (P.stars && this.meteor) {
+      // a falling star
+      const m = this.meteor, k = m.age / 0.9;
+      const x = (m.x + m.vx * m.age) * W, y = (m.y + m.vy * m.age) * H + dy;
+      const tail = g.createLinearGradient(x, y, x - m.vx * W * 0.25, y - m.vy * H * 0.25);
+      tail.addColorStop(0, `rgba(240, 245, 255, ${0.9 * Math.sin(Math.PI * k)})`);
+      tail.addColorStop(1, "rgba(240, 245, 255, 0)");
+      g.strokeStyle = tail;
+      g.lineWidth = 1.6;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x - m.vx * W * 0.25, y - m.vy * H * 0.25); g.stroke();
+    }
     const orb = { x: W * 0.76, y: this.seaBase * 0.3 + dy, r: Math.max(14, Math.min(W, H) * 0.035) };
     const glow = g.createRadialGradient(orb.x, orb.y, orb.r * 0.5, orb.x, orb.y, orb.r * 7);
     glow.addColorStop(0, P.orbGlow[0]);
     glow.addColorStop(1, P.orbGlow[1]);
     g.fillStyle = glow;
     g.fillRect(orb.x - orb.r * 7, orb.y - orb.r * 7, orb.r * 14, orb.r * 14);
-    g.fillStyle = P.orb;
-    g.beginPath(); g.arc(orb.x, orb.y, orb.r, 0, TAU); g.fill();
+    this.drawOrb(orb);
+    this.drawClouds(horizon);
+    if (P.gulls) {
+      // gulls, wheeling far off
+      g.strokeStyle = "rgba(48, 58, 70, 0.7)";
+      g.lineWidth = 1.5;
+      g.lineCap = "round";
+      for (const gl of this.gulls) {
+        const x = gl.x * W * 1.2 - W * 0.1, y = gl.y * H + dy + Math.sin(t * 0.8 + gl.phase) * 6;
+        const w = 9 * gl.s, f = Math.sin(t * 6 + gl.phase);
+        g.beginPath();
+        g.moveTo(x - w, y - f * w * 0.35);
+        g.quadraticCurveTo(x - w * 0.45, y - w * 0.5 - f * w * 0.2, x, y);
+        g.quadraticCurveTo(x + w * 0.45, y - w * 0.5 - f * w * 0.2, x + w, y - f * w * 0.35);
+        g.stroke();
+      }
+    }
 
     // the far sea, out to the horizon, with lines of swell coming in
     const far = g.createLinearGradient(0, horizon, 0, this.seaNow);
@@ -565,10 +759,36 @@ class Sea {
     far.addColorStop(1, P.far[1]);
     g.fillStyle = far;
     g.fillRect(0, horizon, W, H - horizon);
+    const haze = g.createLinearGradient(0, horizon - 24, 0, horizon + 18);
+    haze.addColorStop(0, "rgba(0, 0, 0, 0)");
+    haze.addColorStop(0.55, P.haze);
+    haze.addColorStop(1, "rgba(0, 0, 0, 0)");
+    g.fillStyle = haze;
+    g.fillRect(0, horizon - 24, W, 42);
+    // rows of swell, one behind another, each catching the light on its crest
+    [0.14, 0.36, 0.64].forEach((f, j) => {
+      const y0 = horizon + (this.seaNow - horizon) * f, amp = 1.5 + 5 * f, len = 70 + 190 * f;
+      const line = [];
+      for (let x = -16; x <= W + 16; x += 16) {
+        line.push(x, y0 + Math.sin(x / len * TAU + t * (0.25 + 0.4 * f) + j * 2) * amp + Math.sin(x / (len * 0.43) * TAU - t * 0.6 + j) * amp * 0.35);
+      }
+      g.beginPath();
+      g.moveTo(-16, H);
+      for (let i = 0; i < line.length; i += 2) g.lineTo(line[i], line[i + 1]);
+      g.lineTo(W + 16, H);
+      g.closePath();
+      g.fillStyle = P.bands[j];
+      g.fill();
+      g.strokeStyle = P.crest;
+      g.lineWidth = 1;
+      g.beginPath();
+      for (let i = 0; i < line.length; i += 2) i ? g.lineTo(line[i], line[i + 1]) : g.moveTo(line[i], line[i + 1]);
+      g.stroke();
+    });
     g.strokeStyle = P.line;
     g.lineWidth = 1;
-    for (let i = 1; i < 9; i++) {
-      const k = i / 9, y = horizon + (this.seaNow - horizon) * k * k;
+    for (let i = 1; i < 7; i++) {
+      const k = i / 7, y = horizon + (this.seaNow - horizon) * k * k + 3;
       g.beginPath();
       for (let x = 0; x <= W; x += 24) {
         const yy = y + Math.sin(x * 0.02 / (0.3 + k) + t * (0.4 + k) + i) * (1 + 3 * k);
@@ -604,6 +824,9 @@ class Sea {
     g.fillStyle = sea;
     g.fill();
 
+    // the sharks on the far side of the boat, and one leaping
+    this.drawSharks(false);
+
     this.drawBoat();
 
     // flung water, and where it lands
@@ -628,15 +851,258 @@ class Sea {
     front.addColorStop(1, P.front[1]);
     g.fillStyle = front;
     g.fill();
+    // light moving about under the surface
+    g.strokeStyle = P.streak;
+    g.lineWidth = 2;
+    for (let i = 0; i < 9; i++) {
+      const depth = L * (0.08 + i * 0.07), mid = (t * (14 + i * 5) + i * 137) % (W + 400) - 200;
+      g.beginPath();
+      for (let x = mid - 160, first = true; x <= mid + 160; x += 16, first = false) {
+        const y = this.surf(x) + depth + Math.sin(x * 0.02 + t + i) * 4;
+        first ? g.moveTo(x, y) : g.lineTo(x, y);
+      }
+      g.stroke();
+    }
     g.strokeStyle = P.foam;
     g.lineWidth = 2;
     g.beginPath();
     for (let x = -10; x <= W + 10; x += 8) (x > -10 ? g.lineTo(x, this.surf(x)) : g.moveTo(x, this.surf(x)));
     g.stroke();
+    // white water on the crests, the sharper the crest the more of it
+    g.fillStyle = P.foam;
+    for (let x = -8; x <= W + 8; x += 6) {
+      const y = this.surf(x), c = this.surf(x - 14) + this.surf(x + 14) - 2 * y;
+      if (c < 0.22) continue;
+      g.globalAlpha = Math.min(0.85, (c - 0.22) * 0.9);
+      g.fillRect(x - 3, y - 1.5, 6 + c * 2, 2.4 + Math.min(3, c));
+    }
+    g.globalAlpha = 1;
+    this.drawWaveCrest();
+    // foam where the hull meets the water
+    if (this.phase === "afloat" || this.phase === "surface") {
+      g.strokeStyle = P.foam;
+      g.lineWidth = 2;
+      for (const lx of [-0.46, 0.41]) {
+        const p = this.toSea(this.boat, lx, 0), y = this.surf(p.x);
+        g.globalAlpha = 0.5 + 0.25 * Math.sin(t * 3 + lx * 9);
+        g.beginPath(); g.ellipse(p.x, y + 1.5, L * 0.045, L * 0.009, 0, 0, Math.PI); g.stroke();
+      }
+      g.globalAlpha = 1;
+    }
+    // the sharks on the near side
+    this.drawSharks(true);
 
     for (const s of this.scraps) if (s.d === 1) this.drawScrap(s, horizon);
     for (const f of this.floaters) this.drawFloater(f);
     this.drawBubbles(() => true);
+    this.drawLanternLight();
+  }
+
+  // The moon, with its seas, or a pale sun; drawn once and kept.
+  drawOrb(orb) {
+    const { g, P } = this;
+    const key = `${P.stars}|${Math.round(orb.r)}`;
+    if (this.orbKey !== key) {
+      this.orbKey = key;
+      const size = Math.ceil(orb.r * 2) + 2, m = size / 2, r = orb.r;
+      const c = document.createElement("canvas");
+      c.width = c.height = size * 2;
+      const o = c.getContext("2d");
+      o.scale(2, 2);
+      o.beginPath(); o.arc(m, m, r, 0, TAU);
+      o.fillStyle = P.orb;
+      o.fill();
+      o.save();
+      o.clip();
+      if (P.stars) {
+        const R = rng(5);
+        o.fillStyle = "rgba(120, 125, 150, 0.22)";
+        for (let i = 0; i < 9; i++) { o.beginPath(); o.arc(m + (R() - 0.5) * r * 1.3, m + (R() - 0.5) * r * 1.3, r * (0.12 + R() * 0.25), 0, TAU); o.fill(); }
+        const shade = o.createRadialGradient(m - r * 0.35, m - r * 0.35, r * 0.2, m, m, r * 1.05);
+        shade.addColorStop(0, "rgba(255, 255, 255, 0.15)");
+        shade.addColorStop(1, "rgba(60, 60, 90, 0.35)");
+        o.fillStyle = shade;
+        o.fillRect(0, 0, size, size);
+      } else {
+        const hot = o.createRadialGradient(m, m, 0, m, m, r);
+        hot.addColorStop(0, "#ffffff");
+        hot.addColorStop(1, "#ffe9b8");
+        o.fillStyle = hot;
+        o.fillRect(0, 0, size, size);
+      }
+      o.restore();
+      this.orbImg = c;
+      this.orbSize = size;
+    }
+    g.drawImage(this.orbImg, orb.x - this.orbSize / 2, orb.y - this.orbSize / 2, this.orbSize, this.orbSize);
+  }
+
+  // Clouds, each drawn once onto its own canvas and slid across the sky.
+  drawClouds(horizon) {
+    const { g, W, P } = this;
+    const key = `${P.stars}|${W}`;
+    if (this.cloudKey !== key) {
+      this.cloudKey = key;
+      this.cloudImgs = this.clouds.map((c) => {
+        const w = Math.round(W * 0.26 * c.scale);
+        return cloudCanvas(w, Math.round(w * 0.42), P, c.seed);
+      });
+    }
+    g.globalAlpha = P.cloud.alpha;
+    this.clouds.forEach((c, i) => {
+      const img = this.cloudImgs[i];
+      g.drawImage(img, c.x * W, horizon * c.y - img.height * 0.55);
+    });
+    g.globalAlpha = 1;
+  }
+
+  // The big wave's crest: thick white water along it, a lip curling over its
+  // front, and foam streaming down its face.
+  drawWaveCrest() {
+    const wv = this.wave;
+    if (!wv || wv.A < 2) return;
+    const { g, P, t } = this;
+    const k = wv.A / wv.max;
+    // its face, lighter where the light comes through the top of it
+    const x0 = wv.c - wv.w * 1.1, x1 = wv.c + wv.w * 2;
+    g.beginPath();
+    for (let x = x0, first = true; x <= x1; x += 8, first = false) first ? g.moveTo(x, this.surf(x)) : g.lineTo(x, this.surf(x));
+    for (let x = x1; x >= x0; x -= 8) g.lineTo(x, this.surf(x, true) + 2);
+    g.closePath();
+    const top = this.seaNow - wv.A;
+    const face = g.createLinearGradient(0, top, 0, this.seaNow + 4);
+    face.addColorStop(0, P.waveFace[0]);
+    face.addColorStop(1, P.waveFace[1]);
+    g.fillStyle = face;
+    g.globalAlpha = k;
+    g.fill();
+    g.strokeStyle = P.foam;
+    g.lineCap = "round";
+    g.lineWidth = 2 + 4 * k;
+    g.globalAlpha = 0.85 * k;
+    g.beginPath();
+    for (let x = wv.c - wv.w * 0.45, first = true; x <= wv.c + wv.w * 0.35; x += 6, first = false) {
+      first ? g.moveTo(x, this.surf(x) + 1) : g.lineTo(x, this.surf(x) + 1);
+    }
+    g.stroke();
+    // the lip, breaking forward
+    const tip = wv.c - wv.w * 0.05, front = wv.c - wv.w * 0.42;
+    g.lineWidth = 3 + 3 * k;
+    g.beginPath();
+    g.moveTo(tip, this.surf(tip));
+    g.quadraticCurveTo(lerp(tip, front, 0.6), this.surf(tip) - wv.A * 0.12, front, this.surf(front) - wv.A * 0.02);
+    g.stroke();
+    // and foam tumbling down its face
+    g.fillStyle = P.foam;
+    for (let i = 0; i < 26; i++) {
+      const u = ((i * 0.618 + t * 0.4) % 1);
+      const x = wv.c - wv.w * (0.05 + 0.5 * u);
+      const y = this.surf(x) + 3 + ((i * 7.3) % 1) * wv.A * 0.25 * (1 - u);
+      g.globalAlpha = 0.6 * k * (1 - u);
+      g.beginPath(); g.arc(x, y, 1.2 + 2.5 * (1 - u), 0, TAU); g.fill();
+    }
+    g.globalAlpha = 1;
+  }
+
+  // The sharks on one side of the boat: a fin cutting the water and the
+  // shadow of the rest of it under the surface.
+  drawSharks(front) {
+    for (const s of this.sharks) {
+      if (s.leaping || s.up <= 0) continue;
+      const at = this.sharkAt(s);
+      if ((at.z >= 0) === front) this.drawFin(at, s);
+    }
+    if (!front && this.leap) this.drawLeap();
+  }
+
+  drawFin(at, s) {
+    const { g, L, P, t } = this;
+    const size = L * 0.06 * at.scale, f = at.facing;
+    const rise = s.up * (0.88 + 0.12 * Math.sin(t * 1.7 + s.seed));
+    g.save();
+    g.translate(at.x, at.y);
+    g.fillStyle = P.sharkDeep;
+    g.beginPath(); g.ellipse(-f * size * 0.5, size * 0.55, size * 2.1, size * 0.32, 0, 0, TAU); g.fill();
+    // its wake, opening out behind it
+    g.strokeStyle = P.foam;
+    g.lineWidth = 1.2;
+    g.globalAlpha = 0.65 * s.up;
+    g.beginPath();
+    g.moveTo(f * size * 0.6, 0);
+    g.quadraticCurveTo(-f * size * 1.2, -size * 0.04, -f * size * 2.8, -size * 0.16);
+    g.moveTo(f * size * 0.6, 1);
+    g.quadraticCurveTo(-f * size * 1.2, size * 0.12, -f * size * 2.8, size * 0.3);
+    g.stroke();
+    g.globalAlpha = 1;
+    // the fin, only what is out of the water
+    g.beginPath(); g.rect(-size * 3, -size * 2, size * 6, size * 2); g.clip();
+    g.save();
+    g.scale(f * size, size);
+    g.translate(0, (1 - rise) * 1.1);
+    finPath(g);
+    g.fillStyle = P.shark;
+    g.fill();
+    g.strokeStyle = P.sharkLit;
+    g.lineWidth = 0.07;
+    g.beginPath(); g.moveTo(0.6, 0.02); g.quadraticCurveTo(0.4, -0.7, -0.3, -1.06); g.stroke();
+    g.restore();
+    g.fillStyle = P.foam;
+    g.beginPath(); g.ellipse(f * size * 0.45, 0, size * 0.4, size * 0.09, 0, 0, TAU); g.fill();
+    g.restore();
+  }
+
+  // A shark clear of the water, nose up then down, behind the boat.
+  drawLeap() {
+    const { g, P } = this;
+    const lp = this.leap;
+    const x = lp.x0 + lp.dir * lp.D * lp.k;
+    const y = this.surf(x) + lp.zo - lp.H * Math.sin(Math.PI * lp.k) + lp.size * 0.06;
+    const angle = Math.atan2(-lp.H * Math.PI * Math.cos(Math.PI * lp.k), lp.D);
+    const draw = () => {
+      g.save();
+      g.translate(x, y);
+      g.scale(lp.dir, 1);
+      g.rotate(angle);
+      g.scale(lp.size, lp.size);
+      drawShark(g, P);
+      g.restore();
+    };
+    // what is still under the water shows dimly through it
+    g.globalAlpha = 0.28;
+    draw();
+    g.globalAlpha = 1;
+    g.save();
+    g.beginPath();
+    const x0 = x - lp.size * 0.7, x1 = x + lp.size * 0.7;
+    g.moveTo(x0, -10);
+    g.lineTo(x1, -10);
+    for (let xx = x1; xx >= x0; xx -= 6) g.lineTo(xx, this.surf(xx) + lp.zo);
+    g.closePath();
+    g.clip();
+    draw();
+    g.restore();
+  }
+
+  // The lantern's glow over everything near it, and its light on the water.
+  drawLanternLight() {
+    const { g, L, P } = this;
+    if (this.phase === "flood" || this.phase === "under") return;
+    const at = this.toSea(this.boat, -0.405, -0.285);
+    if (at.y > this.surf(at.x)) return;
+    const k = this.flicker;
+    g.globalCompositeOperation = "lighter";
+    const glow = g.createRadialGradient(at.x, at.y, 0, at.x, at.y, L * 0.34);
+    glow.addColorStop(0, `rgba(255, 170, 80, ${P.lantern * k})`);
+    glow.addColorStop(0.35, `rgba(255, 140, 60, ${P.lantern * 0.35 * k})`);
+    glow.addColorStop(1, "rgba(255, 120, 40, 0)");
+    g.fillStyle = glow;
+    g.fillRect(at.x - L * 0.34, at.y - L * 0.34, L * 0.68, L * 0.68);
+    g.fillStyle = `rgba(255, 175, 90, ${P.lantern * 1.6 * k})`;
+    for (let i = 0; i < 7; i++) {
+      const y = this.surf(at.x) + 4 + i * 6, w = L * (0.05 - i * 0.006) * (0.6 + 0.4 * Math.sin(this.t * 3 + i * 2));
+      g.fillRect(at.x - w / 2 + Math.sin(this.t * 1.7 + i) * 4, y, w, 1.5);
+    }
+    g.globalCompositeOperation = "source-over";
   }
 
   drawBubbles(keep) {
@@ -695,6 +1161,10 @@ class Sea {
       g.closePath();
       g.fill();
     }
+    // a coil of rope up in the bow
+    g.strokeStyle = P.rope;
+    g.lineWidth = 0.005;
+    for (const r of [0.03, 0.022, 0.014]) { g.beginPath(); g.ellipse(0.3, -0.182, r, r * 0.33, -0.12, 0, TAU); g.stroke(); }
     g.strokeStyle = P.oar;
     g.lineWidth = 0.011;
     g.beginPath(); g.moveTo(-0.36, -0.155); g.lineTo(0.62, -0.245); g.stroke();
@@ -753,6 +1223,17 @@ class Sea {
     g.save();
     hull(g);
     g.clip();
+    // the grain of the planks
+    g.strokeStyle = "rgba(255, 230, 190, 0.05)";
+    g.lineWidth = 0.002;
+    for (let i = 0; i < 10; i++) {
+      const off = 0.02 + i * 0.019;
+      g.beginPath();
+      g.moveTo(-0.6, -0.13 + off);
+      g.quadraticCurveTo(0.05 + Math.sin(i * 3.7) * 0.1, -0.1 + off + Math.sin(i) * 0.004, 0.62, -0.21 + off * 0.75);
+      g.stroke();
+    }
+    // the seams between them, and the rivets along each
     g.strokeStyle = P.strake;
     g.lineWidth = 0.004;
     for (const off of [0.045, 0.09, 0.135, 0.18]) {
@@ -761,6 +1242,28 @@ class Sea {
       g.quadraticCurveTo(0.05, -0.105 + off, 0.62, -0.215 + off * 0.75);
       g.stroke();
     }
+    g.fillStyle = P.rivet;
+    for (const off of [0.045, 0.09, 0.135]) {
+      for (let u = 0.04; u < 1; u += 0.055) {
+        const x = quad(-0.6, 0.05, 0.62, u), y = quad(-0.135 + off, -0.105 + off, -0.215 + off * 0.75, u);
+        g.beginPath(); g.arc(x, y - 0.007, 0.0028, 0, TAU); g.fill();
+      }
+    }
+    // a painted band under the rail
+    g.fillStyle = P.stripe;
+    g.beginPath();
+    gunwale(g, -0.006);
+    for (let x = 0.5; x >= -0.47; x -= 0.02) g.lineTo(x, nearG(x) + 0.03);
+    g.closePath();
+    g.fill();
+    // darker toward the ends, where the hull turns away
+    const ends = g.createLinearGradient(-0.48, 0, 0.5, 0);
+    ends.addColorStop(0, "rgba(0, 0, 0, 0.35)");
+    ends.addColorStop(0.18, "rgba(0, 0, 0, 0)");
+    ends.addColorStop(0.8, "rgba(0, 0, 0, 0)");
+    ends.addColorStop(1, "rgba(0, 0, 0, 0.3)");
+    g.fillStyle = ends;
+    g.fillRect(-0.6, -0.4, 1.3, 0.6);
     // the hole the sea is coming in at
     g.fillStyle = P.ink;
     g.beginPath(); g.ellipse(HOLE.x, 0.085, 0.014, 0.009, 0.2, 0, TAU); g.fill();
@@ -784,6 +1287,33 @@ class Sea {
     g.lineWidth = 0.012;
     g.beginPath(); g.moveTo(0.5, -0.2); g.bezierCurveTo(0.47, -0.08, 0.4, 0.05, 0.28, 0.09); g.stroke();
     g.beginPath(); g.moveTo(-0.47, -0.135); g.lineTo(-0.45, 0.04); g.stroke();
+    // her name, on the bow
+    g.save();
+    g.translate(0.27, -0.112);
+    g.rotate(-0.13);
+    g.scale(1 / L, 1 / L);
+    g.font = `${Math.max(7, Math.round(L * 0.024))}px "IM Fell English SC", Georgia, serif`;
+    g.textAlign = "center";
+    g.fillStyle = P.name;
+    g.globalAlpha = 0.85;
+    g.fillText("Daily", 0, 0);
+    g.restore();
+    // oarlocks on the rail
+    g.strokeStyle = P.brass;
+    g.lineWidth = 0.005;
+    for (const x of [-0.14, 0.2]) {
+      const y = nearG(x) - 0.008;
+      g.beginPath(); g.moveTo(x - 0.012, y - 0.016); g.quadraticCurveTo(x, y + 0.006, x + 0.012, y - 0.016); g.stroke();
+    }
+    // the lantern on its post at the stern, hanging straight whatever the boat does
+    g.strokeStyle = P.hull[1];
+    g.lineWidth = 0.009;
+    g.beginPath(); g.moveTo(-0.448, -0.13); g.lineTo(-0.448, -0.335); g.lineTo(-0.4, -0.335); g.stroke();
+    g.save();
+    g.translate(-0.405, -0.335);
+    g.rotate(-b.angle + Math.sin(t * 1.9) * 0.07);
+    drawLantern(g, P, this.flicker);
+    g.restore();
     g.restore();
   }
 
@@ -823,7 +1353,11 @@ class Sea {
     g.save();
     g.translate(hip.x, hip.y);
     g.rotate(rot);
-    g.fillStyle = P.coat;
+    const coat = g.createLinearGradient(-0.04, 0, 0.046, 0);
+    coat.addColorStop(0, P.coat);
+    coat.addColorStop(0.55, P.coat);
+    coat.addColorStop(1, P.coatDark);
+    g.fillStyle = coat;
     g.strokeStyle = P.coatDark;
     g.lineWidth = 0.004;
     g.beginPath();
@@ -836,10 +1370,23 @@ class Sea {
     g.fill();
     g.stroke();
     g.beginPath(); g.moveTo(-0.02, -0.128); g.lineTo(-0.024, 0.0); g.stroke();
+    // its toggles, and the collar turned up
+    g.fillStyle = P.coatDark;
+    for (const y of [-0.035, -0.065, -0.095]) { g.beginPath(); g.arc(-0.026, y, 0.0035, 0, TAU); g.fill(); }
+    g.fillStyle = P.coat;
+    g.beginPath(); g.moveTo(-0.026, -0.13 + breathe); g.lineTo(-0.012, -0.112 + breathe); g.lineTo(0.02, -0.136 + breathe); g.lineTo(0.004, -0.146 + breathe); g.closePath(); g.fill(); g.stroke();
     // the head
     const hx = -0.006, hy = -0.176 + breathe;
     g.fillStyle = P.skin;
     g.beginPath(); g.arc(hx, hy, 0.038, 0, TAU); g.fill();
+    // an ear, and a few days' stubble
+    g.beginPath(); g.arc(hx + 0.014, hy + 0.003, 0.008, 0, TAU); g.fill();
+    g.strokeStyle = "rgba(0, 0, 0, 0.18)";
+    g.lineWidth = 0.002;
+    g.beginPath(); g.arc(hx + 0.014, hy + 0.003, 0.005, -1.2, 1.6); g.stroke();
+    g.strokeStyle = "rgba(90, 60, 40, 0.24)";
+    g.lineWidth = 0.011;
+    g.beginPath(); g.arc(hx, hy, 0.031, 0.3 * Math.PI, 0.92 * Math.PI); g.stroke();
     g.beginPath(); g.arc(hx - 0.034, hy + 0.004, 0.009, 0, TAU); g.fill();
     g.fillStyle = P.cheek;
     g.beginPath(); g.arc(hx - 0.016, hy + 0.012, 0.008, 0, TAU); g.fill();
@@ -847,7 +1394,11 @@ class Sea {
     g.fillStyle = P.ink;
     const blink = this.blinkAt - t < 0.12;
     if (blink) g.fillRect(hx - 0.026, hy - 0.006, 0.01, 0.002);
-    else { g.beginPath(); g.arc(hx - 0.021, hy - 0.006, swamped ? 0.0065 : 0.0045, 0, TAU); g.fill(); }
+    else {
+      g.beginPath(); g.arc(hx - 0.021, hy - 0.006, swamped ? 0.0065 : 0.0045, 0, TAU); g.fill();
+      g.fillStyle = "rgba(255, 255, 255, 0.85)";
+      g.beginPath(); g.arc(hx - 0.0225, hy - 0.0075, 0.0015, 0, TAU); g.fill();
+    }
     g.strokeStyle = P.ink;
     g.lineWidth = 0.003;
     g.beginPath();
@@ -891,6 +1442,9 @@ class Sea {
     g.strokeStyle = color;
     g.lineWidth = 0.022;
     g.beginPath(); g.moveTo(from.x, from.y); g.lineTo(elbow.x, elbow.y); g.lineTo(to.x, to.y); g.stroke();
+    // the cuff
+    g.fillStyle = P.coatDark;
+    g.beginPath(); g.arc(lerp(elbow.x, to.x, 0.82), lerp(elbow.y, to.y, 0.82), 0.0125, 0, TAU); g.fill();
     g.fillStyle = P.skin;
     g.beginPath(); g.arc(to.x, to.y, 0.011, 0, TAU); g.fill();
   }
@@ -987,11 +1541,144 @@ function drawBucketShape(g, P, full) {
   g.fill();
   g.stroke();
   g.strokeStyle = P.bucketDark;
-  g.beginPath(); g.moveTo(-0.031, -0.018); g.lineTo(0.031, -0.018); g.stroke();
+  g.beginPath(); g.moveTo(-0.031, -0.018); g.lineTo(0.031, -0.018); g.moveTo(-0.026, 0.02); g.lineTo(0.026, 0.02); g.stroke();
+  g.strokeStyle = "rgba(255, 255, 255, 0.35)";
+  g.beginPath(); g.moveTo(-0.019, -0.026); g.lineTo(-0.014, 0.028); g.stroke();
   if (full) {
     g.fillStyle = P.inside;
     g.beginPath(); g.ellipse(0, -0.03, 0.031, 0.006, 0, 0, TAU); g.fill();
   }
+}
+
+function quad(a, b, c, u) {
+  return (1 - u) * (1 - u) * a + 2 * (1 - u) * u * b + u * u * c;
+}
+
+// A lantern hanging from (0, 0): its cap, a glass with a flame in it, brass
+// bars and a base.
+function drawLantern(g, P, flicker) {
+  g.strokeStyle = P.brass;
+  g.lineWidth = 0.003;
+  g.beginPath(); g.moveTo(0, 0); g.lineTo(0, 0.012); g.stroke();
+  g.fillStyle = P.brass;
+  g.beginPath(); g.moveTo(-0.008, 0.012); g.lineTo(0.008, 0.012); g.lineTo(0.019, 0.024); g.lineTo(-0.019, 0.024); g.closePath(); g.fill();
+  g.fillStyle = `rgba(255, 196, 110, ${0.55 + 0.35 * flicker})`;
+  g.fillRect(-0.015, 0.024, 0.03, 0.04);
+  g.fillStyle = "#fff4cf";
+  g.beginPath();
+  g.moveTo(0, 0.034 - 0.006 * flicker);
+  g.quadraticCurveTo(0.007, 0.05, 0, 0.056);
+  g.quadraticCurveTo(-0.007, 0.05, 0, 0.034 - 0.006 * flicker);
+  g.fill();
+  g.strokeStyle = P.brass;
+  g.lineWidth = 0.003;
+  g.beginPath();
+  for (const x of [-0.015, 0, 0.015]) { g.moveTo(x, 0.024); g.lineTo(x, 0.064); }
+  g.stroke();
+  g.fillStyle = P.brass;
+  g.fillRect(-0.019, 0.064, 0.038, 0.007);
+}
+
+// The fin, one unit tall, its leading edge facing +x and its base on y = 0.
+function finPath(g) {
+  g.beginPath();
+  g.moveTo(0.62, 0.05);
+  g.quadraticCurveTo(0.4, -0.7, -0.32, -1.08);
+  g.quadraticCurveTo(-0.2, -0.45, -0.6, 0.05);
+  g.closePath();
+}
+
+// A whole shark, one unit long, nose at +x: grey above, pale beneath, with a
+// grin of small white teeth.
+function drawShark(g, P) {
+  g.fillStyle = P.shark;
+  // tail, dorsal fin and pectoral fin
+  g.beginPath();
+  g.moveTo(-0.36, -0.02); g.quadraticCurveTo(-0.46, -0.12, -0.56, -0.22); g.quadraticCurveTo(-0.5, -0.06, -0.47, 0);
+  g.quadraticCurveTo(-0.5, 0.07, -0.54, 0.13); g.quadraticCurveTo(-0.44, 0.08, -0.36, 0.03);
+  g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(0.06, -0.1); g.quadraticCurveTo(-0.02, -0.2, -0.1, -0.28); g.quadraticCurveTo(-0.08, -0.17, -0.13, -0.08); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(0.16, 0.06); g.quadraticCurveTo(0.08, 0.15, 0, 0.2); g.quadraticCurveTo(0.06, 0.1, 0.05, 0.06); g.closePath(); g.fill();
+  const body = () => {
+    g.beginPath();
+    g.moveTo(0.5, 0);
+    g.bezierCurveTo(0.46, -0.08, 0.25, -0.12, 0.02, -0.115);
+    g.bezierCurveTo(-0.18, -0.105, -0.3, -0.05, -0.38, -0.02);
+    g.lineTo(-0.38, 0.03);
+    g.bezierCurveTo(-0.28, 0.06, -0.1, 0.1, 0.12, 0.095);
+    g.bezierCurveTo(0.32, 0.09, 0.46, 0.06, 0.5, 0);
+    g.closePath();
+  };
+  body(); g.fill();
+  g.save();
+  body(); g.clip();
+  g.fillStyle = P.belly;
+  g.beginPath(); g.ellipse(0.1, 0.1, 0.42, 0.07, -0.02, 0, TAU); g.fill();
+  g.strokeStyle = P.sharkLit;
+  g.lineWidth = 0.012;
+  g.beginPath(); g.moveTo(0.46, -0.05); g.bezierCurveTo(0.3, -0.11, 0, -0.12, -0.3, -0.05); g.stroke();
+  g.restore();
+  g.strokeStyle = "rgba(0, 0, 0, 0.35)";
+  g.lineWidth = 0.008;
+  for (const x of [0.22, 0.25, 0.28]) { g.beginPath(); g.moveTo(x, -0.04); g.quadraticCurveTo(x - 0.012, 0, x, 0.04); g.stroke(); }
+  g.fillStyle = "#0b0d10";
+  g.beginPath(); g.arc(0.38, -0.03, 0.013, 0, TAU); g.fill();
+  g.fillStyle = "rgba(255, 255, 255, 0.8)";
+  g.beginPath(); g.arc(0.384, -0.034, 0.004, 0, TAU); g.fill();
+  g.strokeStyle = "#1a1012";
+  g.beginPath(); g.moveTo(0.47, 0.035); g.quadraticCurveTo(0.42, 0.06, 0.35, 0.05); g.stroke();
+  g.fillStyle = "#ffffff";
+  for (let i = 0; i < 4; i++) {
+    const x = 0.455 - i * 0.026, y = 0.042 + i * 0.004;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x - 0.008, y + 0.016); g.lineTo(x - 0.016, y + 0.002); g.closePath(); g.fill();
+  }
+}
+
+// A cloud: overlapping puffs on a flat base, shaded beneath and lit along the
+// top.
+function cloudCanvas(w, h, P, seed) {
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, w);
+  c.height = Math.max(1, h);
+  const g = c.getContext("2d");
+  const r = rng(seed), n = 6 + Math.floor(r() * 4), puffs = [];
+  for (let i = 0; i < n; i++) {
+    const u = i / (n - 1);
+    const pr = h * (0.2 + 0.18 * r()) * (1 - Math.abs(u - 0.5) * 0.9);
+    puffs.push([w * (0.14 + 0.72 * u) + (r() - 0.5) * w * 0.05, h * 0.66 - pr * (0.3 + 0.5 * r()), pr]);
+  }
+  const blob = (dy) => {
+    g.beginPath();
+    for (const [x, y, pr] of puffs) { g.moveTo(x + pr, y + dy); g.arc(x, y + dy, pr, 0, TAU); }
+    g.ellipse(w / 2, h * 0.74 + dy, w * 0.4, h * 0.12, 0, 0, TAU);
+    g.fill();
+  };
+  g.fillStyle = P.cloud.shade;
+  blob(h * 0.06);
+  g.fillStyle = P.cloud.body;
+  blob(0);
+  g.globalCompositeOperation = "source-atop";
+  const rim = g.createLinearGradient(0, 0, 0, h * 0.7);
+  rim.addColorStop(0, P.cloud.rim);
+  rim.addColorStop(1, "rgba(0, 0, 0, 0)");
+  g.fillStyle = rim;
+  g.fillRect(0, 0, w, h);
+  const under = g.createLinearGradient(0, h * 0.55, 0, h);
+  under.addColorStop(0, "rgba(0, 0, 0, 0)");
+  under.addColorStop(1, P.cloud.shade);
+  g.fillStyle = under;
+  g.fillRect(0, 0, w, h);
+  return c;
+}
+
+function rng(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 // The bail at a point through it, eased from pose to pose.
