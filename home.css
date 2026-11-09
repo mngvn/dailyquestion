@@ -359,28 +359,120 @@ body.light .boat-alert { color: #1d2a36; text-shadow: 0 1px 12px rgba(255, 252, 
 .boat-sunk {
   position: absolute;
   left: 50%;
-  top: 38%;
-  width: min(360px, calc(100% - 32px));
-  padding: 22px 20px 20px;
+  top: 46%;
+  width: min(380px, calc(100% - 32px));
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+  padding: 18px 22px 20px;
   color: var(--ink);
   text-align: center;
-  background: linear-gradient(180deg, #f6ebd0, #e8d6aa);
-  border-radius: 6px;
-  box-shadow: 0 24px 48px -18px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(90, 60, 20, 0.2);
+  /* a page from the log: ruled, with a red margin and a strip of tape */
+  background:
+    linear-gradient(90deg, transparent 30px, rgba(178, 61, 45, 0.35) 30px 31px, transparent 31px),
+    repeating-linear-gradient(180deg, transparent 0 25px, rgba(60, 90, 140, 0.13) 25px 26px),
+    radial-gradient(ellipse at 30% 0%, #fbf3dc, transparent 70%),
+    linear-gradient(180deg, #f4e8c8, #e6d2a2);
+  border-radius: 3px;
+  box-shadow: 0 28px 52px -20px rgba(0, 0, 0, 0.85), 0 2px 0 rgba(255, 255, 255, 0.4) inset, 0 0 0 1px rgba(90, 60, 20, 0.22) inset;
   translate: -50% -50%;
-  animation: boatSunk 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  rotate: -0.8deg;
+  animation: boatSunk 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.boat-sunk::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -10px;
+  width: 92px;
+  height: 22px;
+  translate: -50% 0;
+  rotate: 2deg;
+  background: rgba(240, 230, 200, 0.6);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
 }
 .boat-sunk[hidden] { display: none; }
-.boat-sunk h2 { font-size: 1.6rem; font-weight: 400; line-height: 1.15; }
-.boat-sunk p { margin: 6px 0 16px; font-style: italic; color: #5a4220; }
+.boat-sunk-art { display: block; width: 100%; max-width: 260px; height: auto; margin: 2px auto 4px; overflow: visible; }
+.boat-sunk-sea { fill: rgba(70, 120, 165, 0.22); }
+.boat-sunk-swell { fill: none; stroke: #3b5d78; stroke-width: 1.4; }
+.boat-sunk-hat { fill: #e2a823; stroke: #7a5510; stroke-width: 1.2; stroke-linejoin: round; transform: translate(84px, 41px) rotate(-8deg); animation: boatBob 2.6s ease-in-out infinite; }
+.boat-sunk-bucket { fill: #a9b4bf; stroke: #56616c; stroke-width: 1.2; stroke-linejoin: round; transform: translate(40px, 44px) rotate(18deg); animation: boatBob 3.1s ease-in-out -1s infinite; }
+.boat-sunk-wire { fill: none; }
+.boat-sunk-fin { fill: #4a5866; transform: translate(176px, 42px); animation: boatFin 6s ease-in-out infinite; }
+.boat-sunk-wake { fill: none; stroke: #3b5d78; stroke-width: 1; opacity: 0.6; }
+.boat-sunk-bubbles circle { fill: none; stroke: #3b5d78; stroke-width: 1; animation: boatBubble 2.2s ease-in infinite; }
+.boat-sunk-bubbles circle:nth-child(2) { animation-delay: -0.7s; }
+.boat-sunk-bubbles circle:nth-child(3) { animation-delay: -1.4s; }
+.boat-sunk-kicker {
+  font-family: "IM Fell English SC", Georgia, serif;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  color: #8a5a2a;
+}
+.boat-sunk h2 { font-size: 1.65rem; font-weight: 400; line-height: 1.15; margin-top: 2px; }
+.boat-sunk-line { margin: 4px 0 12px; font-style: italic; color: #5a4220; }
+.boat-log {
+  display: grid;
+  gap: 2px;
+  margin: 0 auto 16px;
+  max-width: 280px;
+  text-align: left;
+  font-size: 0.98rem;
+}
+.boat-log div { display: flex; align-items: baseline; gap: 6px; }
+.boat-log dt { flex: 1; display: flex; align-items: baseline; gap: 6px; color: #4a3517; }
+.boat-log dt::after { content: ""; flex: 1; border-bottom: 1px dotted rgba(74, 53, 23, 0.45); translate: 0 -4px; }
+.boat-log dd { font-family: "IM Fell English SC", Georgia, serif; font-size: 1.05rem; color: #241a10; }
 .boat-sunk-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .boat-sunk .btn { display: inline-flex; align-items: center; text-decoration: none; }
+@keyframes boatBob {
+  50% { translate: 0 2px; rotate: 4deg; }
+}
+@keyframes boatFin {
+  50% { translate: -26px 0; }
+}
+@keyframes boatBubble {
+  from { opacity: 0.9; translate: 0 0; }
+  to { opacity: 0; translate: 0 -16px; }
+}
+/* the label under the sun (or moon) when the pointer is on it */
+.boat-orb-tip {
+  position: absolute;
+  padding: 4px 10px 5px;
+  font-family: "IM Fell English", Georgia, serif;
+  font-style: italic;
+  font-size: 0.9rem;
+  color: var(--ink);
+  white-space: nowrap;
+  background: linear-gradient(180deg, #f6ebd0, #e8d6aa);
+  border-radius: 3px;
+  box-shadow: 0 8px 18px -8px rgba(0, 0, 0, 0.75), inset 0 0 0 1px rgba(90, 60, 20, 0.2);
+  pointer-events: none;
+  translate: -50% 0;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.boat-orb-tip[data-show="true"] { opacity: 1; transform: none; }
+/* for the keyboard: out of sight until it has focus */
+.boat-home {
+  position: absolute;
+  left: 16px;
+  top: 14px;
+  z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+}
+.boat-home:focus-visible { opacity: 1; pointer-events: auto; }
+.boat[data-leaving="true"] .boat-hud,
+.boat[data-leaving="true"] .boat-hint,
+.boat[data-leaving="true"] .boat-alert,
+.boat[data-leaving="true"] .boat-sunk { opacity: 0; transition: opacity 0.35s ease; }
 @keyframes boatSunk {
   from { opacity: 0; transform: translateY(14px) scale(0.97); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .boat-sunk { animation: none; }
+  .boat-sunk, .boat-sunk-hat, .boat-sunk-bucket, .boat-sunk-fin, .boat-sunk-bubbles circle { animation: none; }
   .boat-alert { transition: none; }
   .bleed { display: none; }
   .room-loading-flame { animation: none; }
