@@ -47,6 +47,9 @@ const LEAP_EVERY = [14, 26];  // seconds between sharks leaping
 // right, y down. `wl` is where in that frame the sea's surface comes to.
 const WL_EMPTY = 0.0, WL_FULL = -0.1, WL_GONE = -0.64, WL_BOTTOM = -1.7;
 const SAILOR_X = 0.05;        // where the sailor sits
+const SAILOR_HIP = -0.075;    // and how high, in the boat
+const SAILOR_SCALE = 1.2;     // drawn this much bigger than the poses are worked out
+const LEAVE_S = 1.0;          // closing in on the sun (or moon) on the way back to the desk
 const HOLE = { x: 0.2, y: 0.06 };
 
 const PALETTES = {
@@ -62,12 +65,17 @@ const PALETTES = {
     coat: "#d29d22", coatDark: "#8d6612", skin: "#d9ae88", ink: "#140f0b", cheek: "rgba(220, 90, 70, 0.3)",
     bucket: "#8e9aa6", bucketDark: "#56616c", rings: "rgba(200, 222, 255, 0.45)", scrapShade: 0.62,
     flood: ["#1e4678", "#040e20"],
-    cloud: { body: "#1c2947", shade: "#0e162b", rim: "rgba(185, 205, 245, 0.5)", alpha: 0.62 },
+    cloud: { body: "#1c2947", shade: "#0e162b", rim: "rgba(185, 205, 245, 0.5)", rimClear: "rgba(185, 205, 245, 0)", shadeClear: "rgba(14, 22, 43, 0)", alpha: 0.62 },
     bands: ["#16314f", "#13304f", "#11294a"], crest: "rgba(165, 195, 245, 0.22)", haze: "rgba(70, 100, 150, 0.25)",
     streak: "rgba(140, 180, 240, 0.07)", waveFace: ["rgba(120, 170, 235, 0.3)", "rgba(60, 110, 180, 0)"],
     shark: "#2b3644", sharkLit: "#56677a", belly: "#b9c3cf", sharkDeep: "rgba(2, 8, 20, 0.5)",
     stripe: "#74291f", name: "#e3d6b8", brass: "#b08a3c", rivet: "rgba(0, 0, 0, 0.45)", rope: "#9c8358",
-    lantern: 0.34, gulls: false
+    lantern: 0.34, gulls: false,
+    seaMid: "#0a1d38", lit: "rgba(90, 140, 210, 0.3)", litClear: "rgba(90, 140, 210, 0)", ripple: "rgba(150, 190, 245, 0.42)", rippleDark: "rgba(0, 8, 24, 0.35)",
+    sparkle: "rgba(235, 242, 255, 0.95)", shadow: "rgba(0, 4, 12, 0.45)", orbRing: "rgba(220, 230, 255, 0.5)",
+    coatLit: "#ecbf48", coatLine: "#5e430b", skinLit: "#ebc6a1", skinDark: "#b08260", skinLine: "rgba(80, 42, 20, 0.55)",
+    beard: "#7a6858", beardLit: "rgba(225, 210, 190, 0.45)", beardDark: "#45382d", mouth: "#3a1a14", nose: "#d48d77",
+    iris: "#3d6b8f", sweat: "rgba(190, 225, 255, 0.9)", toggle: "#e2d4b6", jumper: "#2c4566"
   },
   light: {
     sky: ["#7fa3c2", "#bccfd9", "#ece3cf"], stars: false,
@@ -81,12 +89,17 @@ const PALETTES = {
     coat: "#f0bb2e", coatDark: "#b0801a", skin: "#f0c9a0", ink: "#241a10", cheek: "rgba(230, 100, 80, 0.35)",
     bucket: "#a9b4bf", bucketDark: "#6b7682", rings: "rgba(255, 255, 255, 0.6)", scrapShade: 1,
     flood: ["#4678a0", "#143454"],
-    cloud: { body: "#fbfcfd", shade: "#dfe7ee", rim: "rgba(255, 255, 255, 0.9)", alpha: 0.9 },
+    cloud: { body: "#ffffff", shade: "#dbe4ec", rim: "rgba(255, 255, 255, 0.95)", rimClear: "rgba(255, 255, 255, 0)", shadeClear: "rgba(219, 228, 236, 0)", alpha: 0.92 },
     bands: ["#7598b1", "#6b90ab", "#6489a6"], crest: "rgba(255, 255, 255, 0.32)", haze: "rgba(235, 228, 212, 0.35)",
     streak: "rgba(220, 240, 255, 0.08)", waveFace: ["rgba(215, 240, 255, 0.4)", "rgba(120, 180, 220, 0)"],
     shark: "#4a5866", sharkLit: "#7d8d9c", belly: "#e6ebf0", sharkDeep: "rgba(10, 40, 70, 0.4)",
     stripe: "#b23d2d", name: "#f7efdc", brass: "#c9a24c", rivet: "rgba(0, 0, 0, 0.35)", rope: "#c2a670",
-    lantern: 0.12, gulls: true
+    lantern: 0.12, gulls: true,
+    seaMid: "#33607f", lit: "rgba(175, 220, 245, 0.38)", litClear: "rgba(175, 220, 245, 0)", ripple: "rgba(255, 255, 255, 0.5)", rippleDark: "rgba(16, 52, 84, 0.28)",
+    sparkle: "rgba(255, 255, 255, 1)", shadow: "rgba(10, 34, 58, 0.4)", orbRing: "rgba(255, 246, 220, 0.85)",
+    coatLit: "#ffd45e", coatLine: "#80590e", skinLit: "#fcdcbd", skinDark: "#d09e78", skinLine: "rgba(110, 58, 28, 0.5)",
+    beard: "#8b7765", beardLit: "rgba(248, 238, 222, 0.5)", beardDark: "#57473a", mouth: "#4a2018", nose: "#e89d86",
+    iris: "#3f7aa6", sweat: "rgba(205, 238, 255, 0.95)", toggle: "#f3e6ca", jumper: "#33557c"
   }
 };
 
@@ -161,6 +174,10 @@ class Sea {
     this.waveAt = WAVE_FIRST;
     this.alertUntil = 0;
     this.flicker = 1;
+    this.orbHot = 0;
+    this.orbHover = false;
+    this.leaving = null;
+    this.stats = { bails: 0, waves: 0, leaps: 0 };
     this.last = 0;
     this.frame = requestAnimationFrame((now) => this.tick(now));
     if (this.instant) {
@@ -193,14 +210,31 @@ class Sea {
     hint.className = "boat-hint";
     hint.textContent = "Rub back and forth over the sailor to help them bail";
 
+    // Gone under: a page from the ship's log, with a sketch of what is left
+    // floating and how the voyage went.
     const sunk = this.sunk = document.createElement("div");
     sunk.className = "boat-sunk";
     sunk.hidden = true;
-    const title = document.createElement("h2");
-    title.textContent = "The boat went under.";
-    this.sunkTime = document.createElement("p");
-    const row = document.createElement("div");
-    row.className = "boat-sunk-row";
+    sunk.setAttribute("role", "dialog");
+    sunk.setAttribute("aria-labelledby", "boatSunkTitle");
+    sunk.innerHTML = `
+      <svg class="boat-sunk-art" viewBox="0 0 240 70" aria-hidden="true">
+        <path class="boat-sunk-sea" d="M0 44 Q 15 38 30 44 T 60 44 T 90 44 T 120 44 T 150 44 T 180 44 T 210 44 T 240 44 V70 H0 Z"/>
+        <path class="boat-sunk-swell" d="M0 44 Q 15 38 30 44 T 60 44 T 90 44 T 120 44 T 150 44 T 180 44 T 210 44 T 240 44"/>
+        <g class="boat-sunk-hat"><path d="M-15 4 A 15 15 0 0 1 15 4 Z"/><path d="M-21 5 Q 0 1 22 5 Q 27 8 28 13 Q 12 8 -21 9 Z"/></g>
+        <g class="boat-sunk-bucket"><path d="M-8 -9 L 8 -9 L 6 7 L -6 7 Z"/><path class="boat-sunk-wire" d="M-8 -9 Q 0 -20 8 -9"/></g>
+        <g class="boat-sunk-fin"><path d="M-10 4 Q -2 -12 10 -20 Q 6 -8 10 4 Z"/><path class="boat-sunk-wake" d="M10 4 Q 24 2 36 0 M10 5 Q 24 7 36 9"/></g>
+        <g class="boat-sunk-bubbles"><circle cx="122" cy="56" r="2.5"/><circle cx="128" cy="62" r="1.8"/><circle cx="117" cy="64" r="1.4"/></g>
+      </svg>
+      <p class="boat-sunk-kicker"></p>
+      <h2 id="boatSunkTitle">The boat went under.</h2>
+      <p class="boat-sunk-line"></p>
+      <dl class="boat-log"></dl>
+      <div class="boat-sunk-row"></div>`;
+    this.sunkKicker = sunk.querySelector(".boat-sunk-kicker");
+    this.sunkTime = sunk.querySelector(".boat-sunk-line");
+    this.sunkLog = sunk.querySelector(".boat-log");
+    const row = sunk.querySelector(".boat-sunk-row");
     const reset = this.resetBtn = document.createElement("button");
     reset.type = "button";
     reset.className = "btn btn-solid";
@@ -210,24 +244,43 @@ class Sea {
     back.className = "btn btn-ghost";
     back.href = "index.html";
     back.textContent = "Back to the desk";
+    back.addEventListener("click", (e) => { e.preventDefault(); this.leave(); });
     row.append(reset, back);
-    sunk.append(title, this.sunkTime, row);
+
+    // The way back to the desk at any time: the sun (or the moon) in the sky,
+    // with a label when the pointer is on it — and, for the keyboard, a
+    // button that shows itself when it has focus, or Escape.
+    const tip = this.tip = document.createElement("p");
+    tip.className = "boat-orb-tip";
+    tip.setAttribute("aria-hidden", "true");
+    tip.textContent = "back to the desk";
+    const home = document.createElement("button");
+    home.type = "button";
+    home.className = "boat-home btn btn-ghost";
+    home.textContent = "Back to the desk";
+    home.addEventListener("click", () => this.leave());
 
     this.live = document.createElement("p");
     this.live.className = "sr-only";
     this.live.setAttribute("aria-live", "polite");
     const how = document.createElement("p");
     how.className = "sr-only";
-    how.textContent = "Rub the pointer over the sailor, or press Space, to bail water out of the boat before it sinks.";
-    el.append(canvas, hud, alert, hint, sunk, how, this.live);
+    how.textContent = "Rub the pointer over the sailor, or press Space, to bail water out of the boat before it sinks. Click the sun or the moon, or press Escape, to go back to the desk.";
+    el.append(home, canvas, hud, alert, hint, tip, sunk, how, this.live);
     document.body.append(el);
     document.body.classList.add("at-sea");
 
     this.pointer = null;
     canvas.addEventListener("pointermove", (e) => this.onMove(e));
-    canvas.addEventListener("pointerdown", (e) => { this.pointer = this.local(e); this.onMove(e); });
-    canvas.addEventListener("pointerleave", () => { this.pointer = null; this.canvas.style.cursor = ""; });
+    canvas.addEventListener("pointerdown", (e) => {
+      const p = this.local(e);
+      if (this.onOrb(p)) { this.leave(); return; }
+      this.pointer = p;
+      this.onMove(e);
+    });
+    canvas.addEventListener("pointerleave", () => { this.pointer = null; this.orbHover = false; this.tip.dataset.show = "false"; this.canvas.style.cursor = ""; });
     window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { this.leave(); return; }
       if (e.key !== " " || this.phase !== "afloat" || e.target.closest("button, a")) return;
       e.preventDefault();
       if (!e.repeat) this.rub(0.4);
@@ -262,15 +315,36 @@ class Sea {
   // Rubbing over the sailor is what makes them bail: so far rubbed, so many
   // bucketfuls, no faster than they could really manage.
   onMove(e) {
+    if (this.leaving != null) return;
     const p = this.local(e);
     const was = this.pointer;
     this.pointer = p;
     const s = this.sailorAt;
     const over = s && this.phase === "afloat" && Math.hypot(p.x - s.x, p.y - s.y) < this.L * 0.21;
-    this.canvas.style.cursor = over ? "grab" : "";
+    this.orbHover = !over && this.onOrb(p);
+    this.tip.dataset.show = this.orbHover ? "true" : "false";
+    this.canvas.style.cursor = over ? "grab" : this.orbHover ? "pointer" : "";
     if (!over || !was) return;
     const dist = Math.hypot(p.x - was.x, p.y - was.y);
     if (dist < 120) this.rub(dist / (this.L * RUB_PER_BAIL));
+  }
+
+  // Is this point on the sun (or moon)? A little generous, for fingers.
+  onOrb(p) {
+    const o = this.orbAt;
+    return !!o && this.phase !== "flood" && this.phase !== "under" && Math.hypot(p.x - o.x, p.y - o.y) < Math.max(o.r * 1.7, 26);
+  }
+
+  // Back to the desk: the sea closes in on the sun, as the desk opens round
+  // its candle, and the desk is loaded again.
+  leave() {
+    if (this.leaving != null) return;
+    this.leaving = 0;
+    this.el.dataset.leaving = "true";
+    this.tip.dataset.show = "false";
+    this.canvas.style.cursor = "";
+    this.live.textContent = "Back to the desk.";
+    if (reduceMotion || this.phase === "flood" || this.phase === "under") window.location.assign("index.html");
   }
 
   rub(amount) {
@@ -298,6 +372,7 @@ class Sea {
     this.jet = [];
     this.wave = null;
     this.waveAt = WAVE_FIRST;
+    this.stats = { bails: 0, waves: 0, leaps: 0 };
     this.hud.dataset.show = "true";
     this.canvas.focus({ preventScroll: true });
     this.live.textContent = "The boat bobs back up, empty — for now.";
@@ -400,6 +475,10 @@ class Sea {
     const coming = this.phase === "surface" ? smooth(clamp(this.phaseT / SURFACE_S, 0, 1)) : 1;
     this.seaNow = lerp(-this.H * 0.06, this.seaBase, 1 - Math.pow(1 - coming, 2.4));
     this.flicker = 0.86 + 0.09 * Math.sin(this.t * 13.1) + 0.05 * Math.sin(this.t * 31.7);
+    if (this.leaving != null && (this.leaving += dt) > LEAVE_S && !this.gone) {
+      this.gone = true;
+      window.location.assign("index.html");
+    }
     if (this.alertUntil && this.t > this.alertUntil) { this.alert.dataset.show = "false"; this.alertUntil = 0; }
 
     // the big wave: it rolls in from the right, under the boat and away
@@ -447,7 +526,8 @@ class Sea {
     this.wl += this.wlV * dt;
 
     const b = this.boat = this.pose();
-    this.sailorAt = this.toSea(b, SAILOR_X - 0.05, -0.2);
+    const chest = sailorPoint(SAILOR_X - 0.05, -0.2);
+    this.sailorAt = this.toSea(b, chest.x, chest.y);
 
     // the big wave breaking over the bow slops water in, and throws spray off
     // its crest the whole way
@@ -455,6 +535,7 @@ class Sea {
       wv.hit = true;
       if (this.phase === "afloat" && wv.A > wv.max * 0.5) {
         this.water = Math.min(1, this.water + WAVE_SLOSH);
+        this.stats.waves += 1;
         this.tilt += 0.1;
         this.splash(this.toSea(b, 0.42, -0.2), 46, -1);
       }
@@ -487,6 +568,7 @@ class Sea {
         const at = this.sharkAt(s);
         this.leap = { s, x0: at.x, zo: at.zo, dir: at.facing, k: 0, D: L * 0.7, H: L * 0.21, size: L * 0.36 * at.scale };
         s.leaping = true;
+        this.stats.leaps += 1;
         this.splash(at, 18, at.facing, at.zo);
       } else this.leapAt = this.t + 1;
     }
@@ -581,10 +663,12 @@ class Sea {
     const amount = Math.min(this.water, BUCKET);
     this.water -= amount;
     this.bails += 1;
+    this.stats.bails += 1;
     if (this.bails === 3) this.hint.dataset.show = "false";
     const b = this.boat;
     const p = posed(POUR_AT);
-    const mouth = this.toSea(b, SAILOR_X + p.x + 0.03 * Math.sin(p.turn), p.y - 0.03 * Math.cos(p.turn));
+    const lip = sailorPoint(SAILOR_X + p.x + 0.03 * Math.sin(p.turn), p.y - 0.03 * Math.cos(p.turn));
+    const mouth = this.toSea(b, lip.x, lip.y);
     const n = Math.round(8 + 22 * (amount / BUCKET));
     for (let i = 0; i < n; i++) {
       const dir = { x: -rand(0.55, 1.05), y: -rand(0.1, 0.5) };
@@ -606,7 +690,8 @@ class Sea {
     this.hint.dataset.show = "false";
     // the bucket is let go
     const b = this.boat;
-    const at = this.toSea(b, SAILOR_X - 0.08, -0.17);
+    const held = sailorPoint(SAILOR_X - 0.08, -0.17);
+    const at = this.toSea(b, held.x, held.y);
     this.floaters.push({ kind: "bucket", x: at.x, y: at.y, vx: -this.L * 0.18, vy: 0, turn: 0, lean: 0.5, ride: 0.012 });
     this.live.textContent = "The boat has swamped, and it is going down.";
   }
@@ -619,7 +704,26 @@ class Sea {
     this.best = best;
     saveBest(best);
     this.hud.dataset.show = "false";
-    this.sunkTime.textContent = `Kept afloat for ${clock(this.afloat)}${record ? " — your longest yet." : this.best > 0 ? ` · longest ${clock(this.best)}` : ""}`;
+    this.sunkTime.textContent = record ? `Kept afloat for ${clock(this.afloat)} — your longest yet.` : `Kept afloat for ${clock(this.afloat)}.`;
+    const day = (window.Daily && window.Daily.shortDate) || new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    this.sunkKicker.textContent = `Ship's log · ${day}`;
+    const lines = [
+      ["Time afloat", clock(this.afloat)],
+      ["Longest afloat", clock(this.best)],
+      ["Bucketfuls bailed", String(this.stats.bails)],
+      ["Big waves weathered", String(this.stats.waves)],
+      ["Sharks circling", String(this.sharks.length)],
+      ["Sharks seen leaping", String(this.stats.leaps)]
+    ];
+    this.sunkLog.replaceChildren(...lines.map(([name, value]) => {
+      const row = document.createElement("div");
+      const dt = document.createElement("dt");
+      const dd = document.createElement("dd");
+      dt.textContent = name;
+      dd.textContent = value;
+      row.append(dt, dd);
+      return row;
+    }));
     setTimeout(() => {
       if (this.phase !== "sunk") return;
       this.sunk.hidden = false;
@@ -642,6 +746,22 @@ class Sea {
     if (this.phase === "flood") return this.drawFlood(clamp(this.phaseT / FLOOD_S, 0, 1));
     if (this.phase === "under") return this.drawUnder(1);
     this.drawScene();
+    if (this.leaving != null && this.orbAt) {
+      // closing in on the sun, its edge glowing like the candle's light
+      const o = this.orbAt, k = smooth(clamp(this.leaving / LEAVE_S, 0, 1));
+      const far = Math.hypot(Math.max(o.x, W - o.x), Math.max(o.y, H - o.y));
+      const r = far * Math.pow(1 - k, 1.6);
+      g.fillStyle = document.body.classList.contains("light") ? "#e9dcc6" : "#050302";
+      g.beginPath();
+      g.rect(0, 0, W, H);
+      if (r > 0.5) g.arc(o.x, o.y, r, 0, TAU, true);
+      g.fill("evenodd");
+      if (r > 0.5) {
+        g.strokeStyle = "rgba(255, 170, 90, 0.55)";
+        g.lineWidth = 3;
+        g.beginPath(); g.arc(o.x, o.y, r, 0, TAU); g.stroke();
+      }
+    }
     if (this.phase === "surface") {
       // the last of the water running off the eyes
       const k = clamp(this.phaseT / SURFACE_S, 0, 1);
@@ -730,13 +850,28 @@ class Sea {
       g.beginPath(); g.moveTo(x, y); g.lineTo(x - m.vx * W * 0.25, y - m.vy * H * 0.25); g.stroke();
     }
     const orb = { x: W * 0.76, y: this.seaBase * 0.3 + dy, r: Math.max(14, Math.min(W, H) * 0.035) };
+    // the clouds pass behind the sun (and the moon): it is the way home, and
+    // is never hidden
+    this.drawClouds(horizon);
     const glow = g.createRadialGradient(orb.x, orb.y, orb.r * 0.5, orb.x, orb.y, orb.r * 7);
     glow.addColorStop(0, P.orbGlow[0]);
     glow.addColorStop(1, P.orbGlow[1]);
     g.fillStyle = glow;
     g.fillRect(orb.x - orb.r * 7, orb.y - orb.r * 7, orb.r * 14, orb.r * 14);
+    this.orbAt = orb;
+    if (this.orbHover) {
+      this.tip.style.left = `${orb.x}px`;
+      this.tip.style.top = `${orb.y + orb.r * 1.7 + 6}px`;
+    }
     this.drawOrb(orb);
-    this.drawClouds(horizon);
+    // a faint ring round it, breathing, that brightens under the pointer:
+    // it is the way back to the desk
+    this.orbHot += ((this.orbHover ? 1 : 0) - this.orbHot) * 0.18;
+    g.strokeStyle = P.orbRing;
+    g.lineWidth = 1.5 + this.orbHot;
+    g.globalAlpha = 0.18 + 0.12 * Math.sin(t * 1.6) + 0.6 * this.orbHot;
+    g.beginPath(); g.arc(orb.x, orb.y, orb.r * (1.35 + 0.06 * Math.sin(t * 1.6) + 0.15 * this.orbHot), 0, TAU); g.stroke();
+    g.globalAlpha = 1;
     if (P.gulls) {
       // gulls, wheeling far off
       g.strokeStyle = "rgba(48, 58, 70, 0.7)";
@@ -820,18 +955,37 @@ class Sea {
     surface();
     const sea = g.createLinearGradient(0, this.seaNow - L * 0.05, 0, H);
     sea.addColorStop(0, P.sea[0]);
+    sea.addColorStop(0.4, P.seaMid);
     sea.addColorStop(1, P.sea[1]);
     g.fillStyle = sea;
     g.fill();
+    // the boat's shadow on the water beneath it
+    if (this.wl > -0.5) {
+      const bx = this.boat.x, by = this.surf(bx) + L * 0.035;
+      g.save();
+      g.translate(bx, by);
+      g.scale(1, 0.14);
+      const shade = g.createRadialGradient(0, 0, 0, 0, 0, L * 0.62);
+      shade.addColorStop(0, P.shadow);
+      shade.addColorStop(1, "rgba(0, 0, 0, 0)");
+      g.fillStyle = shade;
+      g.beginPath(); g.arc(0, 0, L * 0.62, 0, TAU); g.fill();
+      g.restore();
+    }
 
     // the sharks on the far side of the boat, and one leaping
     this.drawSharks(false);
 
     this.drawBoat();
 
-    // flung water, and where it lands
+    // flung water, each drop catching the light, and where it lands
     g.fillStyle = P.drop;
     for (const d of this.drops) { g.beginPath(); g.arc(d.x, d.y, d.r, 0, TAU); g.fill(); }
+    g.fillStyle = "rgba(255, 255, 255, 0.85)";
+    for (const d of this.drops) {
+      if (d.r < 2.2) continue;
+      g.beginPath(); g.arc(d.x - d.r * 0.32, d.y - d.r * 0.32, d.r * 0.32, 0, TAU); g.fill();
+    }
     g.strokeStyle = P.rings;
     for (const r of this.rings) {
       const k = r.age / 0.9;
@@ -851,6 +1005,16 @@ class Sea {
     front.addColorStop(1, P.front[1]);
     g.fillStyle = front;
     g.fill();
+    // the top of the water, lit from above where it is thin
+    g.beginPath();
+    for (let x = -10, first = true; x <= W + 10; x += 8, first = false) first ? g.moveTo(x, this.surf(x)) : g.lineTo(x, this.surf(x));
+    for (let x = W + 10; x >= -10; x -= 8) g.lineTo(x, this.surf(x) + L * 0.08);
+    g.closePath();
+    const band = g.createLinearGradient(0, this.seaNow - L * 0.05, 0, this.seaNow + L * 0.09);
+    band.addColorStop(0, P.lit);
+    band.addColorStop(1, P.litClear);
+    g.fillStyle = band;
+    g.fill();
     // light moving about under the surface
     g.strokeStyle = P.streak;
     g.lineWidth = 2;
@@ -863,11 +1027,25 @@ class Sea {
       }
       g.stroke();
     }
+    this.drawRipples();
+    this.drawSparkles();
+    // the edge of the water, brightest along the crests
     g.strokeStyle = P.foam;
-    g.lineWidth = 2;
+    g.lineCap = "butt";
+    g.lineWidth = 1.5;
+    g.globalAlpha = 0.45;
     g.beginPath();
     for (let x = -10; x <= W + 10; x += 8) (x > -10 ? g.lineTo(x, this.surf(x)) : g.moveTo(x, this.surf(x)));
     g.stroke();
+    g.lineWidth = 2.2;
+    g.globalAlpha = 0.75;
+    g.beginPath();
+    for (let x = -10, on = false; x <= W + 10; x += 6) {
+      const y = this.surf(x), crest = this.surf(x - 30) + this.surf(x + 30) - 2 * y > 0.6;
+      if (crest && !on) { g.moveTo(x, y); on = true; } else if (crest) g.lineTo(x, y); else on = false;
+    }
+    g.stroke();
+    g.globalAlpha = 1;
     // white water on the crests, the sharper the crest the more of it
     g.fillStyle = P.foam;
     for (let x = -8; x <= W + 8; x += 6) {
@@ -896,6 +1074,59 @@ class Sea {
     for (const f of this.floaters) this.drawFloater(f);
     this.drawBubbles(() => true);
     this.drawLanternLight();
+  }
+
+  // Rows of little wavelets across the near water, bigger and further apart
+  // the nearer they are, each with a lit top and a dark underside, drifting.
+  drawRipples() {
+    const { g, W, L, P, t } = this;
+    const bx = this.boat.x, hullDeep = L * (0.15 - this.wl);
+    for (let j = 0; j < 9; j++) {
+      const f = j / 8, depth = L * (0.035 + 0.62 * f * f), gap = 30 + 54 * f, len = 12 + 30 * f;
+      const offset = t * (5 + 12 * f) * (j % 2 ? 1 : -0.7) + j * 37;
+      const first = Math.floor((offset - gap) / gap);
+      // three strengths, so they don't all look alike
+      const light = [new Path2D(), new Path2D(), new Path2D()], dark = new Path2D();
+      for (let k = first; ; k++) {
+        const x0 = k * gap - offset;
+        if (x0 > W + gap) break;
+        const x = x0 + (hash(k * 7 + j * 13) - 0.5) * gap * 0.9;
+        const y = this.surf(x) + depth + (hash(k * 3 + j * 29) - 0.5) * gap * 0.45;
+        if (Math.abs(x - bx) < L * 0.5 && y < this.surf(x) + hullDeep) continue;
+        const l = len * (0.45 + 1.1 * hash(k + j * 11)), lift = l * (0.08 + 0.08 * hash(k * 5 + j));
+        const p = light[Math.floor(hash(k * 13 + j * 7) * 3)];
+        p.moveTo(x - l / 2, y); p.bezierCurveTo(x - l * 0.2, y - lift, x + l * 0.15, y - lift, x + l / 2, y + lift * 0.2);
+        dark.moveTo(x - l * 0.4, y + 1.8); dark.quadraticCurveTo(x, y + 1.8 + lift * 0.5, x + l * 0.45, y + 1.6);
+      }
+      g.lineCap = "round";
+      g.lineWidth = 1 + 0.8 * f;
+      g.globalAlpha = 0.7 - 0.35 * f;
+      g.strokeStyle = P.rippleDark;
+      g.stroke(dark);
+      g.strokeStyle = P.ripple;
+      light.forEach((p, i) => { g.globalAlpha = (0.35 + 0.3 * i) * (1 - 0.45 * f); g.stroke(p); });
+    }
+    g.globalAlpha = 1;
+  }
+
+  // Glints of the sun or moon on the wavelets under it, twinkling.
+  drawSparkles() {
+    const { g, W, L, P, t } = this;
+    const o = this.orbAt;
+    if (!o) return;
+    g.fillStyle = P.sparkle;
+    for (let i = 0; i < 18; i++) {
+      const a = Math.pow(Math.max(0, Math.sin(t * (1.6 + hash(i) * 1.4) + i * 2.1)), 8);
+      if (a < 0.05) continue;
+      const d = hash(i + 40), x = o.x + (hash(i + 90) - 0.5) * W * (0.08 + 0.3 * d);
+      const y = this.surf(x) + L * (0.01 + 0.5 * d * d), r = (1.5 + 4.5 * d) * a;
+      g.globalAlpha = a;
+      g.beginPath();
+      g.moveTo(x - r, y); g.quadraticCurveTo(x, y, x, y - r * 0.6); g.quadraticCurveTo(x, y, x + r, y);
+      g.quadraticCurveTo(x, y, x, y + r * 0.6); g.quadraticCurveTo(x, y, x - r, y);
+      g.fill();
+    }
+    g.globalAlpha = 1;
   }
 
   // The moon, with its seas, or a pale sun; drawn once and kept.
@@ -1183,6 +1414,12 @@ class Sea {
       g.fillStyle = P.inside;
       g.fillRect(-1, 0, 2, 1);
       g.strokeStyle = P.insideTop;
+      g.lineWidth = 0.003;
+      g.globalAlpha = 0.5;
+      g.beginPath();
+      for (let x = -0.6; x <= 0.6; x += 0.04) { g.moveTo(x, 0.012); g.quadraticCurveTo(x + 0.01, 0.009 + Math.sin(t * 3 + x * 40) * 0.002, x + 0.02, 0.012); }
+      g.stroke();
+      g.globalAlpha = 1;
       g.lineWidth = 0.006;
       g.beginPath();
       for (let x = -0.6; x <= 0.6; x += 0.03) {
@@ -1197,14 +1434,25 @@ class Sea {
     // and falling back in
     if (this.spout > 0) {
       const top = HOLE.y - this.spout, sway = Math.sin(t * 7) * 0.006;
-      g.strokeStyle = P.drop;
-      for (const [width, alpha] of [[0.022, 0.35], [0.01, 0.9]]) {
+      const column = (dx, width, color, alpha) => {
+        g.strokeStyle = color;
         g.globalAlpha = alpha;
         g.lineWidth = width;
         g.beginPath();
-        g.moveTo(HOLE.x, HOLE.y);
-        g.quadraticCurveTo(HOLE.x - sway, (HOLE.y + top) / 2, HOLE.x + sway, top + 0.01);
+        g.moveTo(HOLE.x + dx, HOLE.y);
+        g.quadraticCurveTo(HOLE.x - sway + dx, (HOLE.y + top) / 2, HOLE.x + sway + dx * 0.5, top + 0.012);
         g.stroke();
+      };
+      g.lineCap = "round";
+      column(0, 0.026, P.drop, 0.28);
+      column(0, 0.012, P.drop, 0.9);
+      column(-0.003, 0.004, "#ffffff", 0.75);
+      // mist off the top
+      g.fillStyle = P.drop;
+      for (let i = 0; i < 5; i++) {
+        const k = (t * 1.3 + i / 5) % 1;
+        g.globalAlpha = 0.22 * (1 - k);
+        g.beginPath(); g.arc(HOLE.x + Math.sin(i * 2.4) * 0.02 * k, top - 0.01 - k * 0.025, 0.008 + k * 0.014, 0, TAU); g.fill();
       }
       g.globalAlpha = 1;
     }
@@ -1317,20 +1565,28 @@ class Sea {
     g.restore();
   }
 
+  // The sailor: an old fisherman in a yellow oilskin and sou'wester, sat
+  // facing the stern. The poses are worked out at one size and the whole of
+  // him drawn a little bigger about the hip (SAILOR_SCALE).
   drawSailor() {
     const { g, P, t } = this;
     const swamped = this.phase === "swamping" || this.phase === "sunk";
     const pose = swamped ? null : posed(this.bail % 1);
+    const working = this.t - this.lastBail < 0.5;
     const lean = swamped ? -0.1 + Math.sin(t * 9) * 0.05 : pose.lean;
     const worry = swamped ? 1 : clamp(this.water * 1.25 - 0.1, 0, 1);
-    const breathe = Math.sin(t * 2.2) * 0.003;
-    const hip = { x: SAILOR_X, y: -0.075 };
+    const breathe = Math.sin(t * (working ? 6 : 2.2)) * (working ? 0.004 : 0.003);
+    const hip = { x: SAILOR_X, y: SAILOR_HIP };
+    g.save();
+    g.translate(hip.x, hip.y);
+    g.scale(SAILOR_SCALE, SAILOR_SCALE);
+    g.translate(-hip.x, -hip.y);
     // the body turns about the hip, leaning in to the work
     const rot = -lean * 0.9;
     const c = Math.cos(rot), s = Math.sin(rot);
     const body = (x, y) => ({ x: hip.x + x * c - y * s, y: hip.y + x * s + y * c });
-    const shoulder = body(0.004, -0.118 + breathe);
-    const far = body(0.016, -0.114 + breathe);
+    const shoulder = body(-0.004, -0.118 + breathe);
+    const far = body(0.022, -0.114 + breathe);
 
     // where the hands are
     let hands, bucket = null;
@@ -1338,100 +1594,53 @@ class Sea {
       const wave = Math.sin(t * 11) * 0.025;
       hands = [{ x: shoulder.x - 0.05 + wave, y: shoulder.y - 0.1 }, { x: far.x + 0.04 - wave, y: far.y - 0.11 }];
     } else {
-      bucket = pose;
       const cb = Math.cos(pose.turn), sb = Math.sin(pose.turn);
-      const rim = (x, y) => ({ x: pose.x + x * cb - y * sb, y: pose.y + x * sb + y * cb });
+      const rim = (x, y) => ({ x: SAILOR_X + pose.x + x * cb - y * sb, y: pose.y + x * sb + y * cb });
       hands = [rim(-0.03, -0.028), rim(0.03, -0.028)];
-      hands[0].x += SAILOR_X; hands[1].x += SAILOR_X;
       bucket = { ...pose, x: pose.x + SAILOR_X };
     }
 
     // the far arm, behind everything
-    this.arm(far, hands[1], P.coatDark);
+    this.arm(far, hands[1], true);
 
-    // the body: a yellow oilskin
     g.save();
     g.translate(hip.x, hip.y);
     g.rotate(rot);
-    const coat = g.createLinearGradient(-0.04, 0, 0.046, 0);
-    coat.addColorStop(0, P.coat);
-    coat.addColorStop(0.55, P.coat);
-    coat.addColorStop(1, P.coatDark);
-    g.fillStyle = coat;
-    g.strokeStyle = P.coatDark;
-    g.lineWidth = 0.004;
-    g.beginPath();
-    g.moveTo(-0.038, 0.01);
-    g.lineTo(-0.036, -0.1);
-    g.quadraticCurveTo(-0.03, -0.135 + breathe, 0.004, -0.137 + breathe);
-    g.quadraticCurveTo(0.036, -0.134 + breathe, 0.04, -0.1);
-    g.lineTo(0.044, 0.01);
-    g.closePath();
-    g.fill();
-    g.stroke();
-    g.beginPath(); g.moveTo(-0.02, -0.128); g.lineTo(-0.024, 0.0); g.stroke();
-    // its toggles, and the collar turned up
-    g.fillStyle = P.coatDark;
-    for (const y of [-0.035, -0.065, -0.095]) { g.beginPath(); g.arc(-0.026, y, 0.0035, 0, TAU); g.fill(); }
-    g.fillStyle = P.coat;
-    g.beginPath(); g.moveTo(-0.026, -0.13 + breathe); g.lineTo(-0.012, -0.112 + breathe); g.lineTo(0.02, -0.136 + breathe); g.lineTo(0.004, -0.146 + breathe); g.closePath(); g.fill(); g.stroke();
-    // the head
-    const hx = -0.006, hy = -0.176 + breathe;
-    g.fillStyle = P.skin;
-    g.beginPath(); g.arc(hx, hy, 0.038, 0, TAU); g.fill();
-    // an ear, and a few days' stubble
-    g.beginPath(); g.arc(hx + 0.014, hy + 0.003, 0.008, 0, TAU); g.fill();
-    g.strokeStyle = "rgba(0, 0, 0, 0.18)";
-    g.lineWidth = 0.002;
-    g.beginPath(); g.arc(hx + 0.014, hy + 0.003, 0.005, -1.2, 1.6); g.stroke();
-    g.strokeStyle = "rgba(90, 60, 40, 0.24)";
-    g.lineWidth = 0.011;
-    g.beginPath(); g.arc(hx, hy, 0.031, 0.3 * Math.PI, 0.92 * Math.PI); g.stroke();
-    g.beginPath(); g.arc(hx - 0.034, hy + 0.004, 0.009, 0, TAU); g.fill();
-    g.fillStyle = P.cheek;
-    g.beginPath(); g.arc(hx - 0.016, hy + 0.012, 0.008, 0, TAU); g.fill();
-    // a face that worries more the fuller the boat gets
-    g.fillStyle = P.ink;
-    const blink = this.blinkAt - t < 0.12;
-    if (blink) g.fillRect(hx - 0.026, hy - 0.006, 0.01, 0.002);
-    else {
-      g.beginPath(); g.arc(hx - 0.021, hy - 0.006, swamped ? 0.0065 : 0.0045, 0, TAU); g.fill();
-      g.fillStyle = "rgba(255, 255, 255, 0.85)";
-      g.beginPath(); g.arc(hx - 0.0225, hy - 0.0075, 0.0015, 0, TAU); g.fill();
-    }
-    g.strokeStyle = P.ink;
-    g.lineWidth = 0.003;
-    g.beginPath();
-    g.moveTo(hx - 0.031, hy - 0.016 + worry * 0.002);
-    g.lineTo(hx - 0.013, hy - 0.019 - worry * 0.007);
-    g.stroke();
-    g.beginPath();
-    if (swamped) g.ellipse(hx - 0.022, hy + 0.017, 0.006, 0.008, 0, 0, TAU);
-    else {
-      const m = 0.004 - worry * 0.009;
-      g.moveTo(hx - 0.03, hy + 0.016);
-      g.quadraticCurveTo(hx - 0.023, hy + 0.016 + m, hx - 0.014, hy + 0.017);
-    }
-    g.stroke();
+    drawTorso(g, P, breathe);
+    // the head bows to the work, jerks up in alarm, and now and then he
+    // glances back over his shoulder at the leak
+    const glance = !swamped && !working && Math.sin(t * 0.37 + 1) > 0.85;
+    const tilt = swamped ? -0.22 + Math.sin(t * 7) * 0.05 : working ? 0.1 : glance ? -0.06 : 0;
+    g.save();
+    g.translate(-0.004, -0.15 + breathe);
+    g.rotate(tilt);
+    g.translate(-0.002, -0.026);
+    drawHead(g, P, { worry, swamped, panting: working, blink: this.blinkAt - t < 0.12, look: glance ? 1 : -1, t });
     // the sou'wester, until the sea takes it
-    if (!this.floaters.some((f) => f.kind === "hat")) {
-      g.translate(hx, hy - 0.017);
+    const hatGone = this.floaters.some((f) => f.kind === "hat");
+    if (!hatGone) {
+      g.translate(0, -0.017);
       drawHat(g, P);
-      g.translate(-hx, -hy + 0.017);
-      if (swamped) {
-        const at = this.toSea(this.boat, hip.x + (hx * c - (hy - 0.03) * s), hip.y + (hx * s + (hy - 0.03) * c));
-        if (at.y > this.surf(at.x)) this.floaters.push({ kind: "hat", x: at.x, y: at.y, vx: this.L * 0.12, vy: 0, turn: rot, lean: -0.15, ride: 0.02 });
-      }
     }
     g.restore();
+    g.restore();
+    if (!hatGone && swamped) {
+      // where the hat is, in the boat: once that is under the water, it floats off
+      const hx = -0.006, hy = -0.206;
+      const lx = hip.x + (hx * c - hy * s) * SAILOR_SCALE, ly = hip.y + (hx * s + hy * c) * SAILOR_SCALE;
+      const at = this.toSea(this.boat, lx, ly);
+      if (at.y > this.surf(at.x)) this.floaters.push({ kind: "hat", x: at.x, y: at.y, vx: this.L * 0.12, vy: 0, turn: rot, lean: -0.15, ride: 0.02 });
+    }
 
     // the bucket, and the near arm over it
     if (bucket) this.drawBucket(bucket.x, bucket.y, bucket.turn, bucket.full);
-    this.arm(shoulder, hands[0], P.coat);
+    this.arm(shoulder, hands[0], false);
+    g.restore();
   }
 
-  // an arm in two parts, bent at the elbow, and a hand
-  arm(from, to, color) {
+  // An arm in its oilskin sleeve, bent at the elbow, thick at the shoulder
+  // and narrowing to the cuff, and a weathered hand gripping.
+  arm(from, to, far) {
     const { g, P } = this;
     const a = 0.076, b = 0.076;
     const dx = to.x - from.x, dy = to.y - from.y;
@@ -1439,14 +1648,46 @@ class Sea {
     const base = Math.atan2(dy, dx);
     const bend = Math.acos(clamp((a * a + d * d - b * b) / (2 * a * d), -1, 1));
     const elbow = { x: from.x + Math.cos(base - bend) * a, y: from.y + Math.sin(base - bend) * a };
-    g.strokeStyle = color;
+    const at = (k) => ({ x: lerp(elbow.x, to.x, k), y: lerp(elbow.y, to.y, k) });
+    const wrist = at(0.8);
+    g.lineCap = "round";
+    g.lineJoin = "round";
+    const sleeve = (w1, w2, color) => {
+      g.strokeStyle = color;
+      g.lineWidth = w1;
+      g.beginPath(); g.moveTo(from.x, from.y); g.lineTo(elbow.x, elbow.y); g.stroke();
+      g.lineWidth = w2;
+      g.beginPath(); g.moveTo(elbow.x, elbow.y); g.lineTo(wrist.x, wrist.y); g.stroke();
+    };
+    sleeve(0.031, 0.025, P.coatLine);
+    sleeve(0.025, 0.019, far ? P.coatDark : P.coat);
+    if (!far) {
+      // the shine along the top of the sleeve
+      const nx = -(elbow.y - from.y), ny = elbow.x - from.x, n = Math.hypot(nx, ny) || 1;
+      const sx = (nx / n) * 0.006 * (ny < 0 ? 1 : -1), sy = (ny / n) * 0.006 * (ny < 0 ? 1 : -1);
+      g.strokeStyle = "rgba(255, 255, 255, 0.28)";
+      g.lineWidth = 0.004;
+      g.beginPath(); g.moveTo(from.x + sx, from.y + sy); g.lineTo(lerp(from.x, elbow.x, 0.85) + sx, lerp(from.y, elbow.y, 0.85) + sy); g.stroke();
+    }
+    // the crease at the elbow, and the cuff
+    g.strokeStyle = P.coatLine;
+    g.lineWidth = 0.002;
+    g.beginPath(); g.arc(elbow.x, elbow.y, 0.008, base - bend + 1.8, base - bend + 2.8); g.stroke();
+    const c0 = at(0.74), c1 = at(0.86);
+    g.strokeStyle = far ? P.coatLine : P.coatDark;
     g.lineWidth = 0.022;
-    g.beginPath(); g.moveTo(from.x, from.y); g.lineTo(elbow.x, elbow.y); g.lineTo(to.x, to.y); g.stroke();
-    // the cuff
-    g.fillStyle = P.coatDark;
-    g.beginPath(); g.arc(lerp(elbow.x, to.x, 0.82), lerp(elbow.y, to.y, 0.82), 0.0125, 0, TAU); g.fill();
-    g.fillStyle = P.skin;
-    g.beginPath(); g.arc(to.x, to.y, 0.011, 0, TAU); g.fill();
+    g.beginPath(); g.moveTo(c0.x, c0.y); g.lineTo(c1.x, c1.y); g.stroke();
+    // the hand, along the line of the forearm, and its thumb
+    g.save();
+    g.translate(to.x, to.y);
+    g.rotate(Math.atan2(to.y - elbow.y, to.x - elbow.x));
+    g.fillStyle = far ? P.skinDark : P.skin;
+    g.strokeStyle = P.skinLine;
+    g.lineWidth = 0.0018;
+    g.beginPath(); g.ellipse(0.002, 0, 0.012, 0.0095, 0, 0, TAU); g.fill(); g.stroke();
+    g.beginPath(); g.ellipse(-0.003, -0.008, 0.0065, 0.0036, -0.6, 0, TAU); g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(0.008, -0.004); g.lineTo(0.011, -0.001); g.moveTo(0.008, 0.002); g.lineTo(0.011, 0.005); g.stroke();
+    g.restore();
   }
 
   drawBucket(x, y, turn, full) {
@@ -1463,7 +1704,7 @@ class Sea {
     g.save();
     g.translate(f.x, f.y);
     g.rotate(f.turn);
-    g.scale(L, L);
+    g.scale(L * SAILOR_SCALE, L * SAILOR_SCALE);
     g.lineJoin = "round";
     if (f.kind === "hat") drawHat(g, P);
     else drawBucketShape(g, P, false);
@@ -1507,47 +1748,291 @@ function hull(g) {
   g.closePath();
 }
 
+// The sou'wester: a stitched crown with a shine on it, a band, and a brim
+// long at the back to keep the rain off the neck.
 function drawHat(g, P) {
-  g.fillStyle = P.coat;
-  g.strokeStyle = P.coatDark;
-  g.lineWidth = 0.004;
+  g.lineJoin = "round";
   g.beginPath();
   g.arc(0.002, -0.012, 0.039, Math.PI * 1.02, Math.PI * 1.98);
   g.closePath();
+  const crown = g.createLinearGradient(-0.035, -0.05, 0.04, -0.01);
+  crown.addColorStop(0, P.coatLit);
+  crown.addColorStop(0.5, P.coat);
+  crown.addColorStop(1, P.coatDark);
+  g.fillStyle = crown;
   g.fill();
+  g.strokeStyle = P.coatLine;
+  g.lineWidth = 0.003;
   g.stroke();
-  // the brim, longer at the back to keep the rain off the neck
+  g.strokeStyle = P.coatDark;
+  g.lineWidth = 0.0018;
   g.beginPath();
-  g.moveTo(-0.05, -0.012);
-  g.quadraticCurveTo(0.0, -0.022, 0.05, -0.012);
-  g.quadraticCurveTo(0.066, -0.004, 0.07, 0.012);
-  g.quadraticCurveTo(0.04, 0.0, -0.05, -0.004);
+  g.moveTo(0.004, -0.051); g.quadraticCurveTo(-0.014, -0.036, -0.02, -0.014);
+  g.moveTo(0.004, -0.051); g.quadraticCurveTo(0.022, -0.036, 0.026, -0.014);
+  g.stroke();
+  g.strokeStyle = "rgba(255, 255, 255, 0.38)";
+  g.lineWidth = 0.004;
+  g.beginPath(); g.arc(0.002, -0.012, 0.031, Math.PI * 1.2, Math.PI * 1.45); g.stroke();
+  g.fillStyle = P.coatDark;
+  g.fillRect(-0.036, -0.019, 0.076, 0.006);
+  // the brim, and its darker underside
+  g.beginPath();
+  g.moveTo(-0.054, -0.014);
+  g.quadraticCurveTo(0, -0.024, 0.05, -0.014);
+  g.quadraticCurveTo(0.068, -0.006, 0.074, 0.014);
+  g.quadraticCurveTo(0.042, 0.004, -0.054, -0.006);
   g.closePath();
+  g.fillStyle = P.coat;
   g.fill();
+  g.strokeStyle = P.coatLine;
+  g.lineWidth = 0.0025;
+  g.stroke();
+  g.beginPath();
+  g.moveTo(-0.054, -0.006);
+  g.quadraticCurveTo(0.042, 0.004, 0.074, 0.014);
+  g.quadraticCurveTo(0.04, 0.01, -0.05, -0.001);
+  g.closePath();
+  g.fillStyle = P.coatDark;
+  g.fill();
+  g.setLineDash([0.004, 0.003]);
+  g.strokeStyle = P.coatDark;
+  g.lineWidth = 0.0012;
+  g.beginPath(); g.moveTo(-0.048, -0.0125); g.quadraticCurveTo(0, -0.02, 0.048, -0.0115); g.stroke();
+  g.setLineDash([]);
+}
+
+// The body in its oilskin, in the torso's own frame (the hip at 0, 0, up is
+// -y, facing -x): shaded and shining, creased where it bunches, toggled down
+// the front, with the collar turned up and a jumper showing at the neck.
+function drawTorso(g, P, b) {
+  g.lineJoin = "round";
+  g.beginPath();
+  g.moveTo(-0.044, 0.012);
+  g.bezierCurveTo(-0.048, -0.04, -0.046, -0.09, -0.036, -0.112 + b);
+  g.bezierCurveTo(-0.028, -0.132 + b, -0.01, -0.142 + b, 0.008, -0.142 + b);
+  g.bezierCurveTo(0.03, -0.142 + b, 0.044, -0.126 + b, 0.046, -0.1 + b);
+  g.bezierCurveTo(0.05, -0.06, 0.05, -0.02, 0.048, 0.012);
+  g.closePath();
+  const coat = g.createLinearGradient(-0.046, -0.1, 0.05, -0.04);
+  coat.addColorStop(0, P.coatLit);
+  coat.addColorStop(0.45, P.coat);
+  coat.addColorStop(1, P.coatDark);
+  g.fillStyle = coat;
+  g.fill();
+  g.strokeStyle = P.coatLine;
+  g.lineWidth = 0.003;
+  g.stroke();
+  g.strokeStyle = "rgba(255, 255, 255, 0.3)";
+  g.lineWidth = 0.006;
+  g.beginPath(); g.moveTo(-0.032, -0.11 + b); g.quadraticCurveTo(-0.041, -0.07, -0.037, -0.02); g.stroke();
+  g.strokeStyle = P.coatDark;
+  g.lineWidth = 0.0022;
+  for (const [x0, y0, cx, cy, x1, y1] of [[-0.012, -0.05, 0.004, -0.052, 0.02, -0.036], [-0.006, -0.02, 0.01, -0.025, 0.028, -0.012], [0.018, -0.1, 0.031, -0.092, 0.037, -0.074]]) {
+    g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(cx, cy, x1, y1); g.stroke();
+  }
+  g.strokeStyle = P.coatLine;
+  g.lineWidth = 0.0025;
+  g.beginPath(); g.moveTo(-0.024, -0.13 + b); g.quadraticCurveTo(-0.03, -0.06, -0.028, 0.01); g.stroke();
+  for (const y of [-0.04, -0.07, -0.1]) {
+    g.fillStyle = P.toggle;
+    g.beginPath(); g.ellipse(-0.031, y, 0.0058, 0.0023, 0.3, 0, TAU); g.fill();
+    g.strokeStyle = P.coatLine;
+    g.lineWidth = 0.0012;
+    g.beginPath(); g.moveTo(-0.035, y + 0.001); g.lineTo(-0.022, y + 0.003); g.stroke();
+  }
+  g.fillStyle = P.jumper;
+  g.beginPath(); g.ellipse(0, -0.142 + b, 0.017, 0.007, 0, 0, TAU); g.fill();
+  g.beginPath();
+  g.moveTo(-0.026, -0.124 + b);
+  g.quadraticCurveTo(-0.024, -0.146 + b, -0.008, -0.152 + b);
+  g.lineTo(-0.004, -0.136 + b);
+  g.quadraticCurveTo(-0.014, -0.13 + b, -0.026, -0.124 + b);
+  g.moveTo(0.026, -0.132 + b);
+  g.quadraticCurveTo(0.024, -0.15 + b, 0.008, -0.153 + b);
+  g.lineTo(0.006, -0.138 + b);
+  g.closePath();
+  g.fillStyle = P.coat;
+  g.fill();
+  g.strokeStyle = P.coatLine;
+  g.lineWidth = 0.0022;
   g.stroke();
 }
 
-function drawBucketShape(g, P, full) {
-  g.lineWidth = 0.004;
-  g.strokeStyle = P.bucketDark;
+// The head, centred on 0, 0 and facing -x: a weathered face with a big
+// wind-reddened nose, a grizzled beard and moustache, a bushy brow that lifts
+// with worry, and a mouth that hangs open when he is out of breath.
+function drawHead(g, P, o) {
+  const { worry, swamped, panting, blink, look, t } = o;
+  g.lineCap = "round";
+  g.lineJoin = "round";
+  g.fillStyle = P.skin;
+  g.beginPath(); g.ellipse(0.016, 0.004, 0.008, 0.01, 0, 0, TAU); g.fill();
   g.beginPath();
-  g.moveTo(-0.03, -0.03);
-  g.quadraticCurveTo(0, -0.075, 0.03, -0.03);
-  g.stroke();
-  g.fillStyle = P.bucket;
-  g.beginPath();
-  g.moveTo(-0.033, -0.03); g.lineTo(0.033, -0.03); g.lineTo(0.024, 0.032); g.lineTo(-0.024, 0.032);
+  g.moveTo(-0.03, -0.022);
+  g.bezierCurveTo(-0.02, -0.04, 0.02, -0.042, 0.034, -0.02);
+  g.bezierCurveTo(0.042, 0, 0.036, 0.024, 0.018, 0.036);
+  g.lineTo(-0.012, 0.042);
+  g.bezierCurveTo(-0.03, 0.04, -0.036, 0.02, -0.037, 0.006);
+  g.bezierCurveTo(-0.038, -0.006, -0.036, -0.016, -0.03, -0.022);
   g.closePath();
+  const skin = g.createRadialGradient(-0.018, -0.01, 0.004, 0, 0, 0.05);
+  skin.addColorStop(0, P.skinLit);
+  skin.addColorStop(0.6, P.skin);
+  skin.addColorStop(1, P.skinDark);
+  g.fillStyle = skin;
   g.fill();
+  g.strokeStyle = P.skinLine;
+  g.lineWidth = 0.0025;
   g.stroke();
-  g.strokeStyle = P.bucketDark;
-  g.beginPath(); g.moveTo(-0.031, -0.018); g.lineTo(0.031, -0.018); g.moveTo(-0.026, 0.02); g.lineTo(0.026, 0.02); g.stroke();
-  g.strokeStyle = "rgba(255, 255, 255, 0.35)";
-  g.beginPath(); g.moveTo(-0.019, -0.026); g.lineTo(-0.014, 0.028); g.stroke();
-  if (full) {
-    g.fillStyle = P.inside;
-    g.beginPath(); g.ellipse(0, -0.03, 0.031, 0.006, 0, 0, TAU); g.fill();
+  // the ear
+  g.fillStyle = P.skin;
+  g.beginPath(); g.ellipse(0.017, 0.004, 0.0075, 0.0095, 0.2, 0, TAU); g.fill(); g.stroke();
+  g.beginPath(); g.arc(0.017, 0.004, 0.0045, -1.3, 1.7); g.stroke();
+  // the chin strap, running down under the beard
+  g.strokeStyle = P.coatLine;
+  g.lineWidth = 0.0025;
+  g.beginPath(); g.moveTo(0.026, -0.026); g.quadraticCurveTo(0.024, 0.01, 0.012, 0.04); g.stroke();
+  // a raw cheek
+  g.fillStyle = P.cheek;
+  g.beginPath(); g.ellipse(-0.02, 0.008, 0.011, 0.0075, 0, 0, TAU); g.fill();
+  // the beard
+  g.beginPath();
+  g.moveTo(0.012, -0.006);
+  g.bezierCurveTo(0.021, 0.012, 0.017, 0.034, 0.004, 0.048);
+  g.bezierCurveTo(-0.008, 0.061, -0.027, 0.058, -0.037, 0.044);
+  g.bezierCurveTo(-0.043, 0.034, -0.042, 0.022, -0.038, 0.014);
+  g.bezierCurveTo(-0.03, 0.02, -0.02, 0.018, -0.012, 0.012);
+  g.bezierCurveTo(-0.004, 0.006, 0.004, -0.002, 0.012, -0.006);
+  g.closePath();
+  g.fillStyle = P.beard;
+  g.fill();
+  g.lineWidth = 0.0016;
+  for (let i = 0; i < 10; i++) {
+    const u = i / 9, x = lerp(0.011, -0.035, u), y = lerp(0.008, 0.026, u) + Math.sin(u * Math.PI) * 0.012;
+    const len = 0.012 + Math.sin(u * Math.PI) * 0.012;
+    g.strokeStyle = i % 2 ? P.beardDark : P.beardLit;
+    g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x - 0.002, y + len * 0.6, x + Math.sin(i * 2.3) * 0.003, y + len); g.stroke();
   }
+  // the mouth: set and turned down with worry, open when panting or calling out
+  g.fillStyle = P.mouth;
+  if (swamped || panting) {
+    const open = swamped ? 0.007 + 0.002 * Math.sin(t * 12) : 0.0035 + 0.0015 * Math.sin(t * 10);
+    g.beginPath(); g.ellipse(-0.03, 0.031, 0.0055, open, 0, 0, TAU); g.fill();
+  } else {
+    g.strokeStyle = P.mouth;
+    g.lineWidth = 0.003;
+    g.beginPath(); g.moveTo(-0.036, 0.03); g.quadraticCurveTo(-0.03, 0.027 + worry * 0.007, -0.023, 0.031); g.stroke();
+  }
+  // the moustache over it
+  g.fillStyle = P.beard;
+  g.beginPath(); g.ellipse(-0.032, 0.021, 0.0135, 0.0058, -0.15, 0, TAU); g.fill();
+  g.strokeStyle = P.beardDark;
+  g.lineWidth = 0.0014;
+  g.beginPath();
+  for (const x of [-0.04, -0.034, -0.028, -0.022]) { g.moveTo(x, 0.018); g.lineTo(x - 0.002, 0.025); }
+  g.stroke();
+  // the nose
+  g.fillStyle = P.nose;
+  g.strokeStyle = P.skinLine;
+  g.lineWidth = 0.002;
+  g.beginPath(); g.ellipse(-0.04, 0.006, 0.0115, 0.0098, -0.2, 0, TAU); g.fill(); g.stroke();
+  g.beginPath(); g.arc(-0.037, 0.01, 0.004, 0.5, 2.4); g.stroke();
+  g.fillStyle = "rgba(255, 255, 255, 0.4)";
+  g.beginPath(); g.arc(-0.044, 0.002, 0.0026, 0, TAU); g.fill();
+  // the eye: wide when he is frightened, glancing back now and then
+  const ex = -0.021, ey = -0.008;
+  if (blink) {
+    g.strokeStyle = P.skinLine;
+    g.lineWidth = 0.0025;
+    g.beginPath(); g.moveTo(ex - 0.007, ey); g.quadraticCurveTo(ex, ey + 0.003, ex + 0.007, ey); g.stroke();
+  } else {
+    const wide = swamped ? 1.35 : 1 + worry * 0.15;
+    g.fillStyle = "#f7f3ea";
+    g.beginPath(); g.ellipse(ex, ey, 0.0072, 0.0056 * wide, 0, 0, TAU); g.fill();
+    const px = ex - 0.0005 + look * 0.0024;
+    g.fillStyle = P.iris;
+    g.beginPath(); g.arc(px, ey + 0.0004, 0.0036, 0, TAU); g.fill();
+    g.fillStyle = "#0d0a08";
+    g.beginPath(); g.arc(px, ey + 0.0004, 0.0019, 0, TAU); g.fill();
+    g.fillStyle = "#ffffff";
+    g.beginPath(); g.arc(px - 0.0012, ey - 0.0012, 0.0011, 0, TAU); g.fill();
+    g.strokeStyle = P.skinLine;
+    g.lineWidth = 0.0024;
+    g.beginPath(); g.ellipse(ex, ey, 0.0076, 0.006 * wide, 0, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
+    g.strokeStyle = "rgba(90, 50, 30, 0.28)";
+    g.lineWidth = 0.0015;
+    g.beginPath(); g.arc(ex, ey + 0.004, 0.0065, 0.35, 2.75); g.stroke();
+  }
+  // crow's feet, and the brow
+  g.strokeStyle = "rgba(100, 55, 30, 0.3)";
+  g.lineWidth = 0.0013;
+  g.beginPath(); g.moveTo(ex + 0.009, ey - 0.002); g.lineTo(ex + 0.014, ey - 0.004); g.moveTo(ex + 0.009, ey + 0.002); g.lineTo(ex + 0.014, ey + 0.004); g.stroke();
+  g.strokeStyle = P.beardDark;
+  g.lineWidth = 0.005;
+  g.beginPath(); g.moveTo(ex - 0.009, ey - 0.011 - worry * 0.006); g.quadraticCurveTo(ex, ey - 0.016 - worry * 0.002, ex + 0.009, ey - 0.012 + worry * 0.002); g.stroke();
+  if (worry > 0.35) {
+    g.strokeStyle = `rgba(110, 60, 35, ${0.4 * (worry - 0.35) / 0.65})`;
+    g.lineWidth = 0.0016;
+    g.beginPath();
+    g.moveTo(-0.027, -0.027); g.quadraticCurveTo(-0.018, -0.03, -0.008, -0.028);
+    g.moveTo(-0.025, -0.032); g.quadraticCurveTo(-0.017, -0.035, -0.009, -0.033);
+    g.stroke();
+  }
+  // sweat, flicked off the brow
+  if (worry > 0.45 && !swamped) {
+    const k = (t * 0.9) % 1, x = -0.032 - k * 0.014, y = -0.026 + k * 0.03;
+    g.globalAlpha = 1 - k;
+    g.fillStyle = P.sweat;
+    g.beginPath(); g.moveTo(x, y - 0.006); g.quadraticCurveTo(x + 0.004, y, x, y + 0.002); g.quadraticCurveTo(x - 0.004, y, x, y - 0.006); g.fill();
+    g.globalAlpha = 1;
+  }
+}
+
+// A tin pail: shaded round its side, ribbed, its open top showing — and the
+// water in it when it is full — with its wire handle.
+function drawBucketShape(g, P, full) {
+  g.lineCap = "round";
+  g.lineJoin = "round";
+  g.strokeStyle = P.bucketDark;
+  g.lineWidth = 0.0035;
+  g.beginPath(); g.moveTo(-0.031, -0.028); g.quadraticCurveTo(0, -0.076, 0.031, -0.028); g.stroke();
+  g.beginPath();
+  g.moveTo(-0.033, -0.028); g.lineTo(0.033, -0.028); g.lineTo(0.025, 0.032);
+  g.quadraticCurveTo(0, 0.037, -0.025, 0.032);
+  g.closePath();
+  const side = g.createLinearGradient(-0.033, 0, 0.033, 0);
+  side.addColorStop(0, P.bucketDark);
+  side.addColorStop(0.25, "#dfe6ec");
+  side.addColorStop(0.5, P.bucket);
+  side.addColorStop(1, P.bucketDark);
+  g.fillStyle = side;
+  g.fill();
+  g.strokeStyle = P.bucketDark;
+  g.lineWidth = 0.0025;
+  g.stroke();
+  g.beginPath();
+  g.moveTo(-0.031, -0.012); g.quadraticCurveTo(0, -0.008, 0.031, -0.012);
+  g.moveTo(-0.027, 0.018); g.quadraticCurveTo(0, 0.022, 0.027, 0.018);
+  g.stroke();
+  // the open top
+  g.fillStyle = full ? P.inside : "#3a4048";
+  g.beginPath(); g.ellipse(0, -0.028, 0.033, 0.0075, 0, 0, TAU); g.fill();
+  if (full) {
+    g.strokeStyle = P.insideTop;
+    g.lineWidth = 0.0018;
+    g.beginPath(); g.ellipse(-0.006, -0.0285, 0.016, 0.0028, 0, Math.PI, TAU); g.stroke();
+  }
+  g.strokeStyle = "#e9eef2";
+  g.lineWidth = 0.0028;
+  g.beginPath(); g.ellipse(0, -0.028, 0.033, 0.0075, 0, 0, TAU); g.stroke();
+  g.fillStyle = P.bucketDark;
+  for (const x of [-0.032, 0.032]) { g.beginPath(); g.arc(x, -0.026, 0.0028, 0, TAU); g.fill(); }
+}
+
+// A point worked out in the sailor's poses, where it is drawn: he is drawn
+// bigger about his hip.
+function sailorPoint(x, y) {
+  return { x: SAILOR_X + (x - SAILOR_X) * SAILOR_SCALE, y: SAILOR_HIP + (y - SAILOR_HIP) * SAILOR_SCALE };
 }
 
 function quad(a, b, c, u) {
@@ -1660,15 +2145,22 @@ function cloudCanvas(w, h, P, seed) {
   g.globalCompositeOperation = "source-atop";
   const rim = g.createLinearGradient(0, 0, 0, h * 0.7);
   rim.addColorStop(0, P.cloud.rim);
-  rim.addColorStop(1, "rgba(0, 0, 0, 0)");
+  rim.addColorStop(1, P.cloud.rimClear);
   g.fillStyle = rim;
   g.fillRect(0, 0, w, h);
-  const under = g.createLinearGradient(0, h * 0.55, 0, h);
-  under.addColorStop(0, "rgba(0, 0, 0, 0)");
+  const under = g.createLinearGradient(0, h * 0.68, 0, h);
+  under.addColorStop(0, P.cloud.shadeClear);
   under.addColorStop(1, P.cloud.shade);
   g.fillStyle = under;
   g.fillRect(0, 0, w, h);
   return c;
+}
+
+// A steady pseudo-random number in 0..1 for a whole number: the same one
+// every frame, so what it places stays put.
+function hash(n) {
+  const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453;
+  return x - Math.floor(x);
 }
 
 function rng(seed) {
