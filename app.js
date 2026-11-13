@@ -1,6 +1,6 @@
 // app.js — Daily. Works out today's date and today's notes: four fun facts,
-// one from each category, and what happened on this date. desk.js writes them
-// on the crumpled notes and puts them on the desk; it reads them from
+// one from each category, and what happened on this date. The flies that end
+// up in the web carry them (flies.js, orb.js); they are read from
 // window.Daily, since module scripts always run after the classic ones.
 
 (function () {
@@ -30,7 +30,15 @@
   const histDate = `${months[now.getMonth()]} ${ord(now.getDate())}`;
 
   const dateEl = document.getElementById("date");
-  if (dateEl) dateEl.textContent = `${weekdays[now.getDay()]}, ${histDate}, ${now.getFullYear()}`;
+  if (dateEl) {
+    const day = document.createElement("span");
+    day.className = "date-day";
+    day.textContent = weekdays[now.getDay()];
+    const full = document.createElement("span");
+    full.className = "date-full";
+    full.textContent = `${histDate}, ${now.getFullYear()}`;
+    dateEl.replaceChildren(day, " ", full);
+  }
 
   // ----- Today's notes -----
   // Four facts a day, one per category, each dealt off its own deck so a fact
@@ -41,6 +49,15 @@
     .filter(Boolean);
   // Every date of the year has an entry.
   const hist = HISTORY_BY_DATE[mmdd] || null;
+
+  // What the flies carry, in the order they bring it: today's five first…
+  const notes = facts.map((f) => ({ kind: f.cat, label: f.cat, text: f.text, today: true }));
+  if (hist) notes.push({ kind: "day", label: `On this day · ${histDate}, ${hist.year}`, text: hist.text, today: true });
+  // …and after those, the rest of the facts, in an order of the day's own.
+  const more = Deck.permute(FUN_FACTS.length, dayNumber * 31 + 7)
+    .map((i) => FUN_FACTS[i])
+    .filter((f) => !facts.includes(f))
+    .map((f) => ({ kind: f.cat, label: f.cat, text: f.text, today: false }));
 
   // ----- Copying a note -----
   // navigator.clipboard is undefined on insecure origins (and when the page is
@@ -79,6 +96,9 @@
 
   window.Daily = Object.freeze({
     facts: facts.slice(),
+    notes,
+    more,
+    dayNumber,
     hist,
     histDate,
     shortDate,

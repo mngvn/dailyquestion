@@ -1,6 +1,6 @@
 // theme.js — light / dark for the home page, following the system setting.
 // The mode is reflected on <body> via the `light` class, which home.css and
-// stage.js read: by candlelight in the dark, by daylight in the light.
+// scene.js read: by moonlight in the dark, a misty morning in the light.
 //
 // There is no toggle on the page, so a choice saved by the old one is cleared
 // rather than left to pin the page to a mode it can no longer leave.

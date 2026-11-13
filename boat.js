@@ -1,8 +1,8 @@
-// boat.js — where the desk ends up: a rowboat, alone on the open sea, with a
-// hole in its bottom and a sailor with a bucket.
+// boat.js — Adrift: a rowboat, alone on the open sea, with a hole in its
+// bottom and a sailor with a bucket.
 //
-// stage.js brings this in when the candle's flame is clicked and the desk
-// goes over. The room floods, and we come up for air beside the boat. Water
+// The spider keeps this with the other games; orb.js brings it in when it is
+// picked from the larder. The web floods, and we come up for air beside the boat. Water
 // spouts in through the hole the whole time and the boat sits lower and lower
 // in the sea; rub the pointer back and forth over the sailor (or press Space)
 // and they bail, a bucketful at a time. Leave them to it and the boat swamps
@@ -19,7 +19,7 @@
 //
 // All of it is drawn on one 2D canvas from a handful of shapes; nothing is
 // loaded. start({ onCovered }) brings it in; onCovered is called once the
-// flood hides the room behind it, so the room can stop.
+// flood hides the web behind it, so the web can stop.
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const TAU = Math.PI * 2;
@@ -29,7 +29,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const rand = (a, b) => a + Math.random() * (b - a);
 
 const BEST_KEY = "daily.boat.best";
-const FLOOD_S = 1.3, UNDER_S = 0.5, SURFACE_S = 1.4;   // the room flooding, and coming up
+const FLOOD_S = 1.3, UNDER_S = 0.5, SURFACE_S = 1.4;   // the web flooding, and coming up
 const BAIL_RATE = 1.5;        // most bucketfuls a second, however fast the rubbing
 const RUB_PER_BAIL = 0.9;     // how far to rub, in boat lengths, for one bucketful
 const BUCKET = 0.07;          // a bucketful, as a share of what swamps the boat
@@ -49,7 +49,7 @@ const WL_EMPTY = 0.0, WL_FULL = -0.1, WL_GONE = -0.64, WL_BOTTOM = -1.7;
 const SAILOR_X = 0.05;        // where the sailor sits
 const SAILOR_HIP = -0.075;    // and how high, in the boat
 const SAILOR_SCALE = 1.2;     // drawn this much bigger than the poses are worked out
-const LEAVE_S = 1.0;          // closing in on the sun (or moon) on the way back to the desk
+const LEAVE_S = 1.0;          // closing in on the sun (or moon) on the way back to the web
 const HOLE = { x: 0.2, y: 0.06 };
 
 const PALETTES = {
@@ -152,7 +152,7 @@ class Sea {
     this.blinkAt = 2;
     this.stars = Array.from({ length: 110 }, () => ({ x: Math.random(), y: Math.random() * 0.55, r: rand(0.4, 1.3), s: Math.random() * TAU }));
     const colors = ["#a9c9ef", "#f4adc2", "#f4cf6a", "#a5dcb3", "#c9b4ee"];
-    // the notes, or what is left of them, drifting off
+    // scraps of this and that, drifting off
     this.scraps = Array.from({ length: 7 }, (_, i) => ({
       x: Math.random(), d: i < 5 ? rand(0.2, 0.85) : 1, size: rand(0.6, 1.2), color: colors[i % colors.length],
       drift: rand(-0.004, 0.004), turn: rand(-0.5, 0.5), seed: Math.random() * TAU
@@ -243,21 +243,21 @@ class Sea {
     const back = document.createElement("a");
     back.className = "btn btn-ghost";
     back.href = "index.html";
-    back.textContent = "Back to the desk";
+    back.textContent = "Back to the web";
     back.addEventListener("click", (e) => { e.preventDefault(); this.leave(); });
     row.append(reset, back);
 
-    // The way back to the desk at any time: the sun (or the moon) in the sky,
+    // The way back to the web at any time: the sun (or the moon) in the sky,
     // with a label when the pointer is on it — and, for the keyboard, a
     // button that shows itself when it has focus, or Escape.
     const tip = this.tip = document.createElement("p");
     tip.className = "boat-orb-tip";
     tip.setAttribute("aria-hidden", "true");
-    tip.textContent = "back to the desk";
+    tip.textContent = "back to the web";
     const home = document.createElement("button");
     home.type = "button";
     home.className = "boat-home btn btn-ghost";
-    home.textContent = "Back to the desk";
+    home.textContent = "Back to the web";
     home.addEventListener("click", () => this.leave());
 
     this.live = document.createElement("p");
@@ -265,7 +265,7 @@ class Sea {
     this.live.setAttribute("aria-live", "polite");
     const how = document.createElement("p");
     how.className = "sr-only";
-    how.textContent = "Rub the pointer over the sailor, or press Space, to bail water out of the boat before it sinks. Click the sun or the moon, or press Escape, to go back to the desk.";
+    how.textContent = "Rub the pointer over the sailor, or press Space, to bail water out of the boat before it sinks. Click the sun or the moon, or press Escape, to go back to the web.";
     el.append(home, canvas, hud, alert, hint, tip, sunk, how, this.live);
     document.body.append(el);
     document.body.classList.add("at-sea");
@@ -335,15 +335,15 @@ class Sea {
     return !!o && this.phase !== "flood" && this.phase !== "under" && Math.hypot(p.x - o.x, p.y - o.y) < Math.max(o.r * 1.7, 26);
   }
 
-  // Back to the desk: the sea closes in on the sun, as the desk opens round
-  // its candle, and the desk is loaded again.
+  // Back to the web: the sea closes in on the sun, and the home page is
+  // loaded again.
   leave() {
     if (this.leaving != null) return;
     this.leaving = 0;
     this.el.dataset.leaving = "true";
     this.tip.dataset.show = "false";
     this.canvas.style.cursor = "";
-    this.live.textContent = "Back to the desk.";
+    this.live.textContent = "Back to the web.";
     if (reduceMotion || this.phase === "flood" || this.phase === "under") window.location.assign("index.html");
   }
 
@@ -747,7 +747,7 @@ class Sea {
     if (this.phase === "under") return this.drawUnder(1);
     this.drawScene();
     if (this.leaving != null && this.orbAt) {
-      // closing in on the sun, its edge glowing like the candle's light
+      // closing in on the sun, its edge glowing
       const o = this.orbAt, k = smooth(clamp(this.leaving / LEAVE_S, 0, 1));
       const far = Math.hypot(Math.max(o.x, W - o.x), Math.max(o.y, H - o.y));
       const r = far * Math.pow(1 - k, 1.6);
@@ -772,7 +772,7 @@ class Sea {
     }
   }
 
-  // The room fills: the water rises up the screen over it.
+  // The page fills: the water rises up the screen over it.
   drawFlood(k) {
     const { g, W, H, t, P } = this;
     const level = lerp(H + 40, -70, k * k * (1.6 - 0.6 * k));
@@ -865,7 +865,7 @@ class Sea {
     }
     this.drawOrb(orb);
     // a faint ring round it, breathing, that brightens under the pointer:
-    // it is the way back to the desk
+    // it is the way back to the web
     this.orbHot += ((this.orbHover ? 1 : 0) - this.orbHot) * 0.18;
     g.strokeStyle = P.orbRing;
     g.lineWidth = 1.5 + this.orbHot;
@@ -941,7 +941,7 @@ class Sea {
       g.fillRect(x, y, w, 1 + 1.5 * k);
     }
     g.globalAlpha = 1;
-    // the notes, far out, drifting
+    // the scraps, far out, drifting
     for (const s of this.scraps) if (s.d < 1) this.drawScrap(s, horizon);
 
     // the sea itself, behind the boat
@@ -1347,7 +1347,7 @@ class Sea {
     this.bubbles = this.bubbles.filter((u) => !u.dead && u.y > -20);
   }
 
-  // A scrap of one of the notes, out on the water.
+  // A scrap of something, out on the water.
   drawScrap(s, horizon) {
     const { g, W, L, t } = this;
     const x = s.x * W - W * 0.1;
