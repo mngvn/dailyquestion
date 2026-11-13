@@ -1,9 +1,9 @@
-// data.js — what gets written on the notes.
+// data.js — what the flies carry into the web.
 // Daily items are chosen deterministically from the date so everyone
 // sees the same content on a given day and it rotates every 24h.
 
-// Fun facts. Four a day, one from each category, each on its own note, so the
-// desk always has a bit of range rather than four variations on one subject.
+// Fun facts. Four a day, one from each category, each on its own fly, so the
+// web always has a bit of range rather than four variations on one subject.
 //
 // cat    Tech, Art, History or Misc — written at the head of the note
 // text   the fact itself, written to stand alone in one or two sentences
