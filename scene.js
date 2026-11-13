@@ -47,9 +47,9 @@ export class Wind {
     const cross = Math.sin(y * 0.011 + t * 1.27 + x * 0.004);
     const f = this.gust * (0.75 + 0.55 * wave + 0.3 * cross);
     const o = this.o;
-    o.z = -640 * f + 260 * this.calm * Math.sin(t * 0.9 + x * 0.002);
-    o.x = 300 * f;
-    o.y = 110 * cross * this.gust;
+    o.z = -230 * f + 90 * this.calm * Math.sin(t * 0.9 + x * 0.002);
+    o.x = 240 * f + 110 * this.gust * Math.sin(t * 1.4 - y * 0.004);
+    o.y = 140 * cross * this.gust;
     return o;
   }
   // How hard it is leaning on something at x, for the plants: 0 to about 2.
@@ -67,10 +67,10 @@ export const PALETTES = {
     plant: "#04070f", plantRim: "rgba(150, 185, 245, 0.42)", leaf: "#071020", leafRim: "rgba(140, 180, 240, 0.3)",
     mote: "rgba(200, 220, 255, A)", mist: "rgba(120, 150, 210, 0.07)", shaft: "rgba(160, 190, 255, 0.035)",
     firefly: "190, 255, 120", stars: true, vignette: "rgba(1, 2, 6, 0.78)",
-    silk: (f) => `rgba(${Math.round(150 + 105 * f)}, ${Math.round(175 + 80 * f)}, ${Math.round(215 + 40 * f)}, ${0.2 + 0.78 * f * f})`,
-    bead: (f) => `rgba(${Math.round(185 + 70 * f)}, ${Math.round(210 + 45 * f)}, 255, ${0.3 + 0.7 * f})`,
-    fringe: ["rgba(120, 235, 255, 0.5)", "rgba(150, 255, 190, 0.38)", "rgba(255, 225, 140, 0.3)", "rgba(255, 150, 210, 0.22)"],
-    bloom: "rgba(140, 180, 255, 0.11)", glint: "rgba(255, 255, 255, 0.95)",
+    silk: (f) => `rgba(${Math.round(160 + 95 * f)}, ${Math.round(185 + 70 * f)}, ${Math.round(225 + 30 * f)}, ${0.3 + 0.7 * f})`,
+    bead: (f) => `rgba(${Math.round(185 + 70 * f)}, ${Math.round(210 + 45 * f)}, 255, ${0.34 + 0.66 * f})`,
+    fringe: ["rgba(255, 225, 150, 0.4)", "rgba(150, 255, 200, 0.36)", "rgba(120, 225, 255, 0.34)", "rgba(200, 160, 255, 0.26)"],
+    bloom: "rgba(140, 180, 255, 0.07)", glint: "rgba(255, 255, 255, 0.95)",
     dew: "rgba(150, 190, 255, 0.32)", dewLit: "rgba(255, 255, 255, 0.95)"
   },
   light: {
@@ -81,10 +81,10 @@ export const PALETTES = {
     plant: "#1c2a20", plantRim: "rgba(255, 236, 170, 0.6)", leaf: "#26392a", leafRim: "rgba(255, 240, 180, 0.42)",
     mote: "rgba(255, 250, 220, A)", mist: "rgba(255, 246, 220, 0.1)", shaft: "rgba(255, 240, 190, 0.07)",
     firefly: null, stars: false, vignette: "rgba(26, 38, 28, 0.6)",
-    silk: (f) => `rgba(255, ${Math.round(246 + 9 * f)}, ${Math.round(222 + 33 * f)}, ${0.34 + 0.66 * f * f})`,
+    silk: (f) => `rgba(255, ${Math.round(246 + 9 * f)}, ${Math.round(222 + 33 * f)}, ${0.42 + 0.58 * f})`,
     bead: (f) => `rgba(255, 255, ${Math.round(235 + 20 * f)}, ${0.45 + 0.55 * f})`,
-    fringe: ["rgba(150, 240, 255, 0.5)", "rgba(190, 255, 170, 0.4)", "rgba(255, 215, 120, 0.4)", "rgba(255, 160, 190, 0.3)"],
-    bloom: "rgba(255, 240, 190, 0.14)", glint: "rgba(255, 255, 255, 1)",
+    fringe: ["rgba(255, 220, 130, 0.5)", "rgba(190, 255, 170, 0.42)", "rgba(150, 235, 255, 0.42)", "rgba(230, 170, 255, 0.32)"],
+    bloom: "rgba(255, 240, 190, 0.08)", glint: "rgba(255, 255, 255, 1)",
     dew: "rgba(255, 255, 255, 0.4)", dewLit: "rgba(255, 255, 255, 1)"
   }
 };
@@ -126,19 +126,35 @@ export class Scene {
     const rnd = this.rnd = rng(seed);
     const k = this.k = clamp(Math.min(W, H) / 760, 0.5, 1.4);
     const tall = H > W * 1.15;
-    this.hub = { x: W * 0.5, y: H * (tall ? 0.45 : 0.47) };
+    const hub = this.hub = { x: W * 0.5, y: H * (tall ? 0.45 : 0.48) };
+    // how far out the web's spiral goes: a circle, as big as the page allows
+    const R0 = this.R0 = tall ? Math.min(W * 0.44, H * 0.36) : Math.min(W * 0.46, H * 0.41);
 
-    // The stems the web is tied to, clockwise from the top left, and how far
-    // up each the knot is.
+    // The stems the web is tied to, clockwise from the top left. The knots
+    // want to be evenly round the hub, so the frame is a fair hexagon: each
+    // stem is tied wherever along it is nearest the bearing it is to hold.
     const S = (o) => new Stem(o);
+    const bear = tall ? [-114, -66, 0, 66, 114, 180] : [-122, -58, 0, 60, 120, 180];
+    const foot = (deg) => hub.x + (H * 0.94 - hub.y) / Math.tan(deg * Math.PI / 180);
     this.stems = [
-      S({ kind: "twig", foot: { x: -50, y: H * 0.2 }, tip: { x: W * (tall ? 0.52 : 0.38), y: H * 0.035 }, bow: -H * 0.03, give: 5, width: 13 * k, knot: tall ? 0.36 : 0.44, phase: 0.3 }),
-      S({ kind: "twig", foot: { x: W + 50, y: H * 0.23 }, tip: { x: W * (tall ? 0.56 : 0.64), y: H * 0.045 }, bow: H * 0.03, give: 6, width: 12 * k, knot: tall ? 0.38 : 0.46, phase: 1.9 }),
-      S({ kind: "umbel", foot: { x: W * 0.985 + 10, y: H + 40 }, tip: { x: W * (tall ? 0.93 : 0.955), y: H * 0.3 }, bow: -W * 0.012, give: 30 * k, width: 5 * k, knot: 0.57, phase: 3.1 }),
-      S({ kind: "blade", foot: { x: W * 0.83, y: H + 20 }, tip: { x: W * 0.79, y: H * 0.9 }, bow: 8, give: 16 * k, width: 5 * k, knot: 0.78, phase: 4.4 }),
-      S({ kind: "blade", foot: { x: W * 0.17, y: H + 20 }, tip: { x: W * 0.21, y: H * 0.905 }, bow: -8, give: 16 * k, width: 5 * k, knot: 0.78, phase: 5.2 }),
-      S({ kind: "plume", foot: { x: W * 0.015 - 10, y: H + 40 }, tip: { x: W * (tall ? 0.07 : 0.045), y: H * 0.33 }, bow: W * 0.012, give: 34 * k, width: 6.5 * k, knot: 0.56, phase: 0.9 })
+      S({ kind: "twig", foot: { x: -50, y: H * 0.2 }, tip: { x: W * (tall ? 0.52 : 0.4), y: H * 0.035 }, bow: -H * 0.03, give: 5, width: 13 * k, phase: 0.3 }),
+      S({ kind: "twig", foot: { x: W + 50, y: H * 0.23 }, tip: { x: W * (tall ? 0.5 : 0.62), y: H * 0.045 }, bow: H * 0.03, give: 6, width: 12 * k, phase: 1.9 }),
+      S({ kind: "umbel", foot: { x: W * (tall ? 1.06 : 0.985) + 10, y: H + 40 }, tip: { x: W * (tall ? 1.02 : 0.955), y: H * 0.3 }, bow: -W * 0.012, give: 30 * k, width: 5 * k, phase: 3.1 }),
+      S({ kind: "blade", foot: { x: foot(bear[3]) + 16, y: H + 20 }, tip: { x: foot(bear[3]) - 4, y: H * 0.9 }, bow: 8, give: 16 * k, width: 5 * k, knot: 0.78, phase: 4.4 }),
+      S({ kind: "blade", foot: { x: foot(bear[4]) - 16, y: H + 20 }, tip: { x: foot(bear[4]) + 4, y: H * 0.905 }, bow: -8, give: 16 * k, width: 5 * k, knot: 0.78, phase: 5.2 }),
+      S({ kind: "plume", foot: { x: W * (tall ? -0.06 : 0.015) - 10, y: H + 40 }, tip: { x: W * (tall ? -0.02 : 0.045), y: H * 0.33 }, bow: W * 0.012, give: 34 * k, width: 6.5 * k, phase: 0.9 })
     ];
+    this.stems.forEach((s, i) => {
+      if (s.knot) return;
+      let best = 0.5, off = Infinity;
+      for (let u = 0.2; u <= 0.96; u += 0.01) {
+        const p = s.at(u, tmpC);
+        let d = (Math.atan2(p.y - hub.y, p.x - hub.x) * 180 / Math.PI - bear[i]) % 360;
+        if (d > 180) d -= 360; if (d < -180) d += 360;
+        if (Math.abs(d) < off) { off = Math.abs(d); best = u; }
+      }
+      s.knot = best;
+    });
     // leaves along the twigs
     for (const s of this.stems) {
       s.leaves = [];
