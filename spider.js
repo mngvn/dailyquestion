@@ -11,6 +11,9 @@
 // has just hit the web; and wraps up any fly that has been read. Put the
 // pointer on it and it stops and lifts its front legs — click, and it shows
 // what it keeps (orb.js).
+//
+// In the hunt it does none of that: it goes where it is driven (`manual`),
+// at a run, and never off the edge of the web.
 
 const TAU = Math.PI * 2;
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -59,6 +62,8 @@ export class Spider {
     this.held = 0;          // 0 to 1: stopped, front legs up (the pointer is on it)
     this.reared = 0;        // 0 to 1: further up still (the menu is open)
     this.hold = false; this.rear = false;
+    this.manual = null;     // the hunt: { x, y }, which way it is being driven
+    this.snap = 0;          // just caught something: a jab of the front legs
     this.at = { x: 0, y: 0, s: 1 };            // where it is on the page
     this.body = { x: 0, y: 0, z: 0 };
     this.legs = [];
@@ -92,18 +97,25 @@ export class Spider {
 
   // Something has hit the web over there.
   notice(fly) {
-    if (this.state === "wrap" || this.hold || this.rear) return;
+    if (this.manual || this.state === "wrap" || this.hold || this.rear) return;
     this.prey = fly; this.state = "alert"; this.wait = rand(0.35, 0.7); this.goal = null;
   }
   // A fly has been read and is the spider's now: go and wrap it, if it has
   // nothing better to do.
   call(fly) {
-    if (this.hold || this.rear || !["sit", "roam", "alert"].includes(this.state)) return;
+    if (this.manual || this.hold || this.rear || !["sit", "roam", "alert"].includes(this.state)) return;
     this.prey = fly; this.state = "fetch"; this.goal = null; this.look = null;
+  }
+  // Taken over, for the hunt — or let go again.
+  drive(on) {
+    this.manual = on ? { x: 0, y: 0 } : null;
+    this.prey = null; this.goal = null; this.look = null;
+    this.hold = false; this.rear = false;
+    this.state = "sit"; this.wait = on ? 0 : rand(0.8, 1.6);
   }
   // The web was plucked at a place: look round at it.
   pluck(x, y) {
-    if (this.state !== "sit" && this.state !== "roam") return;
+    if (this.manual || (this.state !== "sit" && this.state !== "roam")) return;
     this.look = Math.atan2(y - this.p.y, x - this.p.x); this.state = "sit"; this.wait = Math.max(this.wait, rand(0.6, 1.1));
   }
 
@@ -114,8 +126,14 @@ export class Spider {
     this.reared += ((this.rear ? 1 : 0) - this.reared) * Math.min(1, dt * 7);
     const stopped = this.hold || this.rear;
     let want = 0, pace = 0, turnRate = 4.5;
-
-    if (!stopped) {
+    this.snap = Math.max(0, this.snap - dt);
+    const m = this.manual, driven = m ? Math.min(1, Math.hypot(m.x, m.y)) : 0;
+    if (m) {
+      if (driven > 0.05) {
+        want = turnTo(this.h, Math.atan2(m.y, m.x));
+        pace = 330 * (S / 50) * driven; turnRate = 16;
+      }
+    } else if (!stopped) {
       if (this.state === "sit") {
         if (this.look != null) want = this.look;
         this.wait -= dt;
@@ -180,9 +198,22 @@ export class Spider {
     const turn = clamp(want, -turnRate * dt, turnRate * dt);
     this.h += turn;
     this.turned += (turn / Math.max(dt, 1e-3) - this.turned) * Math.min(1, dt * 6);
-    this.speed += (pace - this.speed) * Math.min(1, dt * (pace > this.speed ? 5 : 10));
-    this.p.x += Math.cos(this.h) * this.speed * dt;
-    this.p.y += Math.sin(this.h) * this.speed * dt;
+    this.speed += (pace - this.speed) * Math.min(1, dt * (pace > this.speed ? (m ? 14 : 5) : 10));
+    if (driven > 0.05) {
+      // driven: it goes the way it is sent at once, and its body comes round
+      const d = Math.hypot(m.x, m.y);
+      this.p.x += m.x / d * this.speed * dt;
+      this.p.y += m.y / d * this.speed * dt;
+    } else {
+      this.p.x += Math.cos(this.h) * this.speed * dt;
+      this.p.y += Math.sin(this.h) * this.speed * dt;
+    }
+    if (m) {
+      // never off the edge of the web
+      const dx = this.p.x - web.hub.x, dy = this.p.y - web.hub.y, rho = Math.hypot(dx, dy);
+      const far = web.reach(Math.atan2(dy, dx)) * 0.98;
+      if (rho > far) { this.p.x = web.hub.x + dx / rho * far; this.p.y = web.hub.y + dy / rho * far; }
+    }
 
     // ----- feet -----
     const lead = this.speed * 0.11;
@@ -198,7 +229,7 @@ export class Spider {
       if (!leg.planted || (err > limit && (!busy[1 - leg.group] || err > S * 0.62))) {
         leg.fromX = leg.x; leg.fromY = leg.y;
         if (leg.planted) { leg.swing = 0; busy[leg.group]++; }
-        leg.dur = this.speed > 100 ? 0.075 : 0.13;
+        leg.dur = this.speed > 240 ? 0.05 : this.speed > 100 ? 0.075 : 0.13;
         this.take(leg, want);
         leg.planted = true;
         web.kick(leg.grip.a, rand(-14, 14), rand(-14, 14), rand(-30, 30));
@@ -222,13 +253,13 @@ export class Spider {
 
   preyAt() {
     const f = this.prey;
-    if (!f || f.gone) return null;
+    if (!f || f.gone || f.node < 0) return null;
     return this.web.restOf(f.node, tD);
   }
   // A leg held off the web: the front pair when the pointer is on it, the
   // second pair too when it rears, and the front pair when handling a fly.
   freeFoot(leg) {
-    if (leg.i === 0 && (this.held > 0.02 || this.state === "feel" || this.state === "wrap")) return true;
+    if (leg.i === 0 && (this.held > 0.02 || this.snap > 0 || this.state === "feel" || this.state === "wrap")) return true;
     if (leg.i === 1 && this.reared > 0.02) return true;
     return false;
   }
@@ -249,11 +280,11 @@ export class Spider {
     for (const leg of this.legs) {
       let tx, ty;
       if (this.freeFoot(leg)) {
-        const r = leg.L.raise, handling = this.state === "feel" || this.state === "wrap";
+        const r = leg.L.raise, handling = this.snap > 0 || this.state === "feel" || this.state === "wrap";
         let fx = r[0], fy = r[1] * leg.side;
         if (handling && leg.i === 0) {
           // working at the fly in front of it
-          const w = Math.sin(t * (this.state === "wrap" ? 17 : 9) + leg.side * 1.4);
+          const w = Math.sin(t * (this.state === "feel" ? 9 : 17) + leg.side * 1.4);
           fx = 1.0 + 0.1 * w; fy = (0.16 + 0.09 * w) * leg.side;
         } else {
           const up = leg.i === 0 ? this.held : this.reared;

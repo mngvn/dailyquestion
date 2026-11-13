@@ -1,12 +1,18 @@
-// flies.js — the flies, each with something written on it.
+// flies.js — the flies.
 //
-// There are always a few in the air in front of the web, going about the way
-// flies do. Every so often one blunders into it: the web jumps, the fly
-// sticks and buzzes itself tired. Click one that is stuck and orb.js shows
-// what it was carrying — one of today's notes first, then whatever else is in
-// data.js. A fly that has been read is the spider's: it comes over, wraps it
-// up, and the parcel hangs there until there are too many and the oldest is
-// cut loose.
+// Most of the time each one is carrying something: one of today's notes
+// first, then whatever else is in data.js. There are always a few in the air
+// in front of the web, darting and hovering the way flies do, and one in the
+// air can be clicked for its note as well as one that is caught (orb.js puts
+// a button over each). Every so often one blunders into the web: the web
+// jumps, the fly sticks and buzzes itself tired. A fly that has been read is
+// done with — off it goes if it was flying; if it was stuck, the spider comes
+// over and wraps it up, and the parcel hangs there until there are too many
+// and the oldest is cut loose.
+//
+// In the hunt (orb.js) it is another matter: they come thick and fast, with
+// nothing to read, and each one tears itself free after a few seconds unless
+// the spider gets to it first. The ring round a fly is how long it has left.
 
 const TAU = Math.PI * 2;
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -22,8 +28,7 @@ export const HUES = {
   Misc: { name: "Misc", rgb: "110, 225, 150", deep: "#136a43", lit: "#c8f6d6" },
   day: { name: "On this day", rgb: "190, 150, 255", deep: "#4c2a9c", lit: "#e2d4ff" }
 };
-// One with nothing to carry yet is just a fly.
-const PLAIN = { rgb: "96, 116, 150", deep: "#1c2536", lit: "#aebcd6" };
+const HUE_LIST = Object.values(HUES);
 
 class Fly {
   constructor(owner, x, y, z) {
@@ -32,50 +37,83 @@ class Fly {
     this.vx = 0; this.vy = 0; this.vz = 0;
     this.a = rand(0, TAU);          // which way it points, on the page
     this.state = "air";
-    this.way = null; this.wayT = 0;
-    this.note = null; this.hue = PLAIN;
+    this.way = null; this.pause = rand(0, 0.6);
+    this.note = null; this.hue = HUE_LIST[Math.floor(Math.random() * HUE_LIST.length)];
     this.node = -1;
     this.buzz = 1;                  // 0 to 1: how hard its wings are going
     this.vigour = 1;                // what struggle it has left
     this.burst = 0; this.rest = 0;
     this.read = false; this.wrap = 0; this.spin = 0;
-    this.age = 0; this.fade = 1; this.gone = false;
+    this.game = false; this.life = 0; this.lifeMax = 1;
+    this.age = 0; this.fade = 1; this.size = 1; this.gone = false;
     this.seed = rand(0, 100);
-    this.sx = 0; this.sy = 0; this.sc = 1;
+    this.sx = x; this.sy = y; this.sc = 1;
   }
 
   // ----- in the air -----
-  fly(dt, t) {
+  fly(dt, t, pointer) {
     const { W, H, k } = this.o;
-    const diving = this.state === "dive";
-    if (diving) {
+    let wantX = 0, wantY = 0, wantZ = 0, pull = 3.4, wob = 1;
+    const head = (to, top) => {
+      const dx = to.x - this.x, dy = to.y - this.y, dz = to.z - this.z;
+      const d = Math.hypot(dx, dy, dz) || 1;
+      wantX = dx / d * top; wantY = dy / d * top; wantZ = dz / d * top;
+      return d;
+    };
+    if (this.state === "dive") {
       const w = this.o.web;
       this.way = { x: w.x[this.node], y: w.y[this.node], z: w.z[this.node] };
-    } else if (!this.way || (this.wayT -= dt) <= 0) {
-      this.way = { x: rand(-0.05, 1.05) * W, y: rand(0.04, 0.96) * H, z: rand(90, 520) };
-      this.wayT = rand(0.35, 1.3);
+      const d = head(this.way, (this.game ? 620 : 400) * k);
+      pull = 6; wob = clamp(d / 240, 0, 1);
+      if (d < 14 * k + Math.hypot(this.vx, this.vy, this.vz) * dt || this.z < this.way.z - 2) { this.hit(); return; }
+    } else if (this.state === "leave") {
+      head(this.way, 520 * k);
+      pull = 4.5; wob = 0.6;
+      if (this.x < -70 || this.x > W + 70 || this.y < -70 || this.y > H + 70) { this.gone = true; return; }
+    } else {
+      // a fly darts, then hangs in the air, then darts again; and it hangs
+      // where it is while the pointer is on it, or its note is being read
+      const near = pointer && pointer.on && Math.hypot(pointer.x - this.sx, pointer.y - this.sy) < 80 * k;
+      if (this.open || this.hover || near) { this.pause = Math.max(this.pause, 0.35); wob = 0.12; pull = 7; }
+      else if (this.pause > 0) { this.pause -= dt; wob = 0.25; pull = 5; }
+      else {
+        if (!this.way) this.way = { x: rand(0.06, 0.94) * W, y: rand(0.08, 0.88) * H, z: rand(50, 240) };
+        if (head(this.way, 250 * k) < 34 * k) { this.way = null; this.pause = rand(0.5, 1.7); }
+      }
     }
-    const dx = this.way.x - this.x, dy = this.way.y - this.y, dz = this.way.z - this.z;
-    const d = Math.hypot(dx, dy, dz) || 1;
-    const top = (diving ? 430 : 300) * k, pull = diving ? 5 : 3.2;
     // steer for it, with a wobble: flies never go straight anywhere
-    const wob = diving ? clamp(d / 220, 0, 1) : 1;
-    this.vx += (dx / d * top - this.vx) * pull * dt + Math.sin(t * 9 + this.seed) * 900 * k * wob * dt;
-    this.vy += (dy / d * top - this.vy) * pull * dt + Math.cos(t * 11 + this.seed * 2) * 900 * k * wob * dt;
-    this.vz += (dz / d * top - this.vz) * pull * dt;
+    this.vx += (wantX - this.vx) * pull * dt + Math.sin(t * 9 + this.seed) * 820 * k * wob * dt;
+    this.vy += (wantY - this.vy) * pull * dt + Math.cos(t * 11 + this.seed * 2) * 820 * k * wob * dt;
+    this.vz += (wantZ - this.vz) * pull * dt;
     this.x += this.vx * dt; this.y += this.vy * dt; this.z += this.vz * dt;
-    this.a += turnTo(this.a, Math.atan2(this.vy, this.vx)) * Math.min(1, dt * 12);
+    if (Math.hypot(this.vx, this.vy) > 40 * k) this.a += turnTo(this.a, Math.atan2(this.vy, this.vx)) * Math.min(1, dt * 12);
     this.buzz = 1;
-    if (diving && (d < 14 * k + Math.hypot(this.vx, this.vy, this.vz) * dt || this.z < this.way.z - 2)) this.hit();
   }
 
   hit() {
     const { web, k } = this.o;
     this.state = "stuck";
-    web.shove(web.x[this.node], web.y[this.node], 120 * k, this.vx * 0.9, this.vy * 0.9, -1300);
+    web.shove(web.x[this.node], web.y[this.node], 110 * k, this.vx * 0.7, this.vy * 0.7, -700);
     this.vigour = 1; this.burst = rand(1.2, 2); this.rest = 0; this.age = 0;
     this.o.caught(this);
   }
+  // Off it goes, out of the picture.
+  leave() {
+    const { W, H } = this.o;
+    const a = Math.atan2(this.y - H / 2, this.x - W / 2) + rand(-0.7, 0.7), far = Math.hypot(W, H);
+    this.way = { x: W / 2 + Math.cos(a) * far, y: H / 2 + Math.sin(a) * far, z: 320 };
+    this.state = "leave"; this.node = -1; this.open = false; this.hover = false;
+  }
+  // It tears itself off the web and is away.
+  escape() {
+    const { web, k } = this.o;
+    web.shove(this.x, this.y, 90 * k, 0, 0, 600);
+    this.vz = 260; this.vx = rand(-200, 200); this.vy = rand(-260, -60);
+    this.leave();
+    this.o.missed++;
+  }
+  // Caught by the spider, in the hunt: bundled up on the spot.
+  bag() { this.state = "bagged"; this.age = 0; this.wrap = 1; this.buzz = 0; }
   prod() { if (this.burst <= 0) { this.burst = rand(0.25, 0.5); this.vigour = Math.max(this.vigour, 0.5); } }
   wrapBegin() { this.state = "wrapping"; this.burst = 0.8; this.vigour = 1; }
   wrapTo(p) { this.wrap = clamp(p, 0, 1); }
@@ -92,14 +130,28 @@ class Fly {
       return;
     }
     this.x = web.x[this.node]; this.y = web.y[this.node]; this.z = web.z[this.node];
+    if (this.state === "bagged") {
+      this.spin += dt * 16; this.size = 1 - this.age / 0.4; this.fade = clamp(1.4 - this.age / 0.3, 0, 1);
+      if (this.age > 0.4) this.gone = true;
+      return;
+    }
     web.load(this.node, 0, this.state === "wrapped" ? 60 : 110, 0);
     if (this.state === "wrapped") { this.buzz = 0; return; }
     if (this.state === "wrapping") this.spin += dt * (5 + 9 * this.wrap);
+    if (this.game) {
+      // in the hunt it never tires: it fights harder the nearer it is to free
+      this.life -= dt;
+      const f = 1 - clamp(this.life / this.lifeMax, 0, 1);
+      this.buzz = 0.35 + 0.65 * f;
+      web.kick(this.node, rand(-1, 1) * 90 * f, rand(-1, 1) * 90 * f, rand(-1, 1) * 160 * f);
+      if (this.life <= 0) this.escape();
+      return;
+    }
     // it struggles in fits, and less each time
     if (this.burst > 0) {
       this.burst -= dt;
       const f = 0.3 + 0.7 * this.vigour;
-      web.kick(this.node, rand(-1, 1) * 150 * f, rand(-1, 1) * 150 * f, rand(-1, 1) * 420 * f);
+      web.kick(this.node, rand(-1, 1) * 120 * f, rand(-1, 1) * 120 * f, rand(-1, 1) * 200 * f);
       this.buzz = Math.min(1, this.buzz + dt * 12);
       if (this.burst <= 0) {
         this.vigour = Math.max(0.12, this.vigour * 0.8);
@@ -114,30 +166,47 @@ class Fly {
 
   // ----- drawing -----
   draw(g, eye, P, t) {
-    const o = this.o, U = o.size * (this.sc = eye.s(this.z));
+    const o = this.o, U = o.size * (this.sc = eye.s(this.z)) * this.size;
     const sx = this.sx = eye.x(this.x, this.z), sy = this.sy = eye.y(this.y, this.z);
-    const inAir = this.state === "air" || this.state === "dive";
+    if (U <= 0.5) return;
+    const inAir = this.state === "air" || this.state === "dive" || this.state === "leave";
+    const stuck = this.state === "stuck";
     const jit = this.buzz * (inAir ? 0 : 1);
     g.save();
-    g.globalAlpha = this.fade * (inAir ? clamp(1.25 - this.z / 900, 0.55, 1) : 1);
+    g.globalAlpha = this.fade;
     g.translate(sx + Math.sin(t * 61 + this.seed) * jit * 1.1, sy + Math.cos(t * 53 + this.seed) * jit * 1.1);
 
-    // one not yet read has a light about it, the colour of what it carries
-    if (!inAir && !this.read && this.state === "stuck") {
-      const beat = 0.6 + 0.4 * Math.sin(t * 2.6 + this.seed), r = U * (2.1 + 0.25 * beat) * (this.hover ? 1.25 : 1);
+    // one not yet read has a light about it, the colour of what it carries:
+    // strong on one that is caught, fainter on one still flying
+    if (this.note && !this.read && (stuck || this.state === "air")) {
+      const hot = this.hover || this.open, k = (stuck ? 1 : 0.55) + (hot ? 0.5 : 0);
+      const beat = 0.6 + 0.4 * Math.sin(t * 2.6 + this.seed), r = U * (2.1 + 0.25 * beat) * (hot ? 1.25 : 1);
       const halo = g.createRadialGradient(0, 0, U * 0.2, 0, 0, r);
-      halo.addColorStop(0, `rgba(${this.hue.rgb}, ${0.34 + 0.2 * beat + (this.hover ? 0.2 : 0)})`);
-      halo.addColorStop(0.5, `rgba(${this.hue.rgb}, ${0.1 + 0.06 * beat})`);
+      halo.addColorStop(0, `rgba(${this.hue.rgb}, ${(0.34 + 0.2 * beat) * k})`);
+      halo.addColorStop(0.5, `rgba(${this.hue.rgb}, ${(0.1 + 0.06 * beat) * k})`);
       halo.addColorStop(1, `rgba(${this.hue.rgb}, 0)`);
       g.globalCompositeOperation = "lighter";
       g.fillStyle = halo;
       g.beginPath(); g.arc(0, 0, r, 0, TAU); g.fill();
       g.globalCompositeOperation = "source-over";
-      // and a ring going out from it, like a thing calling
-      const ring = (t * 0.55 + this.seed) % 1;
-      g.strokeStyle = `rgba(${this.hue.rgb}, ${0.5 * (1 - ring)})`;
-      g.lineWidth = 1.2;
-      g.beginPath(); g.arc(0, 0, U * (0.9 + 1.6 * ring), 0, TAU); g.stroke();
+      if (stuck || hot) {
+        // and a ring going out from it, like a thing calling
+        const ring = (t * 0.55 + this.seed) % 1;
+        g.strokeStyle = `rgba(${this.hue.rgb}, ${0.5 * (1 - ring)})`;
+        g.lineWidth = 1.2;
+        g.beginPath(); g.arc(0, 0, U * (0.9 + 1.6 * ring), 0, TAU); g.stroke();
+      }
+    }
+    // in the hunt: how long before it is away, run down round it
+    if (this.game && stuck) {
+      const left = clamp(this.life / this.lifeMax, 0, 1), r = U * 1.05;
+      g.lineCap = "round";
+      g.strokeStyle = "rgba(255, 255, 255, 0.16)"; g.lineWidth = 2.5;
+      g.beginPath(); g.arc(0, 0, r, 0, TAU); g.stroke();
+      const red = left < 0.35, pulse = red ? 0.7 + 0.3 * Math.sin(t * 16) : 1;
+      g.strokeStyle = red ? `rgba(255, 96, 80, ${pulse})` : `rgba(${this.hue.rgb}, 0.95)`;
+      g.lineWidth = 3;
+      g.beginPath(); g.arc(0, 0, r, -Math.PI / 2, -Math.PI / 2 + TAU * left); g.stroke();
     }
 
     g.rotate(this.a + Math.PI / 2 + Math.sin(t * 47 + this.seed) * 0.12 * jit + this.spin);
@@ -272,16 +341,19 @@ class Fly {
 
 export class Flies {
   // notes: () => the next note to give a fly, or null if there are no more.
-  constructor({ web, eye, k, W, H, notes, onCaught, still }) {
-    Object.assign(this, { web, eye, k, W, H, notes, onCaught, still });
+  // onNew: a fly with a note has turned up. onCaught: one has hit the web.
+  constructor({ web, eye, k, W, H, notes, onNew, onCaught, still }) {
+    Object.assign(this, { web, eye, k, W, H, notes, onNew, onCaught, still });
     this.size = 30 * clamp(k, 0.8, 1.3);           // a fly's length on the page
     this.room = W < 640 ? 4 : 6;                   // how many unread the web will hold
-    this.inAir = W < 640 ? 2 : 3;
+    this.inAir = W < 640 ? 3 : 4;
     this.list = [];
     this.parcels = [];
-    this.catchAt = 0.5;
+    this.catchAt = 1.2;
     this.count = 0;
-    if (!still) for (let i = 0; i < this.inAir; i++) this.list.push(new Fly(this, rand(0, W), rand(0, H), rand(150, 500)));
+    this.mode = "idle";            // or "hunt"
+    this.playing = false; this.level = 0; this.spawnAt = 0; this.missed = 0;
+    if (!still) for (let i = 0; i < this.inAir; i++) this.spawn(true);
   }
 
   // Somewhere on the capture spiral with nothing near it.
@@ -292,12 +364,9 @@ export class Flies {
     for (let tries = 0; tries < 14; tries++) {
       const i = first + 2 + Math.floor(Math.random() * Math.max(1, rings - 4)), j = Math.floor(Math.random() * web.N);
       const p = i * web.N + j;
-      if (web.torn.has(p) || web.torn.has(p - 1)) continue;
       let near = Infinity;
       for (const f of taken) near = Math.min(near, Math.hypot(web.x[f.node] - web.x[p], web.y[f.node] - web.y[p]));
       if (avoid) near = Math.min(near, Math.hypot(avoid.x - web.x[p], avoid.y - web.y[p]) * 0.8);
-      // keep clear of the corners of the page, where the words are
-      if (web.y[p] > this.H * 0.86 || web.y[p] < this.H * 0.1) near *= 0.3;
       if (near > bestD) { bestD = near; best = p; }
     }
     return best;
@@ -305,7 +374,7 @@ export class Flies {
 
   caught(fly) {
     this.count++;
-    if (this.onCaught) this.onCaught(fly);
+    if (!fly.game && this.onCaught) this.onCaught(fly);
   }
   parcelled(fly) {
     this.parcels.push(fly);
@@ -318,13 +387,12 @@ export class Flies {
   next(from) {
     let best = null, bestD = Infinity;
     for (const f of this.list) {
-      if (f.state !== "stuck" || !f.read || f.open) continue;
+      if (f.state !== "stuck" || !f.read || f.open || f.game) continue;
       const d = Math.hypot(this.web.x[f.node] - from.x, this.web.y[f.node] - from.y);
       if (d < bestD) { bestD = d; best = f; }
     }
     return best;
   }
-  get stuck() { return this.list.filter((f) => f.state === "stuck" || f.state === "wrapping"); }
 
   // Put a fly straight on the web, with no flying into it (for those who
   // have asked for less motion, and when the web is restrung).
@@ -334,44 +402,116 @@ export class Flies {
     if (f.node < 0) return null;
     f.note = note; f.hue = HUES[note.kind]; f.read = !!read;
     f.state = "stuck"; f.vigour = 0.3; f.rest = rand(1, 4); f.buzz = 0;
+    f.x = this.web.x[f.node]; f.y = this.web.y[f.node];
     this.list.push(f);
+    if (this.onNew) this.onNew(f);
     return f;
   }
 
-  update(dt, t, spiderAt, ready) {
-    // send one into the web when there is room for it
-    const unread = this.list.filter((f) => (f.state === "stuck" && !f.read) || f.state === "dive").length;
-    if (ready && unread < this.room && (this.catchAt -= dt) <= 0) {
+  // A new fly in the air, with a note to carry if there is one to give it.
+  // The first few are already about; the rest come in from the sides.
+  spawn(about) {
+    const { W, H } = this;
+    const f = about
+      ? new Fly(this, rand(0.1, 0.9) * W, rand(0.1, 0.85) * H, rand(60, 240))
+      : new Fly(this, Math.random() < 0.5 ? -60 : W + 60, rand(0.1, 0.9) * H, rand(120, 300));
+    if (this.mode === "idle") {
       const note = this.notes();
-      const node = note ? this.spot(spiderAt) : -1;
-      if (note && node >= 0) {
-        if (this.still) { this.place(note); this.caught(this.list[this.list.length - 1]); }
-        else {
-          const air = this.list.filter((f) => f.state === "air");
-          const f = air[Math.floor(Math.random() * air.length)] || this.spawn();
-          f.state = "dive"; f.node = node; f.note = note; f.hue = HUES[note.kind];
-        }
-      }
-      this.catchAt = this.count < 2 ? rand(2.2, 3.4) : rand(6, 10);
+      if (note) { f.note = note; f.hue = HUES[note.kind]; }
     }
-    if (!this.still && this.list.filter((f) => f.state === "air").length < this.inAir && Math.random() < dt * 0.6) this.spawn();
+    this.list.push(f);
+    if (f.note && this.onNew) this.onNew(f);
+    return f;
+  }
+
+  // ----- The hunt -----
+  // Clear the air and the web; what the flies were carrying is handed back.
+  begin() {
+    const back = this.list.filter((f) => f.note && !f.read && f.state !== "wrapped" && f.state !== "falling").map((f) => f.note);
     for (const f of this.list) {
-      if (f.state === "air" || f.state === "dive") f.fly(dt, t);
+      if (f.state === "air" || f.state === "dive") f.leave();
+      else if (f.state === "stuck" || f.state === "wrapping") { f.x = this.web.x[f.node]; f.y = this.web.y[f.node]; f.vz = 200; f.leave(); }
+      f.note = null;
+    }
+    this.mode = "hunt"; this.playing = false; this.level = 0; this.spawnAt = 0.2; this.missed = 0;
+    return back;
+  }
+  end() {
+    this.playing = false;
+    for (const f of this.list) {
+      if (f.state === "air" || f.state === "dive") f.leave();
+      else if (f.state === "stuck") { f.vz = 200; f.leave(); }
+    }
+  }
+  // Every fly within reach of the spider is its catch. Returns them.
+  collect(at, reach) {
+    const got = [], { web } = this;
+    for (const f of this.list) {
+      if (!f.game || f.state !== "stuck") continue;
+      const p = web.restOf(f.node, tmp);
+      if (Math.hypot(p.x - at.x, p.y - at.y) < reach) { f.bag(); got.push(f); }
+    }
+    return got;
+  }
+
+  update(dt, t, spiderAt, ready, pointer) {
+    if (this.mode === "hunt") this.hunt(dt, spiderAt);
+    else if (ready) this.idle(dt, spiderAt);
+    for (const f of this.list) {
+      if (f.state === "air" || f.state === "dive" || f.state === "leave") f.fly(dt, t, pointer);
       else f.held(dt, t);
     }
     this.list = this.list.filter((f) => !f.gone);
   }
-  spawn() {
-    const { W, H } = this, side = Math.random() < 0.5 ? -60 : W + 60;
-    const f = new Fly(this, side, rand(0.1, 0.9) * H, rand(200, 500));
+
+  idle(dt, spiderAt) {
+    const air = this.list.filter((f) => f.state === "air" && !f.read);
+    // keep a few about
+    if (!this.still && air.length < this.inAir && Math.random() < dt * 1.6) this.spawn();
+    // and send one into the web when there is room for it
+    const unread = this.list.filter((f) => (f.state === "stuck" && !f.read) || f.state === "dive").length;
+    if (unread < this.room && (this.catchAt -= dt) <= 0) {
+      const node = this.spot(spiderAt);
+      if (this.still) {
+        const note = this.notes();
+        if (note) { const f = this.place(note); if (f) this.caught(f); }
+      } else {
+        const free = air.filter((f) => f.note && !f.open && !f.hover);
+        const f = free[Math.floor(Math.random() * free.length)];
+        if (f && node >= 0) { f.state = "dive"; f.node = node; }
+      }
+      this.catchAt = this.count < 2 ? rand(2.4, 3.6) : rand(6, 10);
+    }
+  }
+
+  hunt(dt, spiderAt) {
+    if (!this.playing) return;
+    const live = this.list.filter((f) => f.game && (f.state === "stuck" || f.state === "dive")).length;
+    if ((this.spawnAt -= dt) > 0 || live >= 11) return;
+    this.spawnAt = lerp(0.8, 0.4, this.level) * rand(0.7, 1.3);
+    const node = this.spot(spiderAt);
+    if (node < 0) return;
+    const { W, H, web } = this;
+    let f;
+    if (this.still) { f = new Fly(this, web.x[node], web.y[node], 0); f.state = "stuck"; }
+    else {
+      // in from whichever edge is nearest where it is going
+      const a = Math.atan2(web.y[node] - H / 2, web.x[node] - W / 2) + rand(-0.5, 0.5), far = Math.hypot(W, H) * 0.56;
+      f = new Fly(this, W / 2 + Math.cos(a) * far, H / 2 + Math.sin(a) * far, rand(200, 320));
+      f.state = "dive";
+    }
+    f.node = node; f.game = true;
+    f.life = f.lifeMax = lerp(5.4, 3.4, this.level);
     this.list.push(f);
-    return f;
+    if (this.still) this.caught(f);
   }
 
   drawHeld(g, P, t) {
-    for (const f of this.list) if (f.state !== "air" && f.state !== "dive") f.draw(g, this.eye, P, t);
+    for (const f of this.list) if (f.state !== "air" && f.state !== "dive" && f.state !== "leave") f.draw(g, this.eye, P, t);
   }
   drawAir(g, P, t) {
-    for (const f of this.list) if (f.state === "air" || f.state === "dive") f.draw(g, this.eye, P, t);
+    for (const f of this.list) if (f.state === "air" || f.state === "dive" || f.state === "leave") f.draw(g, this.eye, P, t);
   }
 }
+
+const tmp = { x: 0, y: 0 };

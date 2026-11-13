@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Daily — a spider's web, and what flies into it</title>
-  <meta name="description" content="A spider's web in the wind. Every fly that blunders into it is carrying a fun fact — click one to read it. The spider keeps the games." />
+  <meta name="description" content="A spider's web in the wind. Every fly about it is carrying a fun fact — click one to read it. The spider keeps the games, and will let you hunt." />
   <meta name="theme-color" content="#070c1c" media="(prefers-color-scheme: dark)" />
   <meta name="theme-color" content="#7c9477" media="(prefers-color-scheme: light)" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -22,10 +22,10 @@
 <body class="home">
   <main class="glade" id="glade">
     <!-- The web: strung, blown about and drawn by orb.js on this one canvas. -->
-    <canvas class="web" id="web" role="img" aria-label="A spider's web in the wind, slung between two twigs and the grass. A spider walks about on it, and flies are caught in it."></canvas>
+    <canvas class="web" id="web" role="img" aria-label="A spider's web in the wind, slung between two twigs and the grass. A spider walks about on it; flies dart about in front of it, and some are caught in it."></canvas>
 
-    <!-- What can be clicked on the web — the spider, and each fly as it is
-         caught — has a button laid over it, moved about with it. -->
+    <!-- What can be clicked — the spider, and each fly, flying or caught —
+         has a button laid over it, moved about with it. -->
     <div class="hot" id="hot">
       <button class="hot-spot hot-spider" id="spiderBtn" type="button" aria-haspopup="dialog" aria-label="The spider. It keeps the games: open its larder." hidden></button>
     </div>
@@ -34,7 +34,7 @@
       <h1 class="date" id="date">Today</h1>
       <p class="tally" id="tally" aria-live="polite"></p>
     </header>
-    <p class="hint" id="hint">Every fly is carrying a fact — <b>click one</b>. The <b>spider</b> keeps the games.</p>
+    <p class="hint" id="hint">Every fly is carrying a fact — <b>click one</b>, flying or caught. The <b>spider</b> keeps the games.</p>
 
     <!-- What a fly was carrying. -->
     <article class="fact" id="fact" role="dialog" aria-labelledby="factKicker" aria-describedby="factText" hidden>
@@ -59,6 +59,13 @@
         <p class="larder-kicker">The spider's larder</p>
         <h2 class="larder-title" id="larderTitle">A few things, wrapped up for later</h2>
         <ul class="larder-list">
+          <li style="--drop: 0.55; --sway: 6.1s">
+            <button class="parcel parcel-first" type="button" id="playHunt">
+              <svg viewBox="0 0 48 48" aria-hidden="true"><ellipse cx="24" cy="28" rx="7" ry="9" /><circle cx="24" cy="16" r="4.4" /><path d="M18 22L8 15M17 27L5 26M18 32L7 38M20 36l-6 8M30 22l10-7M31 27l12-1M30 32l11 6M28 36l6 8" /></svg>
+              <span class="parcel-name">The Hunt</span>
+              <span class="parcel-line">Be the spider. Sixty seconds, W A S D.</span>
+            </button>
+          </li>
           <li style="--drop: 0.2; --sway: 5.1s">
             <button class="parcel" type="button" id="playBoat">
               <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M6 27h36l-5 9H12z" /><path d="M24 27V9l11 13H24" /><path d="M3 41q4-3 8 0t8 0 8 0 8 0 8 0" /></svg>
@@ -96,6 +103,26 @@
           </li>
         </ul>
         <button class="silk-btn silk-btn-quiet" id="larderClose" type="button">Back to the web</button>
+      </div>
+    </div>
+
+    <!-- The hunt: the spider is yours for a minute. -->
+    <div class="hunt" id="hunt" hidden>
+      <p class="hunt-time" id="huntTime" aria-hidden="true">60</p>
+      <p class="hunt-score" aria-hidden="true"><b id="huntScore">0</b> <span id="huntUnit">flies</span></p>
+      <p class="hunt-count" id="huntCount" aria-hidden="true"></p>
+      <p class="hunt-keys" id="huntKeys"><span class="keys-kbd"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to run — or hold and drag.</span><span class="keys-touch">Hold and drag to run.</span> Reach each fly before its ring runs out.</p>
+      <button class="silk-btn silk-btn-quiet hunt-quit" id="huntQuit" type="button">Give up</button>
+    </div>
+    <div class="hunt-over" id="huntOver" role="dialog" aria-modal="true" aria-labelledby="huntTitle" hidden>
+      <div class="hunt-card">
+        <p class="larder-kicker" id="huntKicker">The hunt is over</p>
+        <h2 class="hunt-total" id="huntTitle"></h2>
+        <p class="hunt-line" id="huntLine"></p>
+        <div class="fact-row hunt-row">
+          <button class="silk-btn" id="huntAgain" type="button">Hunt again</button>
+          <button class="silk-btn silk-btn-quiet" id="huntBack" type="button">Back to the web</button>
+        </div>
       </div>
     </div>
 

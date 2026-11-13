@@ -1,20 +1,20 @@
 // silk.js — the web itself: how it is strung, how it moves, how it is drawn.
 //
-// An orb web, hung by six guy lines from the plants round the edge of the
-// page (scene.js says where they are, and they sway). Inside the frame the
-// radials run out from the hub like spokes; a tight spiral makes the hub, a
-// bare ring is left round it, and then the sticky capture spiral winds out to
-// the frame — one thread, round and round, beaded with glue.
+// A round orb web, seen square on. A frame of six threads goes round it, and
+// from each corner a long guy line runs off to one of the plants round the
+// edge of the page (scene.js says where they are, and they sway). Inside the
+// frame the radials run out from the hub like spokes; a tight spiral makes
+// the hub, a bare ring is left round it, and then the sticky capture spiral
+// winds out to the frame — one thread, round and round, beaded with glue.
 //
 // Every crossing is a particle and every length of thread between two of them
-// a cable that pulls but never pushes, so the whole thing is free to belly out
-// in the wind, shiver when something hits it, and sag under what it holds. It
-// is worked out in three dimensions — the wind mostly blows *through* a web —
-// and seen very slightly from one side, so the bellying shows.
+// a cable that pulls but never pushes, so the whole thing is free to sway in
+// the wind, shiver when something hits it, and sag under what it holds.
 //
-// Silk shines only where it lies square to the light, so a lit web shows a
-// bright band across it with a fringe of colour, and the band slides about as
-// the web moves. That is drawn here too.
+// Silk shines where the light catches it: a soft band of brightness lies
+// across the web and drifts slowly over it, with a fringe of colour along its
+// edges. It is worked out from where a thread is, never from how it happens
+// to be blowing, so nothing on the web flickers.
 
 const TAU = Math.PI * 2;
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -43,23 +43,25 @@ const HUB_RINGS = 4;
 const RADIAL = 0, SPIRAL = 1, HUB = 2, FRAME = 3, GUY = 4, LOOSE = 5;
 const TENSE = [0.955, 1.012, 0.975, 0.955, 0.95, 1];
 const STIFF = [0.9, 0.4, 0.6, 0.95, 0.95, 1];
-const LEVELS = 6;
+const LEVELS = 8;
 
-// The eye: straight on, but anything standing off the plane of the web is
-// shifted a little to one side (and with the pointer), so depth shows.
+// The eye: square on to the web. What stands off its plane is a touch bigger
+// or smaller, and shifts a hair with the pointer; no more than that.
 export class Eye {
-  constructor() { this.cx = 0; this.cy = 0; this.F = 1500; this.kx = 0.2; this.ky = -0.06; }
+  constructor() { this.cx = 0; this.cy = 0; this.F = 2600; this.kx = 0; this.ky = 0; }
   x(x, z) { return this.cx + (x - this.cx) * (1 + z / this.F) + z * this.kx; }
   y(y, z) { return this.cy + (y - this.cy) * (1 + z / this.F) + z * this.ky; }
   s(z) { return 1 + z / this.F; }
 }
 
 export class Web {
-  // hub: where the middle is. anchors: where the guy lines are tied, in order
-  // round the hub. k: how big everything is drawn, 1 on an ordinary screen.
-  build({ W, H, hub, anchors, seed, k }) {
+  // hub: where the middle is. R0: how far out the spiral goes. anchors: where
+  // the guy lines are tied, in order round the hub. k: how big everything is
+  // drawn, 1 on an ordinary screen.
+  build({ hub, R0, anchors, seed, k }) {
     const rnd = rng(seed);
     this.hub = hub;
+    this.R0 = R0;
     this.k = k;
     const N = this.N = Math.round(clamp(13 + 13 * k, 18, 28));
 
@@ -69,7 +71,11 @@ export class Web {
     for (let j = 0; j < N; j++) th[j] = th0 + (j + (rnd() - 0.5) * 0.5) * TAU / N;
 
     // the frame: a corner on the way to each anchor
-    const corners = anchors.map((a) => ({ x: lerp(hub.x, a.x, 0.9), y: lerp(hub.y, a.y, 0.9) }));
+    const corners = anchors.map((a) => {
+      const d = Math.hypot(a.x - hub.x, a.y - hub.y) || 1;
+      const c = Math.min(R0 * 1.3, d * 0.94) / d;
+      return { x: hub.x + (a.x - hub.x) * c, y: hub.y + (a.y - hub.y) * c };
+    });
     const K = corners.length;
     const frameAt = (a) => {
       const dx = Math.cos(a), dy = Math.sin(a);
@@ -86,15 +92,10 @@ export class Web {
       return best === Infinity ? 200 : best;
     };
 
-    // how far out the capture spiral goes, each way: an oval, a bit deeper
-    // below the hub than above it, and never quite to the frame
-    const up = hub.y - H * 0.05, down = H * 0.95 - hub.y;
-    const side = Math.min(W * 0.44, 1.3 * Math.max(up, down));
-    const reach = (a) => {
-      const c = Math.cos(a), s = Math.sin(a), ry = s < 0 ? up : down;
-      const oval = 1 / Math.hypot(c / side, s / ry);
-      return Math.min(oval, frameAt(a) * 0.9);
-    };
+    // how far out the capture spiral goes, each way: a circle, as near as a
+    // spider makes one, and never quite to the frame
+    const lump = rnd() * TAU;
+    const reach = (a) => Math.min(R0 * (1 + 0.025 * Math.sin(a * 3 + lump)), frameAt(a) * 0.93);
 
     const gap = Math.max(6, 7.6 * k);
     let least = Infinity;
@@ -123,7 +124,7 @@ export class Web {
     const nGrid = I * N;
     const iFrame = nGrid, iCorner = iFrame + N, iAnchor = iCorner + K;
     let n = iAnchor + K;
-    const strands = 7 + Math.round(rnd() * 3);
+    const strands = 0;
     const strandAt = [];
     for (let s = 0; s < strands; s++) {
       const long = s < 2;
@@ -175,14 +176,7 @@ export class Web {
       add((I - 1) * N + j, iFrame + j, RADIAL);
     }
     this.firstSpiral = A.length;
-    // holes: a few patches where the spiral has been torn out
     const torn = new Set();
-    const holes = 3 + Math.floor(rnd() * 2);
-    for (let h = 0; h < holes; h++) {
-      const i0 = HUB_RINGS + 2 + Math.floor(rnd() * Math.max(1, C - 6)), j0 = Math.floor(rnd() * N);
-      const di = 2 + Math.floor(rnd() * 3), dj = 1 + Math.floor(rnd() * 2);
-      for (let a = 0; a < di; a++) for (let b = 0; b < dj; b++) torn.add((i0 + a) * N + (j0 + b) % N);
-    }
     this.torn = torn;
     for (let i = 0; i < I; i++) for (let j = 0; j < N; j++) {
       const a = i * N + j;
@@ -385,50 +379,58 @@ export class Web {
 
   // ----- Drawing -----
   draw(g, eye, P, t, shown, wind) {
-    const { x, y, z, sx, sy, n, m, A, B, T, order, k } = this;
+    const { x, y, z, sx, sy, n, m, A, B, T, order, k, hub, mid } = this;
     for (let i = 0; i < n; i++) { sx[i] = eye.x(x[i], z[i]); sy[i] = eye.y(y[i], z[i]); }
 
-    // where the light is square to: it wanders, and the bright band with it
-    const la = -0.9 + 0.35 * Math.sin(t * 0.07) + 0.12 * Math.sin(t * 0.23);
-    const hx = Math.cos(la) * 0.62, hy = Math.sin(la) * 0.62, hz = 0.78;
+    // the band of light: which way it lies across the web, and how far over
+    // it has drifted
+    const la = -0.75 + 0.3 * Math.sin(t * 0.045);
+    const lx = Math.cos(la), ly = Math.sin(la);
+    const sweep = 0.5 * Math.sin(t * 0.17) + 0.22 * Math.sin(t * 0.073 + 1.1);
+    const inv = 1 / this.R0;
+    const bandAt = (px, py) => {
+      const pos = ((px - hub.x) * lx + (py - hub.y) * ly) * inv - sweep;
+      return pos;
+    };
 
     const struct = [], silk = [], tint = [];
     for (let l = 0; l < LEVELS; l++) { struct.push(new Path2D()); silk.push(new Path2D()); }
     for (let l = 0; l < 4; l++) tint.push(new Path2D());
-    const stars = [];
-    const gx = wind.gx * 0.5, gz = -wind.gz * 0.6;
-    const sagX = gx + gz * eye.kx, sagY = 1 + gz * eye.ky;
-    const mid = this.mid;
+    const sagX = wind.gx * 0.3;
 
     for (let s = 0; s < m; s++) {
       const o = order[s];
       if (o > shown) continue;
       const a = A[s], b = B[s], type = T[s];
       const dx = x[b] - x[a], dy = y[b] - y[a], dz = z[b] - z[a];
-      const d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
-      const dot = (dx * hx + dy * hy + dz * hz) / d;
-      const spec = Math.pow(1 - dot * dot, 26);
-      const level = Math.min(LEVELS - 1, Math.floor(spec * LEVELS));
+      const flat = Math.sqrt(dx * dx + dy * dy) || 1;
+      const d = Math.sqrt(flat * flat + dz * dz);
+      const pos = bandAt((x[a] + x[b]) * 0.5, (y[a] + y[b]) * 0.5);
+      const band = Math.exp(-pos * pos * 4.5);
+      // a thread lying across the light shines more than one lying along it
+      const dot = (dx * lx + dy * ly) / flat;
+      const f = 0.12 + band * (0.4 + 0.48 * (1 - dot * dot));
+      const level = Math.min(LEVELS - 1, Math.floor(f * LEVELS));
       // a thread still being spun is drawn only so far along
       const grown = shown >= 1 ? 1 : clamp((shown - o) / 0.035, 0, 1);
       let bx = sx[b], by = sy[b];
       if (grown < 1) { bx = lerp(sx[a], bx, grown); by = lerp(sy[a], by, grown); }
       if (type === SPIRAL || type === LOOSE) {
-        // slack shows as sag: down, and downwind
+        // slack shows as sag: down, and a little downwind
         const slack = Math.max(0, this.rest[s] - d);
         const sag = Math.sqrt(0.375 * d * slack) + d * 0.035;
-        const cx = (sx[a] + bx) / 2 + sag * 2 * sagX, cy = (sy[a] + by) / 2 + sag * 2 * sagY;
+        const cx = (sx[a] + bx) / 2 + sag * 2 * sagX, cy = (sy[a] + by) / 2 + sag * 2;
         mid[s * 2] = cx; mid[s * 2 + 1] = cy;
         const p = silk[level];
         p.moveTo(sx[a], sy[a]);
         p.quadraticCurveTo(cx, cy, bx, by);
-        const off = Math.abs(dot);
-        if (type === SPIRAL && off > 0.1 && off < 0.3) {
-          const q = tint[Math.min(3, Math.floor((off - 0.1) / 0.05))];
+        // colour, along both edges of the band
+        const off = Math.abs(pos);
+        if (type === SPIRAL && off > 0.3 && off < 0.62) {
+          const q = tint[Math.min(3, Math.floor((off - 0.3) / 0.08))];
           q.moveTo(sx[a], sy[a]);
           q.quadraticCurveTo(cx, cy, bx, by);
         }
-        if (level === LEVELS - 1 && hash(s * 3.1 + Math.floor(t * 2.2 + hash(s) * 7)) > 0.93) stars.push(s);
       } else {
         const p = struct[level];
         p.moveTo(sx[a], sy[a]);
@@ -441,15 +443,15 @@ export class Web {
     g.lineJoin = "round";
     const wide = Math.max(0.85, Math.sqrt(k));
     // the colours that fringe the bright band
-    g.lineWidth = 1.1 * wide;
+    g.lineWidth = 1.5 * wide;
     for (let l = 0; l < 4; l++) { g.strokeStyle = P.fringe[l]; g.stroke(tint[l]); }
     // the silk, dimmest first
     for (let l = 0; l < LEVELS; l++) {
       const f = l / (LEVELS - 1);
       g.strokeStyle = P.silk(f);
-      g.lineWidth = (0.55 + 0.5 * f) * wide;
+      g.lineWidth = (0.6 + 0.45 * f) * wide;
       g.stroke(silk[l]);
-      g.lineWidth = (0.85 + 0.6 * f) * wide;
+      g.lineWidth = (0.9 + 0.5 * f) * wide;
       g.stroke(struct[l]);
     }
     // the glue: beads all along the capture spiral
@@ -457,42 +459,40 @@ export class Web {
     for (let l = 0; l < LEVELS; l++) {
       const f = l / (LEVELS - 1);
       g.strokeStyle = P.bead(f);
-      g.lineWidth = (1.25 + 0.75 * f) * wide;
+      g.lineWidth = (1.2 + 0.7 * f) * wide;
       g.stroke(silk[l]);
     }
     g.setLineDash([]);
     // a soft bloom over what is shining
     g.globalCompositeOperation = "lighter";
     g.strokeStyle = P.bloom;
-    g.lineWidth = 4 * wide;
-    g.stroke(silk[LEVELS - 1]); g.stroke(struct[LEVELS - 1]);
-    g.lineWidth = 2.4 * wide;
-    g.stroke(silk[LEVELS - 2]); g.stroke(struct[LEVELS - 2]);
-
-    // glints, where a bead catches it just so
-    g.fillStyle = P.glint;
-    for (const s of stars) {
-      const u = 0.2 + 0.6 * hash(s * 7.7);
-      const [qx, qy] = this.along(s, u);
-      const r = (1.1 + 2 * hash(s * 1.3 + Math.floor(t * 2.2))) * wide;
-      g.beginPath();
-      g.moveTo(qx - r * 2.2, qy); g.quadraticCurveTo(qx, qy, qx, qy - r * 2.2);
-      g.quadraticCurveTo(qx, qy, qx + r * 2.2, qy); g.quadraticCurveTo(qx, qy, qx, qy + r * 2.2);
-      g.quadraticCurveTo(qx, qy, qx - r * 2.2, qy);
-      g.fill();
-    }
+    g.lineWidth = 3.4 * wide;
+    for (let l = LEVELS - 3; l < LEVELS; l++) { g.stroke(silk[l]); g.stroke(struct[l]); }
     g.globalCompositeOperation = "source-over";
 
-    // dew
+    // dew: each drop glints, slowly, when the band of light is on it
     for (const dw of this.dew) {
       if (order[dw.s] > shown - 0.04) continue;
       const [qx, qy] = this.along(dw.s, dw.u);
-      const tw = 0.6 + 0.4 * Math.sin(t * 1.7 + dw.tw);
+      const pos = bandAt(x[A[dw.s]], y[A[dw.s]]);
+      const lit = Math.exp(-pos * pos * 4.5);
+      const tw = 0.5 + 0.5 * Math.sin(t * 0.9 + dw.tw);
       g.fillStyle = P.dew;
       g.beginPath(); g.arc(qx, qy + dw.r * 0.5, dw.r, 0, TAU); g.fill();
       g.fillStyle = P.dewLit;
-      g.globalAlpha = tw;
+      g.globalAlpha = 0.35 + 0.65 * lit;
       g.beginPath(); g.arc(qx - dw.r * 0.3, qy + dw.r * 0.2, dw.r * 0.42, 0, TAU); g.fill();
+      const star = lit * tw * tw * tw * tw;
+      if (star > 0.15 && dw.r > 1.6) {
+        const r = dw.r * 2.6 * star;
+        g.globalAlpha = star;
+        g.fillStyle = P.glint;
+        g.beginPath();
+        g.moveTo(qx - r, qy); g.quadraticCurveTo(qx, qy, qx, qy - r);
+        g.quadraticCurveTo(qx, qy, qx + r, qy); g.quadraticCurveTo(qx, qy, qx, qy + r);
+        g.quadraticCurveTo(qx, qy, qx - r, qy);
+        g.fill();
+      }
       g.globalAlpha = 1;
     }
     g.restore();
