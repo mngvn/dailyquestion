@@ -1,6 +1,6 @@
 // app.js — Daily. Works out today's date and today's notes: four fun facts,
-// one from each category, and what happened on this date. The flies that end
-// up in the web carry them (flies.js, orb.js); they are read from
+// one from each category, and what happened on this date. The windows that
+// light up in the city have them inside (city.js); they are read from
 // window.Daily, since module scripts always run after the classic ones.
 
 (function () {
@@ -50,7 +50,7 @@
   // Every date of the year has an entry.
   const hist = HISTORY_BY_DATE[mmdd] || null;
 
-  // What the flies carry, in the order they bring it: today's five first…
+  // What goes in the windows, in the order it is put there: today's five first…
   const notes = facts.map((f) => ({ kind: f.cat, label: f.cat, text: f.text, today: true }));
   if (hist) notes.push({ kind: "day", label: `On this day · ${histDate}, ${hist.year}`, text: hist.text, today: true });
   // …and after those, the rest of the facts, in an order of the day's own.

@@ -1,16 +1,15 @@
-/* home.css — the home page: a spider's web, and the few things laid over it.
-   orb.js draws the web on one canvas the size of the page; what is here are
-   the words in the corner, the card a fly's fact is shown on, and the
-   spider's larder. The games have their own stylesheets and don't load this
-   one (Adrift, which is laid over this page, has boat.css). */
+/* home.css — the home page: the city at night, and the few things laid over
+   it. city.js draws the towers on one canvas the size of the page; what is
+   here are the words in the corner, the two signs, the card a window's fact
+   is shown on, and the arcade. The games have their own stylesheets and don't
+   load this one (Adrift, which is laid over this page, has boat.css). */
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body.home {
-  --bg: #070c1c;
+  --bg: #03051a;
   --text: #e9eefc;
   --muted: rgba(200, 215, 245, 0.62);
-  --silk: rgba(190, 212, 255, 0.34);
   --glass: rgba(9, 14, 32, 0.74);
   --glass-edge: rgba(170, 200, 255, 0.26);
   --lift: rgba(160, 195, 255, 0.12);
@@ -25,14 +24,13 @@ body.home {
   -webkit-font-smoothing: antialiased;
 }
 body.home.light {
-  --bg: #7c9477;
-  --text: #fffdf2;
-  --muted: rgba(255, 252, 235, 0.8);
-  --silk: rgba(255, 252, 235, 0.5);
-  --glass: rgba(28, 44, 34, 0.76);
-  --glass-edge: rgba(255, 246, 210, 0.36);
-  --lift: rgba(255, 246, 210, 0.14);
-  --shadow: rgba(14, 26, 18, 0.55);
+  --bg: #243267;
+  --text: #fff8ee;
+  --muted: rgba(255, 240, 226, 0.8);
+  --glass: rgba(34, 26, 58, 0.8);
+  --glass-edge: rgba(255, 220, 200, 0.36);
+  --lift: rgba(255, 220, 200, 0.14);
+  --shadow: rgba(20, 12, 40, 0.6);
 }
 
 .sr-only {
@@ -46,14 +44,14 @@ body.home.light {
   white-space: nowrap;
 }
 
-/* ---------- The web ---------- */
-.glade {
+/* ---------- The city ---------- */
+.city {
   position: relative;
   height: 100svh;
   overflow: hidden;
   isolation: isolate;
 }
-.web {
+.sky {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -66,39 +64,121 @@ body.home.light {
   opacity: 0;
   transition: opacity 0.9s ease;
 }
-.glade[data-up="true"] .web { opacity: 1; }
-.web:focus { outline: none; }
-.glade[data-away="true"] .web,
-.glade[data-away="true"] .hot,
-.glade[data-away="true"] .masthead,
-.glade[data-away="true"] .hint { visibility: hidden; }
-.glade[data-hunt="true"] .hot,
-.glade[data-hunt="true"] .masthead,
-.glade[data-hunt="true"] .hint { display: none; }
-.glade[data-hunt="true"] .web { cursor: crosshair; }
+.city[data-up="true"] .sky { opacity: 1; }
+.city[data-away="true"] .sky,
+.city[data-away="true"] .hot,
+.city[data-away="true"] .masthead,
+.city[data-away="true"] .hint { visibility: hidden; }
 
-/* what can be clicked: a button over the spider and over each fly, moved
-   about with them every frame */
+/* what can be clicked: the signs, and a button over each lit window */
 .hot { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .hot-spot {
   position: absolute;
-  left: 0;
-  top: 0;
-  width: var(--d, 56px);
-  height: var(--d, 56px);
-  margin: calc(var(--d, 56px) / -2) 0 0 calc(var(--d, 56px) / -2);
   border: 0;
-  border-radius: 50%;
+  border-radius: 3px;
   background: none;
   cursor: pointer;
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
-  will-change: transform;
 }
-.hot-spider { z-index: 1; }
 .hot-spot:focus { outline: none; }
-.hot-spot:focus-visible {
-  box-shadow: 0 0 0 1.5px rgba(var(--hue), 0.95), 0 0 22px 2px rgba(var(--hue), 0.5);
+.hot-window:hover { box-shadow: 0 0 0 1.5px rgba(var(--hue), 0.7), 0 0 26px 4px rgba(var(--hue), 0.35); }
+.hot-spot:focus-visible { box-shadow: 0 0 0 2px rgba(var(--hue), 0.95), 0 0 26px 4px rgba(var(--hue), 0.6); }
+
+/* ---------- The signs ---------- */
+.sign {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  font-family: "Tilt Neon", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  opacity: 0;
+  transition: opacity 1.2s ease 0.6s, filter 0.3s ease;
+}
+.sign[hidden] { display: none; }
+.city[data-up="true"] .sign { opacity: 1; }
+.sign:hover, .sign:focus-visible { filter: brightness(1.2) saturate(1.15); outline: none; }
+.sign:focus-visible { box-shadow: 0 0 0 2px #fff, 0 0 30px rgba(var(--neon), 0.7); }
+
+/* the hoarding on the roof: today's crossword */
+.board {
+  --neon: 255, 122, 150;
+  align-content: center;
+  gap: calc(var(--fs, 28px) * 0.14);
+  padding: 6px 8px;
+  color: #fff;
+  text-align: center;
+  background: linear-gradient(180deg, rgba(14, 10, 30, 0.94), rgba(30, 14, 40, 0.94));
+  border: 2px solid rgba(var(--neon), 0.85);
+  border-radius: 6px;
+  box-shadow: 0 0 0 4px rgba(10, 8, 24, 0.9), 0 0 26px rgba(var(--neon), 0.5), inset 0 0 22px rgba(var(--neon), 0.22);
+}
+/* the legs it stands on */
+.board::before {
+  content: "";
+  position: absolute;
+  left: 9%;
+  right: 9%;
+  top: calc(100% + 4px);
+  height: calc(var(--foot, 20px) + 2px);
+  background:
+    linear-gradient(90deg, #0b0a1c 0 3px, transparent 3px calc(100% - 3px), #0b0a1c calc(100% - 3px)),
+    repeating-linear-gradient(60deg, transparent 0 9px, rgba(11, 10, 28, 0.9) 9px 11px),
+    repeating-linear-gradient(-60deg, transparent 0 9px, rgba(11, 10, 28, 0.9) 9px 11px);
+  pointer-events: none;
+}
+.board-top {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: calc(var(--fs, 28px) * 0.42);
+  font-style: italic;
+  letter-spacing: 0.04em;
+  color: #ffe6c4;
+  text-shadow: 0 0 10px rgba(255, 190, 120, 0.8);
+}
+.board-name {
+  font-size: var(--fs, 28px);
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff3f5;
+  text-shadow: 0 0 4px #fff, 0 0 12px rgb(var(--neon)), 0 0 30px rgb(var(--neon)), 0 0 54px rgba(var(--neon), 0.7);
+  animation: neon 7s linear infinite;
+}
+.board-line {
+  font-size: calc(var(--fs, 28px) * 0.36);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #bff4ff;
+  text-shadow: 0 0 8px rgba(80, 220, 255, 0.9);
+}
+/* a tube that isn't quite sound */
+@keyframes neon {
+  0%, 41%, 43%, 44.5%, 100% { opacity: 1; }
+  42%, 44% { opacity: 0.55; }
+}
+
+/* the sign down the front of a tower: the arcade */
+.blade {
+  --neon: 80, 220, 255;
+  padding: 0;
+  color: #eafcff;
+  background: linear-gradient(90deg, rgba(8, 12, 30, 0.96), rgba(12, 22, 44, 0.96));
+  border: 2px solid rgba(var(--neon), 0.85);
+  border-radius: 8px;
+  box-shadow: 0 0 0 3px rgba(8, 10, 24, 0.9), 0 0 24px rgba(var(--neon), 0.5), inset 0 0 16px rgba(var(--neon), 0.25), 10px 14px 24px rgba(0, 0, 10, 0.5);
+}
+.blade span {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  font-size: var(--fs, 26px);
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-shadow: 0 0 4px #fff, 0 0 12px rgb(var(--neon)), 0 0 28px rgb(var(--neon)), 0 0 50px rgba(var(--neon), 0.7);
+  animation: neon 9s linear -3s infinite;
 }
 
 /* ---------- The words in the corner ---------- */
@@ -113,7 +193,7 @@ body.home.light {
   transform: translateY(8px);
   transition: opacity 1.2s ease 0.5s, transform 1.4s cubic-bezier(0.16, 1, 0.3, 1) 0.5s;
 }
-.glade[data-up="true"] .masthead { opacity: 1; transform: none; }
+.city[data-up="true"] .masthead { opacity: 1; transform: none; }
 .date { font-weight: 300; line-height: 1; }
 .date-day {
   display: block;
@@ -165,7 +245,7 @@ body.home.light {
 .hint[data-show="true"] { opacity: 1; }
 
 /* ---------- Buttons ---------- */
-.silk-btn {
+.pill {
   height: 36px;
   padding: 0 16px;
   font: inherit;
@@ -179,18 +259,18 @@ body.home.light {
   cursor: pointer;
   transition: transform 0.15s ease, filter 0.2s ease, background 0.2s ease, color 0.2s ease;
 }
-.silk-btn:hover { filter: brightness(1.08); }
-.silk-btn:active { transform: scale(0.96); }
-.silk-btn:focus-visible { outline: 2px solid rgb(var(--hue)); outline-offset: 3px; }
-.silk-btn-quiet {
+.pill:hover { filter: brightness(1.08); }
+.pill:active { transform: scale(0.96); }
+.pill:focus-visible { outline: 2px solid rgb(var(--hue)); outline-offset: 3px; }
+.pill-quiet {
   color: var(--text);
   background: none;
   box-shadow: inset 0 0 0 1px var(--glass-edge);
 }
-.silk-btn-quiet:hover { background: var(--lift); filter: none; }
-.silk-btn.copied { background: #b9f5cf; color: #0b3a22; }
+.pill-quiet:hover { background: var(--lift); filter: none; }
+.pill.copied { background: #b9f5cf; color: #0b3a22; }
 
-/* ---------- What a fly was carrying ---------- */
+/* ---------- What was in a window ---------- */
 .fact {
   position: absolute;
   left: 0;
@@ -215,38 +295,28 @@ body.home.light {
 @keyframes factIn {
   from { opacity: 0; scale: 0.82; }
 }
-/* a bit of web in its corner */
-.fact-web {
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: 150px;
-  height: 150px;
-  fill: none;
-  stroke: rgba(var(--hue), 0.42);
-  stroke-width: 0.8;
-  stroke-linecap: round;
-  pointer-events: none;
-}
 .fact-kicker {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding-right: 80px;
   font-size: 0.86rem;
   font-weight: 600;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: rgb(var(--hue));
 }
+/* a window with the light on, four panes of it */
 .fact-kicker::before {
   content: "";
   flex: none;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: rgb(var(--hue));
-  box-shadow: 0 0 12px rgb(var(--hue));
+  width: 14px;
+  height: 18px;
+  border-radius: 1.5px;
+  background:
+    linear-gradient(rgba(10, 14, 30, 0.9) 0 0) 50% 0 / 2px 100% no-repeat,
+    linear-gradient(rgba(10, 14, 30, 0.9) 0 0) 0 50% / 100% 2px no-repeat,
+    rgb(var(--hue));
+  box-shadow: 0 0 14px rgb(var(--hue));
 }
 .fact-text {
   position: relative;
@@ -256,11 +326,16 @@ body.home.light {
   line-height: 1.42;
   font-variation-settings: "opsz" 24;
   text-wrap: pretty;
+  /* it can be selected and copied by hand, too */
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
 }
+.fact-text::selection { background: rgba(var(--hue), 0.4); }
 .fact-row { display: flex; flex-wrap: wrap; gap: 10px; }
-.fact .silk-btn { height: 44px; padding: 0 22px; font-size: 1rem; }
+.fact .pill { height: 44px; padding: 0 22px; font-size: 1rem; }
 
-/* on a phone it comes up from the bottom instead of beside the fly */
+/* on a phone it comes up from the bottom instead of beside the window */
 @media (max-width: 640px) {
   .fact {
     left: 12px !important;
@@ -279,8 +354,8 @@ body.home.light {
   }
 }
 
-/* ---------- The spider's larder ---------- */
-.larder {
+/* ---------- The arcade ---------- */
+.arcade {
   position: absolute;
   inset: 0;
   z-index: 8;
@@ -288,34 +363,34 @@ body.home.light {
   place-items: center;
   overflow-y: auto;
 }
-.larder[hidden] { display: none; }
-.larder-veil {
+.arcade[hidden] { display: none; }
+.arcade-veil {
   position: fixed;
   inset: 0;
-  background: radial-gradient(ellipse at 50% 40%, rgba(6, 10, 26, 0.5), rgba(3, 5, 14, 0.86));
+  background: radial-gradient(ellipse at 50% 40%, rgba(6, 8, 28, 0.6), rgba(3, 4, 16, 0.9));
   -webkit-backdrop-filter: blur(5px);
   backdrop-filter: blur(5px);
   animation: veilIn 0.5s ease;
 }
-body.light .larder-veil { background: radial-gradient(ellipse at 50% 40%, rgba(22, 36, 27, 0.55), rgba(12, 22, 16, 0.86)); }
+body.light .arcade-veil { background: radial-gradient(ellipse at 50% 40%, rgba(30, 22, 56, 0.6), rgba(16, 10, 34, 0.9)); }
 @keyframes veilIn { from { opacity: 0; } }
-.larder-box {
+.arcade-box {
   position: relative;
-  width: min(1200px, 100%);
+  width: min(1040px, 100%);
   padding: clamp(20px, 6vh, 64px) 20px 28px;
   text-align: center;
   color: #eef2ff;
 }
-.larder-kicker {
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.26em;
+.arcade-kicker {
+  font-family: "Tilt Neon", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.9rem;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: rgba(190, 212, 255, 0.75);
+  color: #d5fbff;
+  text-shadow: 0 0 10px rgba(80, 220, 255, 0.9), 0 0 26px rgba(80, 220, 255, 0.6);
   animation: riseIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-body.light .larder-kicker { color: rgba(255, 244, 205, 0.85); }
-.larder-title {
+.arcade-title {
   margin-top: 8px;
   font-size: clamp(1.6rem, 3.6vw, 2.6rem);
   font-weight: 300;
@@ -327,275 +402,80 @@ body.light .larder-kicker { color: rgba(255, 244, 205, 0.85); }
   animation: riseIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
 }
 @keyframes riseIn { from { opacity: 0; transform: translateY(12px); } }
-
-.larder-list {
+.arcade-list {
   list-style: none;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  gap: clamp(10px, 1.6vw, 20px);
-  margin: clamp(30px, 7vh, 70px) 0 clamp(24px, 6vh, 56px);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(10px, 1.6vw, 18px);
+  margin: clamp(24px, 5vh, 48px) 0 clamp(22px, 5vh, 44px);
 }
-/* each hangs from a thread of its own, and swings on it */
-.larder-list li {
+.arcade-list li { animation: riseIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.arcade-list li:nth-child(1) { animation-delay: 0.08s; }
+.arcade-list li:nth-child(2) { animation-delay: 0.13s; }
+.arcade-list li:nth-child(3) { animation-delay: 0.18s; }
+.arcade-list li:nth-child(4) { animation-delay: 0.23s; }
+.arcade-list li:nth-child(5) { animation-delay: 0.28s; }
+.arcade-list li:nth-child(6) { animation-delay: 0.33s; }
+/* each a shop front, with its light on */
+.cab {
+  --neon: 80, 220, 255;
   position: relative;
-  flex: 1 1 0;
-  max-width: 180px;
-  margin-top: calc(var(--drop) * clamp(20px, 6vh, 56px));
-  transform-origin: 50% -70vh;
-  animation: hang var(--sway) ease-in-out infinite alternate, dropIn 0.9s cubic-bezier(0.2, 1.2, 0.3, 1) both;
-}
-.larder-list li:nth-child(2) { animation-delay: -1.3s, 0.07s; }
-.larder-list li:nth-child(3) { animation-delay: -2.9s, 0.14s; }
-.larder-list li:nth-child(4) { animation-delay: -0.6s, 0.21s; }
-.larder-list li:nth-child(5) { animation-delay: -3.7s, 0.28s; }
-.larder-list li:nth-child(6) { animation-delay: -2.2s, 0.35s; }
-.larder-list li::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: 100%;
-  width: 1px;
-  height: 100vh;
-  background: linear-gradient(180deg, transparent, var(--silk) 60%);
-  pointer-events: none;
-}
-@keyframes hang {
-  from { rotate: -0.55deg; }
-  to { rotate: 0.55deg; }
-}
-@keyframes dropIn {
-  from { opacity: 0; translate: 0 -40px; }
-}
-.parcel {
-  position: relative;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: auto 1fr;
   align-items: center;
-  gap: 6px;
+  column-gap: 16px;
+  row-gap: 3px;
   width: 100%;
-  min-height: 190px;
-  padding: 24px 12px 20px;
+  height: 100%;
+  min-height: 104px;
+  padding: 18px 20px;
   font: inherit;
   color: #eef2ff;
+  text-align: left;
   text-decoration: none;
   cursor: pointer;
-  border: 1px solid var(--glass-edge);
-  border-radius: 44% 44% 46% 46% / 26% 26% 30% 30%;
-  /* wound round with silk */
+  border: 1px solid rgba(var(--neon), 0.34);
+  border-radius: 14px;
   background:
-    repeating-linear-gradient(101deg, transparent 0 7px, rgba(255, 255, 255, 0.05) 7px 8px),
-    repeating-linear-gradient(76deg, transparent 0 11px, rgba(255, 255, 255, 0.04) 11px 12px),
-    radial-gradient(90% 70% at 35% 22%, rgba(255, 255, 255, 0.2), transparent 60%),
-    linear-gradient(180deg, rgba(150, 180, 240, 0.2), rgba(60, 80, 140, 0.16));
-  box-shadow: 0 26px 40px -22px var(--shadow), inset 0 0 26px rgba(255, 255, 255, 0.05);
+    radial-gradient(120% 120% at 0% 0%, rgba(var(--neon), 0.14), transparent 55%),
+    rgba(10, 14, 36, 0.78);
+  box-shadow: 0 22px 36px -22px var(--shadow), inset 0 0 22px rgba(var(--neon), 0.06);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease, box-shadow 0.3s ease;
 }
-/* the hunt is the spider's own, and is lit to say so */
-.parcel-first { border-color: rgba(255, 214, 140, 0.6); box-shadow: 0 26px 40px -22px var(--shadow), inset 0 0 26px rgba(255, 214, 140, 0.12), 0 0 34px -10px rgba(255, 200, 110, 0.6); }
-.parcel-first svg { color: #ffd994; }
-body.light .parcel {
-  background:
-    repeating-linear-gradient(101deg, transparent 0 7px, rgba(255, 255, 255, 0.07) 7px 8px),
-    repeating-linear-gradient(76deg, transparent 0 11px, rgba(255, 255, 255, 0.05) 11px 12px),
-    radial-gradient(90% 70% at 35% 22%, rgba(255, 255, 255, 0.26), transparent 60%),
-    linear-gradient(180deg, rgba(255, 244, 205, 0.22), rgba(120, 150, 110, 0.18));
-}
-.parcel:hover,
-.parcel:focus-visible {
-  transform: translateY(5px) scale(1.04);
-  border-color: rgba(255, 255, 255, 0.7);
-  box-shadow: 0 30px 44px -22px var(--shadow), inset 0 0 30px rgba(255, 255, 255, 0.14), 0 0 44px -6px rgba(170, 205, 255, 0.55);
+/* the crossword is today's, and is lit to say so */
+.cab-first { --neon: 255, 122, 150; border-color: rgba(var(--neon), 0.7); box-shadow: 0 22px 36px -22px var(--shadow), inset 0 0 26px rgba(var(--neon), 0.12), 0 0 30px -8px rgba(var(--neon), 0.7); }
+.cab:hover,
+.cab:focus-visible {
+  transform: translateY(-3px);
+  border-color: rgba(var(--neon), 0.95);
+  box-shadow: 0 26px 40px -22px var(--shadow), inset 0 0 28px rgba(var(--neon), 0.16), 0 0 36px -6px rgba(var(--neon), 0.75);
   outline: none;
 }
-.parcel svg {
+.cab svg {
+  grid-row: span 2;
   width: 44px;
   height: 44px;
   fill: none;
-  stroke: currentColor;
+  stroke: rgb(var(--neon));
   stroke-width: 1.5;
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: 0.92;
+  filter: drop-shadow(0 0 6px rgba(var(--neon), 0.8));
 }
-.parcel svg .solid { fill: currentColor; stroke: none; }
-.parcel-name { margin-top: 6px; font-size: 1.16rem; font-weight: 500; letter-spacing: -0.005em; }
-.parcel-line { font-size: 0.82rem; font-style: italic; font-weight: 300; line-height: 1.3; color: rgba(225, 233, 255, 0.78); text-wrap: balance; }
+.cab svg .solid { fill: rgb(var(--neon)); stroke: none; }
+.cab-name { align-self: end; font-size: 1.16rem; font-weight: 500; letter-spacing: -0.005em; }
+.cab-line { align-self: start; font-size: 0.86rem; font-style: italic; font-weight: 300; line-height: 1.3; color: rgba(225, 233, 255, 0.78); }
 
-/* too narrow to hang five in a row: a list, each on a short thread */
-@media (max-width: 760px) {
-  .larder { place-items: start center; }
-  .larder-list { flex-direction: column; align-items: stretch; gap: 10px; margin: 26px auto 24px; max-width: 420px; }
-  .larder-list li { max-width: none; margin-top: 0; animation: dropIn 0.7s cubic-bezier(0.2, 1.2, 0.3, 1) both; }
-  .larder-list li:nth-child(n) { animation-delay: calc(var(--drop) * 0.2s); }
-  .larder-list li::before { display: none; }
-  .parcel {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    column-gap: 14px;
-    row-gap: 0;
-    min-height: 0;
-    padding: 12px 18px;
-    text-align: left;
-    border-radius: 22px;
-  }
-  .parcel svg { width: 36px; height: 36px; grid-row: span 2; }
-  .parcel-name { margin: 0; flex: 1 1 60%; }
-  .parcel-line { flex: 1 1 100%; padding-left: 50px; margin-top: -8px; }
-  .parcel:hover, .parcel:focus-visible { transform: scale(1.02); }
+@media (max-width: 860px) {
+  .arcade-list { grid-template-columns: repeat(2, 1fr); }
 }
-
-/* ---------- The hunt ---------- */
-.hunt {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  pointer-events: none;
-  text-align: center;
-  color: var(--text);
-  text-shadow: 0 2px 20px var(--shadow), 0 0 4px var(--shadow);
-}
-.hunt[hidden], .hunt-over[hidden] { display: none; }
-.hunt-time {
-  position: absolute;
-  right: clamp(16px, 3vw, 40px);
-  top: clamp(14px, 3vh, 30px);
-  font-size: clamp(2.2rem, 5vw, 3.4rem);
-  font-weight: 400;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  text-align: right;
-  transform-origin: 100% 0;
-  transition: color 0.3s ease;
-}
-.hunt-time::after {
-  content: "seconds";
-  display: block;
-  margin-top: 0.35rem;
-  font-size: 0.8rem;
-  font-weight: 500;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.hunt-time[data-low="true"] { color: #ff9a86; animation: huntLow 1s ease-in-out infinite; }
-@keyframes huntLow { 50% { scale: 1.12; } }
-.hunt-score {
-  position: absolute;
-  left: clamp(16px, 3vw, 40px);
-  top: clamp(14px, 3vh, 30px);
-  font-size: 0.8rem;
-  font-weight: 500;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  text-align: left;
-  color: var(--muted);
-}
-.hunt-score b {
-  display: block;
-  margin-bottom: 0.35rem;
-  font-size: clamp(2.2rem, 5vw, 3.4rem);
-  font-weight: 400;
-  letter-spacing: -0.02em;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  color: var(--text);
-}
-.hunt-score b[data-bump="true"] { animation: huntBump 0.3s cubic-bezier(0.2, 1.6, 0.4, 1); }
-@keyframes huntBump { from { scale: 1.35; color: #ffe2a4; } }
-.hunt-count {
-  position: absolute;
-  left: 50%;
-  top: 44%;
-  translate: -50% -50%;
-  font-size: clamp(5rem, 22vw, 13rem);
-  font-weight: 300;
-  font-style: italic;
-  font-variation-settings: "opsz" 144;
-  line-height: 1;
-}
-.hunt-count:empty { display: none; }
-.hunt-count[data-tick] { animation: huntTick 0.95s linear both; }
-@keyframes huntTick { from { opacity: 0; scale: 1.4; } 14% { opacity: 1; scale: 1; } 72% { opacity: 1; scale: 1; } to { opacity: 0; scale: 0.92; } }
-.hunt-keys {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: clamp(18px, 4vh, 40px);
-  font-size: clamp(0.9rem, 1.4vw, 1.05rem);
-  font-style: italic;
-  font-weight: 300;
-  color: var(--muted);
-  transition: opacity 1s ease;
-}
-.hunt-keys[data-show="false"] { opacity: 0; }
-.hunt-keys kbd {
-  display: inline-grid;
-  place-items: center;
-  width: 1.9em;
-  height: 1.9em;
-  margin-right: 4px;
-  font: inherit;
-  font-style: normal;
-  font-weight: 500;
-  color: var(--text);
-  border: 1px solid var(--glass-edge);
-  border-radius: 6px;
-  background: var(--glass);
-}
-.hunt-quit {
-  position: absolute;
-  right: clamp(16px, 3vw, 40px);
-  top: calc(clamp(14px, 3vh, 30px) + clamp(2.2rem, 5vw, 3.4rem) + 2.6rem);
-  pointer-events: auto;
-}
-.hunt-over {
-  position: absolute;
-  inset: 0;
-  z-index: 8;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  background: radial-gradient(ellipse at 50% 45%, rgba(6, 10, 26, 0.35), rgba(3, 5, 14, 0.8));
-  animation: veilIn 0.5s ease;
-}
-.hunt-card {
-  width: min(460px, 100%);
-  padding: 34px 30px 30px;
-  text-align: center;
-  color: #eef2ff;
-  background: radial-gradient(120% 90% at 50% 0%, rgba(255, 210, 130, 0.16), transparent 60%), var(--glass);
-  border: 1px solid var(--glass-edge);
-  border-radius: 26px;
-  box-shadow: 0 30px 60px -24px var(--shadow), 0 0 70px -24px rgba(255, 200, 110, 0.6);
-  -webkit-backdrop-filter: blur(16px) saturate(1.3);
-  backdrop-filter: blur(16px) saturate(1.3);
-  animation: factIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.hunt-total {
-  margin-top: 10px;
-  font-size: clamp(3rem, 12vw, 5rem);
-  font-weight: 300;
-  font-style: italic;
-  font-variation-settings: "opsz" 144;
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
-.hunt-line { margin: 14px 0 26px; font-size: 1.1rem; font-weight: 300; line-height: 1.45; color: rgba(225, 233, 255, 0.82); text-wrap: balance; }
-.hunt-row { justify-content: center; }
-.hunt-row .silk-btn { height: 44px; padding: 0 22px; font-size: 1rem; }
-@media (max-width: 640px) {
-  .hunt-quit { top: auto; bottom: max(14px, env(safe-area-inset-bottom)); right: 14px; }
-  .hunt-keys { bottom: 64px; }
-}
-.keys-touch { display: none; }
-@media (pointer: coarse), (max-width: 640px) {
-  .keys-kbd { display: none; }
-  .keys-touch { display: inline; }
+@media (max-width: 560px) {
+  .arcade { place-items: start center; }
+  .arcade-list { grid-template-columns: 1fr; max-width: 420px; margin-inline: auto; }
+  .cab { min-height: 0; padding: 13px 16px; }
+  .cab svg { width: 36px; height: 36px; }
 }
 
 .no-script {
@@ -610,6 +490,6 @@ body.light .parcel {
 .no-script a { color: inherit; }
 
 @media (prefers-reduced-motion: reduce) {
-  .fact, .larder-veil, .larder-kicker, .larder-title, .larder-list li, .hunt-over, .hunt-card, .hunt-time[data-low="true"], .hunt-score b[data-bump="true"] { animation: none; }
-  .web, .masthead, .hint, .parcel { transition: none; }
+  .fact, .arcade-veil, .arcade-kicker, .arcade-title, .arcade-list li, .board-name, .blade span { animation: none; }
+  .sky, .sign, .masthead, .hint, .cab { transition: none; }
 }

@@ -1,0 +1,625 @@
+/* crossword.css — The Daily Mini (crossword.js). The same city as the home
+   page, from the same window: the puzzle is a block of flats, five windows by
+   five, and a light goes on in each as it is filled in. */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body.cross {
+  --text: #e9eefc;
+  --muted: rgba(200, 215, 245, 0.66);
+  --sky: linear-gradient(180deg, #03051a 0%, #0a1134 38%, #1c1c4c 70%, #3d2b5e 90%, #643a62 100%);
+  --far: #1d2150;
+  --near: #141838;
+  --brick: #2b1e2c;
+  --brick-hi: #46334a;
+  --glass-hi: #223468;
+  --glass-lo: #0b1230;
+  --word-hi: #35509c;
+  --word-lo: #17265a;
+  --glass: rgba(9, 14, 32, 0.78);
+  --glass-edge: rgba(170, 200, 255, 0.26);
+  --lift: rgba(160, 195, 255, 0.12);
+  --shadow: rgba(0, 2, 10, 0.7);
+  --pink: 255, 122, 150;
+  --cyan: 80, 220, 255;
+  --size: clamp(240px, min(92vw - 28px, 100svh - 330px), 440px);
+  min-height: 100svh;
+  font-family: "Fraunces", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-optical-sizing: auto;
+  color: var(--text);
+  background: #03051a;
+  background-image: var(--sky);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+body.cross.light {
+  --muted: rgba(255, 240, 226, 0.82);
+  --sky: linear-gradient(180deg, #243267 0%, #55508e 32%, #b46f8f 60%, #ee9c78 82%, #ffd092 100%);
+  --far: #7a6190;
+  --near: #54446f;
+  --brick: #4a2f40;
+  --brick-hi: #6c4a5c;
+  --glass-hi: #4a4d86;
+  --glass-lo: #262650;
+  --word-hi: #6a70bc;
+  --word-lo: #3a3c7c;
+  --glass: rgba(34, 26, 58, 0.84);
+  --glass-edge: rgba(255, 220, 200, 0.36);
+  --lift: rgba(255, 220, 200, 0.14);
+  --shadow: rgba(20, 12, 40, 0.6);
+  background-color: #243267;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* the rest of the city, along the bottom */
+.backdrop {
+  position: fixed;
+  inset: auto 0 0 0;
+  height: min(40vh, 320px);
+  z-index: -1;
+  pointer-events: none;
+}
+.backdrop svg { display: block; width: 100%; height: 100%; }
+.backdrop .b1 { fill: var(--near); }
+.backdrop .b2 { fill: var(--far); }
+.backdrop .w { fill: #ffd68c; opacity: 0.75; }
+
+/* ---------- The top of the page ---------- */
+.top {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: clamp(10px, 2.2vh, 22px) clamp(12px, 3vw, 32px) 0;
+}
+.back {
+  justify-self: start;
+  padding: 8px 12px;
+  font-size: 0.92rem;
+  color: var(--muted);
+  text-decoration: none;
+  border-radius: 999px;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+.back:hover, .back:focus-visible { color: var(--text); background: var(--lift); outline: none; }
+.title { text-align: center; }
+.title h1 {
+  font-family: "Tilt Neon", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  font-size: clamp(1.3rem, 3.6vw, 2.1rem);
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: #fff3f5;
+  text-shadow: 0 0 4px #fff, 0 0 12px rgb(var(--pink)), 0 0 30px rgb(var(--pink)), 0 0 54px rgba(var(--pink), 0.7);
+}
+.when {
+  margin-top: 6px;
+  font-size: clamp(0.68rem, 1.1vw, 0.8rem);
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.meters { justify-self: end; display: flex; align-items: center; gap: 8px; }
+.meter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
+  border-radius: 999px;
+}
+.meter-streak { cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+.meter-streak svg { width: 18px; height: 18px; fill: rgba(200, 215, 245, 0.4); transition: fill 0.3s ease, filter 0.3s ease; }
+.meter-streak[data-lit="true"] svg { fill: #ffb24a; filter: drop-shadow(0 0 6px rgba(255, 150, 60, 0.9)); }
+.meter-streak:hover, .meter-streak:focus-visible { border-color: rgba(var(--cyan), 0.9); box-shadow: 0 0 16px rgba(var(--cyan), 0.4); outline: none; }
+.meter-time { min-width: 4.2em; justify-content: center; }
+
+/* ---------- The week ---------- */
+.week {
+  display: flex;
+  justify-content: center;
+  gap: clamp(4px, 1.2vw, 8px);
+  padding: clamp(10px, 2vh, 18px) 10px 0;
+}
+.day {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  width: 44px;
+  padding: 5px 0 6px;
+  font: inherit;
+  color: var(--muted);
+  background: linear-gradient(180deg, var(--glass-hi), var(--glass-lo));
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  border-radius: 5px;
+  box-shadow: 0 3px 0 var(--brick-hi);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.day span { font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.day b { font-size: 1rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.day:hover { transform: translateY(-1px); }
+.day:focus-visible { outline: 2px solid rgb(var(--cyan)); outline-offset: 2px; }
+/* started: a lamp on low. Solved: the light on. Solved with a reveal: a cooler one. */
+.day[data-state="begun"] { color: #ffe2b0; background: linear-gradient(180deg, #5a4a52, #2c2438); }
+.day[data-state="done"] { color: #2b1a12; background: linear-gradient(180deg, #fff3cf, #ffc978); box-shadow: 0 3px 0 var(--brick-hi), 0 0 16px rgba(255, 200, 110, 0.5); }
+.day[data-state="helped"] { color: #10283a; background: linear-gradient(180deg, #e2f6ff, #9fd6f0); box-shadow: 0 3px 0 var(--brick-hi), 0 0 14px rgba(120, 210, 255, 0.4); }
+.day[data-today="true"] span { font-weight: 700; }
+.day[aria-current="true"] { box-shadow: 0 0 0 2px rgb(var(--cyan)), 0 0 18px rgba(var(--cyan), 0.6); }
+
+/* ---------- The puzzle and its clues ---------- */
+.play {
+  display: grid;
+  grid-template-columns: auto minmax(260px, 400px);
+  justify-content: center;
+  align-items: start;
+  gap: clamp(20px, 4vw, 52px);
+  padding: clamp(14px, 3vh, 30px) clamp(12px, 3vw, 32px) 40px;
+}
+.board-col { display: grid; justify-items: center; gap: 12px; width: max(calc(var(--size) + 28px), min(100%, 380px)); }
+
+.cluebar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 56px;
+  padding: 4px;
+  background: var(--glass);
+  border: 1px solid rgba(var(--cyan), 0.5);
+  border-radius: 12px;
+  box-shadow: 0 0 18px -4px rgba(var(--cyan), 0.5), inset 0 0 18px rgba(var(--cyan), 0.07);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.cluebar-text { padding: 2px 4px; font-size: 1.02rem; line-height: 1.3; text-wrap: balance; cursor: pointer; }
+.cluebar-text b {
+  display: block;
+  font-family: "Tilt Neon", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #c9f8ff;
+  text-shadow: 0 0 8px rgba(var(--cyan), 0.9);
+}
+.step {
+  width: 40px;
+  height: 44px;
+  font: inherit;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--text);
+  background: none;
+  border: 0;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.step:hover, .step:focus-visible { background: var(--lift); outline: none; }
+
+/* the block of flats */
+.tower {
+  position: relative;
+  padding: 16px 14px 18px;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 5px, rgba(0, 0, 0, 0.16) 5px 6px),
+    linear-gradient(90deg, var(--brick-hi), var(--brick) 40%, color-mix(in srgb, var(--brick) 78%, #000));
+  border-radius: 2px;
+  box-shadow: 0 30px 50px -20px var(--shadow), 18px 0 0 -4px color-mix(in srgb, var(--brick) 55%, #000);
+}
+/* its parapet */
+.tower::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  right: -5px;
+  top: -8px;
+  height: 10px;
+  background: var(--brick-hi);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+  gap: calc(var(--size) * 0.022);
+  width: var(--size);
+  height: var(--size);
+  outline: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: calc(var(--size) * 0.108);
+  font-weight: 700;
+  line-height: 1;
+  color: #2b1a12;
+  /* dark glass, with a bit of the sky in it */
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0 22%, transparent 22.5%),
+    linear-gradient(180deg, var(--glass-hi), var(--glass-lo));
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 2px rgba(4, 6, 16, 0.75), 0 calc(var(--size) * 0.011) 0 var(--brick-hi);
+  cursor: pointer;
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+/* no window here: wall */
+.cell.block { background: none; box-shadow: none; cursor: default; }
+.cell.inword {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0 22%, transparent 22.5%),
+    linear-gradient(180deg, var(--word-hi), var(--word-lo));
+}
+/* filled in: the light is on */
+.cell.lit {
+  background: linear-gradient(180deg, #ffeab8, #f5b962);
+  box-shadow: inset 0 0 0 2px rgba(60, 36, 20, 0.7), 0 calc(var(--size) * 0.011) 0 var(--brick-hi), 0 0 calc(var(--size) * 0.045) rgba(255, 196, 104, 0.4);
+}
+.cell.lit.inword { background: linear-gradient(180deg, #fffbe8, #ffd88c); }
+.cell.cursor {
+  background: linear-gradient(180deg, #2a7c9c, #134a68);
+  box-shadow: inset 0 0 0 3px rgb(var(--cyan)), 0 calc(var(--size) * 0.011) 0 var(--brick-hi), 0 0 calc(var(--size) * 0.06) rgba(var(--cyan), 0.75);
+  z-index: 1;
+}
+.cell.cursor.lit {
+  background: linear-gradient(180deg, #ffffff, #d5f6ff);
+  box-shadow: inset 0 0 0 3px rgb(var(--cyan)), 0 calc(var(--size) * 0.011) 0 var(--brick-hi), 0 0 calc(var(--size) * 0.06) rgba(var(--cyan), 0.75);
+}
+/* which way the cursor is going: a small arrow in the corner */
+.cell.cursor::after {
+  content: "";
+  position: absolute;
+  right: 9%;
+  bottom: 9%;
+  border: calc(var(--size) * 0.012) solid transparent;
+  border-left-color: rgb(var(--cyan));
+  border-right-width: 0;
+  opacity: 0.9;
+}
+.grid[data-dir="D"] .cell.cursor::after { border: calc(var(--size) * 0.012) solid transparent; border-top-color: rgb(var(--cyan)); border-bottom-width: 0; }
+.cell.cursor.lit::after { filter: brightness(0.55); }
+.num {
+  position: absolute;
+  left: 9%;
+  top: 8%;
+  font-size: calc(var(--size) * 0.033);
+  font-weight: 600;
+  color: rgba(226, 234, 255, 0.72);
+}
+.cell.lit .num { color: rgba(70, 44, 24, 0.8); }
+.cell.cursor:not(.lit) .num { color: #fff; }
+.let { transform: translateY(6%); }
+/* checked, and wrong: struck through */
+.cell.wrong .let { color: #b3261e; }
+.cell.wrong::before {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  background: linear-gradient(to top right, transparent calc(50% - 1.5px), #c8372d calc(50% - 1.5px) calc(50% + 1.5px), transparent calc(50% + 1.5px));
+  pointer-events: none;
+}
+.cell.right .let { color: #14613a; }
+/* given away: a dot in the corner */
+.cell.shown::before {
+  content: "";
+  position: absolute;
+  right: 9%;
+  top: 9%;
+  width: 11%;
+  height: 11%;
+  border-radius: 50%;
+  background: #1583a6;
+}
+.cell.shown .let { color: #0f5d78; }
+/* solved: the lights run across the front of it */
+.grid.won .cell.lit { animation: won 1s ease var(--d) both; }
+@keyframes won {
+  0% { filter: none; }
+  35% { filter: brightness(1.35) saturate(1.5) hue-rotate(-28deg); transform: scale(1.06); }
+  100% { filter: none; transform: none; }
+}
+body[data-done="true"] .cell.cursor { box-shadow: inset 0 0 0 2px rgba(60, 36, 20, 0.7), 0 calc(var(--size) * 0.011) 0 var(--brick-hi), 0 0 calc(var(--size) * 0.045) rgba(255, 196, 104, 0.4); }
+body[data-done="true"] .cell.cursor::after { display: none; }
+
+/* ---------- Check, reveal, clear ---------- */
+.tools { display: flex; justify-content: center; gap: 8px; margin-top: 6px; }
+.menu { position: relative; }
+.menu summary, .tool {
+  display: grid;
+  place-items: center;
+  height: 38px;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
+  border-radius: 999px;
+  cursor: pointer;
+  list-style: none;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.menu summary::-webkit-details-marker { display: none; }
+.menu summary::after { content: " ▾"; white-space: pre; opacity: 0.7; }
+.menu summary { display: flex; align-items: center; }
+.menu summary:hover, .tool:hover, .menu[open] summary { border-color: rgba(var(--cyan), 0.8); }
+.menu summary:focus-visible, .tool:focus-visible { outline: 2px solid rgb(var(--cyan)); outline-offset: 2px; }
+.menu-list {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  z-index: 5;
+  display: grid;
+  width: 220px;
+  padding: 6px;
+  translate: -50% 0;
+  background: rgba(10, 14, 36, 0.96);
+  border: 1px solid rgba(var(--cyan), 0.5);
+  border-radius: 14px;
+  box-shadow: 0 20px 40px -16px var(--shadow), 0 0 24px -8px rgba(var(--cyan), 0.6);
+}
+.menu-list button {
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 0.96rem;
+  color: #eef2ff;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.menu-list button:hover, .menu-list button:focus-visible { background: rgba(var(--cyan), 0.16); outline: none; }
+.menu-list p { padding: 6px 12px 6px; font-size: 0.78rem; font-style: italic; line-height: 1.35; color: rgba(200, 215, 245, 0.7); }
+body[data-done="true"] .tools { opacity: 0.45; pointer-events: none; }
+
+.toast {
+  min-height: 1.5em;
+  font-size: 0.96rem;
+  font-style: italic;
+  text-align: center;
+  color: #ffe6c4;
+  text-shadow: 0 1px 12px var(--shadow);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.toast[data-show="true"] { opacity: 1; }
+
+/* ---------- The clues ---------- */
+.clues {
+  display: grid;
+  gap: 18px;
+  padding: 14px 12px 16px;
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
+  border-radius: 18px;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.clue-col h2 {
+  padding: 0 10px 6px;
+  font-family: "Tilt Neon", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 400;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: #ffd9e0;
+  text-shadow: 0 0 10px rgba(var(--pink), 0.9);
+}
+.clue-col ol { list-style: none; display: grid; gap: 2px; }
+.clue {
+  display: grid;
+  grid-template-columns: 1.6em 1fr;
+  gap: 4px;
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.35;
+  color: var(--text);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.clue b { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--muted); }
+.clue i { font-style: normal; font-size: 0.84em; color: var(--muted); }
+.clue:hover { background: var(--lift); }
+.clue:focus-visible { outline: 2px solid rgb(var(--cyan)); outline-offset: -2px; }
+.clue.filled span { color: var(--muted); }
+.clue.cross { background: rgba(255, 255, 255, 0.06); }
+.clue.on { background: rgba(var(--cyan), 0.17); border-left-color: rgb(var(--cyan)); }
+.clue.on b, .clue.on span { color: #fff; }
+
+/* ---------- The keys, for fingers ---------- */
+.keys { display: none; }
+@media (pointer: coarse) {
+  body.cross { --size: clamp(220px, min(92vw - 28px, 100svh - 410px), 440px); padding-bottom: calc(166px + env(safe-area-inset-bottom)); }
+  .keys {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 6;
+    display: grid;
+    gap: 6px;
+    padding: 8px 4px calc(8px + env(safe-area-inset-bottom));
+    background: rgba(6, 9, 26, 0.94);
+    border-top: 1px solid var(--glass-edge);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .keys-row { display: flex; justify-content: center; gap: 5px; }
+  .key {
+    flex: 1 1 0;
+    max-width: 44px;
+    height: 43px;
+    font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: 1.08rem;
+    font-weight: 600;
+    color: #f2f5ff;
+    background: rgba(160, 190, 255, 0.16);
+    border: 0;
+    border-radius: 6px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .key:active { background: rgba(var(--cyan), 0.5); }
+  .key-wide { flex-grow: 1.6; max-width: 66px; background: rgba(160, 190, 255, 0.08); font-size: 1.2rem; }
+  .cluebar { min-height: 50px; }
+  .cluebar-text { font-size: 0.98rem; }
+  .top { padding-top: 8px; }
+  .when { margin-top: 3px; }
+  .week { padding-top: 8px; }
+  .day { width: 40px; padding: 2px 0 3px; }
+  .play { padding-top: 10px; }
+  .board-col { gap: 8px; }
+  .tower { padding: 12px 12px 14px; }
+  .tools { margin-top: 2px; }
+  .menu summary, .tool { height: 36px; }
+}
+
+/* ---------- Solved, and the record ---------- */
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  overflow-y: auto;
+}
+.sheet[hidden] { display: none; }
+.sheet-veil {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 40%, rgba(6, 8, 28, 0.6), rgba(3, 4, 16, 0.9));
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+  animation: veil 0.4s ease;
+}
+@keyframes veil { from { opacity: 0; } }
+.sheet-card {
+  position: relative;
+  width: min(480px, 100%);
+  padding: 32px 26px 26px;
+  text-align: center;
+  color: #eef2ff;
+  background: radial-gradient(120% 80% at 50% 0%, rgba(var(--pink), 0.18), transparent 60%), rgba(10, 13, 34, 0.94);
+  border: 1px solid rgba(var(--pink), 0.6);
+  border-radius: 24px;
+  box-shadow: 0 30px 60px -24px #000, 0 0 60px -18px rgba(var(--pink), 0.7);
+  animation: card 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes card { from { opacity: 0; scale: 0.9; } }
+.sheet-kicker {
+  font-family: "Tilt Neon", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.86rem;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: #ffd9e0;
+  text-shadow: 0 0 10px rgba(var(--pink), 0.9), 0 0 24px rgba(var(--pink), 0.6);
+}
+.sheet-title {
+  margin-top: 8px;
+  font-size: clamp(2.6rem, 11vw, 4.2rem);
+  font-weight: 300;
+  font-style: italic;
+  font-variation-settings: "opsz" 144;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.sheet-line { margin: 14px auto 0; max-width: 24em; font-size: 1.06rem; font-weight: 300; line-height: 1.45; color: rgba(225, 233, 255, 0.86); text-wrap: balance; }
+.stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin: 22px 0 0;
+  padding: 14px 4px;
+  border-block: 1px solid rgba(170, 200, 255, 0.18);
+}
+.stats dd { font-size: 1.5rem; font-weight: 400; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stats dt { margin-top: 4px; font-size: 0.64rem; font-weight: 500; letter-spacing: 0.1em; line-height: 1.25; text-transform: uppercase; color: rgba(200, 215, 245, 0.66); }
+.sheet-past { margin-top: 12px; font-size: 0.92rem; font-style: italic; color: rgba(225, 233, 255, 0.72); }
+.sheet-past:empty { display: none; }
+.sheet-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 22px; }
+.pill {
+  display: inline-grid;
+  place-items: center;
+  height: 44px;
+  padding: 0 20px;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: #2a0f1a;
+  text-decoration: none;
+  background: linear-gradient(180deg, #ffffff, rgb(var(--pink)));
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.2s ease, background 0.2s ease;
+}
+.pill[hidden] { display: none; }
+.pill:hover { filter: brightness(1.08); }
+.pill:active { transform: scale(0.96); }
+.pill:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.pill-quiet { color: #eef2ff; background: none; box-shadow: inset 0 0 0 1px rgba(170, 200, 255, 0.3); }
+.pill-quiet:hover { background: rgba(160, 195, 255, 0.12); filter: none; }
+
+.no-script { padding: 40px 24px; text-align: center; }
+.no-script a { color: inherit; }
+
+/* ---------- A narrow page: the clues go under ---------- */
+@media (max-width: 820px) {
+  .play { grid-template-columns: 1fr; justify-items: center; gap: 18px; }
+  .clues { width: min(100%, 520px); }
+  .top { grid-template-columns: auto 1fr auto; }
+  .back { padding: 8px 6px; }
+  .meter { height: 34px; padding: 0 9px; font-size: 0.92rem; }
+  .meter-time { min-width: 3.6em; }
+  .stats { grid-template-columns: repeat(3, 1fr); row-gap: 14px; }
+}
+@media (max-width: 420px) {
+  .title h1 { font-size: 1.12rem; letter-spacing: 0.06em; }
+  .when { letter-spacing: 0.12em; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grid.won .cell.lit, .sheet-veil, .sheet-card { animation: none; }
+  .cell, .day, .toast { transition: none; }
+}
