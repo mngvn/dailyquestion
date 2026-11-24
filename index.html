@@ -3,132 +3,108 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Daily — a spider's web, and what flies into it</title>
-  <meta name="description" content="A spider's web in the wind. Every fly about it is carrying a fun fact — click one to read it. The spider keeps the games, and will let you hunt." />
-  <meta name="theme-color" content="#070c1c" media="(prefers-color-scheme: dark)" />
-  <meta name="theme-color" content="#7c9477" media="(prefers-color-scheme: light)" />
+  <title>Daily — the city at night, and what is in its windows</title>
+  <meta name="description" content="Skyscrapers, from close to. Every so often a light comes on in a window — click it before it goes out and there is a fun fact inside. The signs keep the daily mini crossword and the games." />
+  <meta name="theme-color" content="#03051a" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#243267" media="(prefers-color-scheme: light)" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <!-- the lettering holds nothing up: the web is strung without it -->
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&display=swap" rel="stylesheet" /></noscript>
+  <!-- the lettering holds nothing up: the city is built without it -->
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Tilt+Neon&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Tilt+Neon&display=swap" rel="stylesheet" /></noscript>
   <link rel="stylesheet" href="home.css" />
-  <link rel="modulepreload" href="orb.js" />
-  <link rel="modulepreload" href="silk.js" />
-  <link rel="modulepreload" href="scene.js" />
-  <link rel="modulepreload" href="spider.js" />
-  <link rel="modulepreload" href="flies.js" />
+  <link rel="modulepreload" href="city.js" />
+  <link rel="modulepreload" href="skyline.js" />
 </head>
 <body class="home">
-  <main class="glade" id="glade">
-    <!-- The web: strung, blown about and drawn by orb.js on this one canvas. -->
-    <canvas class="web" id="web" role="img" aria-label="A spider's web in the wind, slung between two twigs and the grass. A spider walks about on it; flies dart about in front of it, and some are caught in it."></canvas>
+  <main class="city" id="city">
+    <!-- The city: built and kept going by city.js on this one canvas. -->
+    <canvas class="sky" id="sky" role="img" aria-label="Skyscrapers at night, seen from close to, with the rest of the skyline behind them. Now and then a light comes on in one of their windows."></canvas>
 
-    <!-- What can be clicked — the spider, and each fly, flying or caught —
-         has a button laid over it, moved about with it. -->
+    <!-- What can be clicked — the two signs, and each lit window — has a
+         button laid over it. -->
     <div class="hot" id="hot">
-      <button class="hot-spot hot-spider" id="spiderBtn" type="button" aria-haspopup="dialog" aria-label="The spider. It keeps the games: open its larder." hidden></button>
+      <a class="sign board" id="board" href="crossword.html" hidden>
+        <span class="board-top">The Daily Mini</span>
+        <span class="board-name">Crossword</span>
+        <span class="board-line" id="boardLine">Today's puzzle is up</span>
+      </a>
+      <button class="sign blade" id="blade" type="button" aria-haspopup="dialog" aria-label="The arcade: open the list of games." hidden><span aria-hidden="true">ARCADE</span></button>
     </div>
 
-    <header class="masthead">
+    <header class="masthead" id="masthead">
       <h1 class="date" id="date">Today</h1>
       <p class="tally" id="tally" aria-live="polite"></p>
     </header>
-    <p class="hint" id="hint">Every fly is carrying a fact — <b>click one</b>, flying or caught. The <b>spider</b> keeps the games.</p>
+    <p class="hint" id="hint">A lit window has a fact in it — <b>click one</b> before it goes dark. The <b>signs</b> keep the crossword and the games.</p>
 
-    <!-- What a fly was carrying. -->
+    <!-- What was in a window. -->
     <article class="fact" id="fact" role="dialog" aria-labelledby="factKicker" aria-describedby="factText" hidden>
-      <svg class="fact-web" viewBox="0 0 120 120" aria-hidden="true">
-        <path d="M120 0 L0 0 M120 0 L18 44 M120 0 L62 78 M120 0 L104 110 M120 0 L120 120" />
-        <path d="M92 0 Q95 9 94 11 Q101 17 104 19 Q110 25 116 28 Q118 27 120 28" />
-        <path d="M62 0 Q68 18 67 23 Q80 34 86 39 Q98 50 112 57 Q117 55 120 57" />
-        <path d="M30 0 Q40 28 39 35 Q58 52 68 60 Q86 78 108 86 Q115 84 120 87" />
-      </svg>
       <p class="fact-kicker" id="factKicker"></p>
       <p class="fact-text" id="factText"></p>
       <div class="fact-row">
-        <button class="silk-btn" id="factCopy" type="button">Copy</button>
-        <button class="silk-btn silk-btn-quiet" id="factClose" type="button">Leave it to the spider</button>
+        <button class="pill" id="factCopy" type="button">Copy fact</button>
+        <button class="pill pill-quiet" id="factClose" type="button">Lights out</button>
       </div>
     </article>
 
-    <!-- The spider's larder: the games, wrapped up and hung on threads. -->
-    <div class="larder" id="larder" role="dialog" aria-modal="true" aria-labelledby="larderTitle" hidden>
-      <div class="larder-veil" id="larderVeil"></div>
-      <div class="larder-box">
-        <p class="larder-kicker">The spider's larder</p>
-        <h2 class="larder-title" id="larderTitle">A few things, wrapped up for later</h2>
-        <ul class="larder-list">
-          <li style="--drop: 0.55; --sway: 6.1s">
-            <button class="parcel parcel-first" type="button" id="playHunt">
-              <svg viewBox="0 0 48 48" aria-hidden="true"><ellipse cx="24" cy="28" rx="7" ry="9" /><circle cx="24" cy="16" r="4.4" /><path d="M18 22L8 15M17 27L5 26M18 32L7 38M20 36l-6 8M30 22l10-7M31 27l12-1M30 32l11 6M28 36l6 8" /></svg>
-              <span class="parcel-name">The Hunt</span>
-              <span class="parcel-line">Be the spider. Sixty seconds, W A S D.</span>
-            </button>
+    <!-- The arcade: the games, each behind its own lit front. -->
+    <div class="arcade" id="arcade" role="dialog" aria-modal="true" aria-labelledby="arcadeTitle" hidden>
+      <div class="arcade-veil" id="arcadeVeil"></div>
+      <div class="arcade-box">
+        <p class="arcade-kicker">The arcade</p>
+        <h2 class="arcade-title" id="arcadeTitle">Open late, every night</h2>
+        <ul class="arcade-list">
+          <li>
+            <a class="cab cab-first" href="crossword.html">
+              <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="7" y="7" width="34" height="34" rx="2" /><path d="M18.3 7v34M29.7 7v34M7 18.3h34M7 29.7h34" /><rect class="solid" x="29.7" y="7" width="11.3" height="11.3" /><rect class="solid" x="7" y="29.7" width="11.3" height="11.3" /></svg>
+              <span class="cab-name">The Daily Mini</span>
+              <span class="cab-line">Today's crossword. Keep the streak lit.</span>
+            </a>
           </li>
-          <li style="--drop: 0.2; --sway: 5.1s">
-            <button class="parcel" type="button" id="playBoat">
+          <li>
+            <button class="cab" type="button" id="playBoat">
               <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M6 27h36l-5 9H12z" /><path d="M24 27V9l11 13H24" /><path d="M3 41q4-3 8 0t8 0 8 0 8 0 8 0" /></svg>
-              <span class="parcel-name">Adrift</span>
-              <span class="parcel-line">A leaking rowboat, a bucket, and sharks.</span>
+              <span class="cab-name">Adrift</span>
+              <span class="cab-line">A leaking rowboat, a bucket, and sharks.</span>
             </button>
           </li>
-          <li style="--drop: 0.75; --sway: 6.3s">
-            <a class="parcel" href="sun.html">
+          <li>
+            <a class="cab" href="sun.html">
               <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="8" /><path d="M24 5v6M24 37v6M5 24h6M37 24h6M10.5 10.5l4.3 4.3M33.2 33.2l4.3 4.3M10.5 37.5l4.3-4.3M33.2 14.8l4.3-4.3" /></svg>
-              <span class="parcel-name">Sunball</span>
-              <span class="parcel-line">Sling the sun. Light up the dark.</span>
+              <span class="cab-name">Sunball</span>
+              <span class="cab-line">Sling the sun. Light up the dark.</span>
             </a>
           </li>
-          <li style="--drop: 0; --sway: 5.7s">
-            <a class="parcel" href="orbit.html">
+          <li>
+            <a class="cab" href="orbit.html">
               <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="6" /><ellipse cx="24" cy="24" rx="20" ry="8" transform="rotate(-24 24 24)" /><circle cx="41" cy="15" r="2.4" class="solid" /></svg>
-              <span class="parcel-name">Orbit Surfer</span>
-              <span class="parcel-line">Can you make it all the way around?</span>
+              <span class="cab-name">Orbit Surfer</span>
+              <span class="cab-line">Can you make it all the way around?</span>
             </a>
           </li>
-          <li style="--drop: 0.9; --sway: 6.8s">
-            <a class="parcel" href="park.html">
+          <li>
+            <a class="cab" href="park.html">
               <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 30l3-10q1-3 4-3h18q3 0 4 3l3 10v6H8z" /><path d="M11 30h26" /><circle cx="15" cy="36" r="3.4" /><circle cx="33" cy="36" r="3.4" /><path d="M3 12q7-4 12 0M33 9q7-4 12 0" /></svg>
-              <span class="parcel-name">Drift Park</span>
-              <span class="parcel-line">Slide it into the spot.</span>
+              <span class="cab-name">Drift Park</span>
+              <span class="cab-line">Slide it into the spot.</span>
             </a>
           </li>
-          <li style="--drop: 0.4; --sway: 5.4s">
-            <a class="parcel" href="cave.html">
+          <li>
+            <a class="cab" href="cave.html">
               <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M4 42Q6 12 24 8q18 4 20 34" /><path d="M17 42q1-14 7-16 6 2 7 16" /><path d="M24 8v6M14 14l2 5M34 14l-2 5" /></svg>
-              <span class="parcel-name">Rare Air</span>
-              <span class="parcel-line">How deep can you go?</span>
+              <span class="cab-name">Rare Air</span>
+              <span class="cab-line">How deep can you go?</span>
             </a>
           </li>
         </ul>
-        <button class="silk-btn silk-btn-quiet" id="larderClose" type="button">Back to the web</button>
-      </div>
-    </div>
-
-    <!-- The hunt: the spider is yours for a minute. -->
-    <div class="hunt" id="hunt" hidden>
-      <p class="hunt-time" id="huntTime" aria-hidden="true">60</p>
-      <p class="hunt-score" aria-hidden="true"><b id="huntScore">0</b> <span id="huntUnit">flies</span></p>
-      <p class="hunt-count" id="huntCount" aria-hidden="true"></p>
-      <p class="hunt-keys" id="huntKeys"><span class="keys-kbd"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to run — or hold and drag.</span><span class="keys-touch">Hold and drag to run.</span> Reach each fly before its ring runs out.</p>
-      <button class="silk-btn silk-btn-quiet hunt-quit" id="huntQuit" type="button">Give up</button>
-    </div>
-    <div class="hunt-over" id="huntOver" role="dialog" aria-modal="true" aria-labelledby="huntTitle" hidden>
-      <div class="hunt-card">
-        <p class="larder-kicker" id="huntKicker">The hunt is over</p>
-        <h2 class="hunt-total" id="huntTitle"></h2>
-        <p class="hunt-line" id="huntLine"></p>
-        <div class="fact-row hunt-row">
-          <button class="silk-btn" id="huntAgain" type="button">Hunt again</button>
-          <button class="silk-btn silk-btn-quiet" id="huntBack" type="button">Back to the web</button>
-        </div>
+        <button class="pill pill-quiet" id="arcadeClose" type="button">Back to the street</button>
       </div>
     </div>
 
     <p class="sr-only" id="say" aria-live="polite"></p>
     <noscript>
-      <p class="no-script">The web needs JavaScript to be spun. The games don't mind:
+      <p class="no-script">The city needs JavaScript to be built. The games don't mind:
         <a href="sun.html">Sunball</a>, <a href="orbit.html">Orbit Surfer</a>, <a href="park.html">Drift Park</a>, <a href="cave.html">Rare Air</a>.</p>
     </noscript>
   </main>
@@ -137,6 +113,6 @@
   <script src="deck.js"></script>
   <script src="data.js"></script>
   <script src="app.js"></script>
-  <script type="module" src="orb.js"></script>
+  <script type="module" src="city.js"></script>
 </body>
 </html>

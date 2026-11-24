@@ -1,8 +1,8 @@
 // boat.js — Adrift: a rowboat, alone on the open sea, with a hole in its
 // bottom and a sailor with a bucket.
 //
-// The spider keeps this with the other games; orb.js brings it in when it is
-// picked from the larder. The web floods, and we come up for air beside the boat. Water
+// The arcade keeps this with the other games; city.js brings it in when it is
+// picked there. The city floods, and we come up for air beside the boat. Water
 // spouts in through the hole the whole time and the boat sits lower and lower
 // in the sea; rub the pointer back and forth over the sailor (or press Space)
 // and they bail, a bucketful at a time. Leave them to it and the boat swamps
@@ -19,7 +19,7 @@
 //
 // All of it is drawn on one 2D canvas from a handful of shapes; nothing is
 // loaded. start({ onCovered }) brings it in; onCovered is called once the
-// flood hides the web behind it, so the web can stop.
+// flood hides the city behind it, so the city can stop.
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const TAU = Math.PI * 2;
@@ -29,7 +29,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const rand = (a, b) => a + Math.random() * (b - a);
 
 const BEST_KEY = "daily.boat.best";
-const FLOOD_S = 1.3, UNDER_S = 0.5, SURFACE_S = 1.4;   // the web flooding, and coming up
+const FLOOD_S = 1.3, UNDER_S = 0.5, SURFACE_S = 1.4;   // the city flooding, and coming up
 const BAIL_RATE = 1.5;        // most bucketfuls a second, however fast the rubbing
 const RUB_PER_BAIL = 0.9;     // how far to rub, in boat lengths, for one bucketful
 const BUCKET = 0.07;          // a bucketful, as a share of what swamps the boat
@@ -49,7 +49,7 @@ const WL_EMPTY = 0.0, WL_FULL = -0.1, WL_GONE = -0.64, WL_BOTTOM = -1.7;
 const SAILOR_X = 0.05;        // where the sailor sits
 const SAILOR_HIP = -0.075;    // and how high, in the boat
 const SAILOR_SCALE = 1.2;     // drawn this much bigger than the poses are worked out
-const LEAVE_S = 1.0;          // closing in on the sun (or moon) on the way back to the web
+const LEAVE_S = 1.0;          // closing in on the sun (or moon) on the way back to the city
 const HOLE = { x: 0.2, y: 0.06 };
 
 const PALETTES = {
@@ -243,21 +243,21 @@ class Sea {
     const back = document.createElement("a");
     back.className = "btn btn-ghost";
     back.href = "index.html";
-    back.textContent = "Back to the web";
+    back.textContent = "Back to the city";
     back.addEventListener("click", (e) => { e.preventDefault(); this.leave(); });
     row.append(reset, back);
 
-    // The way back to the web at any time: the sun (or the moon) in the sky,
+    // The way back to the city at any time: the sun (or the moon) in the sky,
     // with a label when the pointer is on it — and, for the keyboard, a
     // button that shows itself when it has focus, or Escape.
     const tip = this.tip = document.createElement("p");
     tip.className = "boat-orb-tip";
     tip.setAttribute("aria-hidden", "true");
-    tip.textContent = "back to the web";
+    tip.textContent = "back to the city";
     const home = document.createElement("button");
     home.type = "button";
     home.className = "boat-home btn btn-ghost";
-    home.textContent = "Back to the web";
+    home.textContent = "Back to the city";
     home.addEventListener("click", () => this.leave());
 
     this.live = document.createElement("p");
@@ -265,7 +265,7 @@ class Sea {
     this.live.setAttribute("aria-live", "polite");
     const how = document.createElement("p");
     how.className = "sr-only";
-    how.textContent = "Rub the pointer over the sailor, or press Space, to bail water out of the boat before it sinks. Click the sun or the moon, or press Escape, to go back to the web.";
+    how.textContent = "Rub the pointer over the sailor, or press Space, to bail water out of the boat before it sinks. Click the sun or the moon, or press Escape, to go back to the city.";
     el.append(home, canvas, hud, alert, hint, tip, sunk, how, this.live);
     document.body.append(el);
     document.body.classList.add("at-sea");
@@ -335,7 +335,7 @@ class Sea {
     return !!o && this.phase !== "flood" && this.phase !== "under" && Math.hypot(p.x - o.x, p.y - o.y) < Math.max(o.r * 1.7, 26);
   }
 
-  // Back to the web: the sea closes in on the sun, and the home page is
+  // Back to the city: the sea closes in on the sun, and the home page is
   // loaded again.
   leave() {
     if (this.leaving != null) return;
@@ -343,7 +343,7 @@ class Sea {
     this.el.dataset.leaving = "true";
     this.tip.dataset.show = "false";
     this.canvas.style.cursor = "";
-    this.live.textContent = "Back to the web.";
+    this.live.textContent = "Back to the city.";
     if (reduceMotion || this.phase === "flood" || this.phase === "under") window.location.assign("index.html");
   }
 
@@ -865,7 +865,7 @@ class Sea {
     }
     this.drawOrb(orb);
     // a faint ring round it, breathing, that brightens under the pointer:
-    // it is the way back to the web
+    // it is the way back to the city
     this.orbHot += ((this.orbHover ? 1 : 0) - this.orbHot) * 0.18;
     g.strokeStyle = P.orbRing;
     g.lineWidth = 1.5 + this.orbHot;
